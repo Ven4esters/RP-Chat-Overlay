@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="196" viewBox="0 0 680 196" font-family="DejaVu Sans, Segoe UI, Roboto, Arial, sans-serif"><defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#0e1017"/><stop offset="0.55" stop-color="#151824"/>
+    <stop offset="1" stop-color="#0f1319"/></linearGradient>
+  <linearGradient id="logo" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#3d6fd8"/><stop offset="1" stop-color="#57c98a"/></linearGradient>
+  <linearGradient id="green" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#2fa364"/><stop offset="1" stop-color="#6fdd9b"/></linearGradient>
+  <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#3d6fd8"/><stop offset="1" stop-color="#57c98a"/></linearGradient>
+  <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
+    <path d="M30 0H0V30" fill="none" stroke="#ffffff" stroke-opacity="0.035"/></pattern>
+</defs><rect width="680" height="196" fill="url(#bg)"/><rect width="680" height="196" fill="url(#grid)"/><circle cx="640" cy="6" r="130" fill="#3d6fd8" opacity="0.10"/><circle cx="30" cy="190" r="96" fill="#57c98a" opacity="0.08"/><rect x="0" y="192" width="680" height="4" fill="url(#bar)"/><rect x="32" y="30" width="64" height="64" rx="16" fill="url(#logo)"/><text x="64" y="72" font-size="27" font-weight="bold" fill="#0d1018" text-anchor="middle">RP</text><text x="110" y="62" font-size="30" font-weight="bold" fill="#f2f4f8">RP Chat Overlay</text><text x="111" y="87" font-size="15" fill="#78829a">переводчик чата для GTA V / FiveM</text><rect x="32" y="106" width="91" height="27" rx="13" fill="#1c2029" stroke="#2b3040"/><text x="77.5" y="124" font-size="13" fill="#b9c0d4" text-anchor="middle">13 языков</text><rect x="130" y="106" width="113" height="27" rx="13" fill="#1c2029" stroke="#2b3040"/><text x="186.5" y="124" font-size="13" fill="#b9c0d4" text-anchor="middle">свои словари</text><rect x="250" y="106" width="131" height="27" rx="13" fill="#1c2029" stroke="#2b3040"/><text x="315.5" y="124" font-size="13" fill="#b9c0d4" text-anchor="middle">слова-паразиты</text><rect x="388" y="106" width="121" height="27" rx="13" fill="#1c2029" stroke="#2b3040"/><text x="448.5" y="124" font-size="13" fill="#b9c0d4" text-anchor="middle">Windows 10/11</text><text x="32" y="172" font-size="14" fill="#b9c0d4">Слушай, брат, подожди</text><path d="M224 166h24" stroke="#57c98a" stroke-width="2.2"/><path d="M244 161l8 5-8 5z" fill="#57c98a"/><text x="264" y="172" font-size="14" fill="#9fe3b5">Senti, fratello, aspetta</text></svg>

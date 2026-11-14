@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="96" viewBox="0 0 560 96" font-family="DejaVu Sans, Segoe UI, Roboto, Arial, sans-serif"><defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#0e1017"/><stop offset="0.55" stop-color="#151824"/>
+    <stop offset="1" stop-color="#0f1319"/></linearGradient>
+  <linearGradient id="logo" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#3d6fd8"/><stop offset="1" stop-color="#57c98a"/></linearGradient>
+  <linearGradient id="green" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#2fa364"/><stop offset="1" stop-color="#6fdd9b"/></linearGradient>
+  <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#3d6fd8"/><stop offset="1" stop-color="#57c98a"/></linearGradient>
+  <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
+    <path d="M30 0H0V30" fill="none" stroke="#ffffff" stroke-opacity="0.035"/></pattern>
+</defs><rect x="3" y="3" width="554" height="90" rx="15" fill="#0b1a12" stroke="#2b7d51"/><rect x="7" y="7" width="546" height="82" rx="12" fill="url(#green)"/><g transform="translate(26,26)"><path d="M18 1v20" stroke="#08220f" stroke-width="5" stroke-linecap="round"/><path d="M8 14l10 10 10-10" fill="none" stroke="#08220f" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 30h30" stroke="#08220f" stroke-width="5" stroke-linecap="round"/></g><text x="84" y="48" font-size="22" font-weight="bold" fill="#08220f" letter-spacing="0.7">СКАЧАТЬ RPChatOverlay.exe</text><text x="86" y="73" font-size="13" fill="#0a3016" opacity="0.9">37,4 МБ · Windows 10/11 x64 · без установки</text></svg>
