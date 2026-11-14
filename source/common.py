@@ -35,7 +35,8 @@ ROOT = _root()
 DATA = ROOT / "data"
 LOGS = ROOT / "logs"
 CONFIG_PATH = DATA / "config.json"
-GLOSSARY_DIR = DATA / "glossaries"       # по файлу на язык: it.json, es.json, ...
+GLOSSARY_DIR = DATA / "glossaries"
+SLANG_PATH = DATA / "slang.json"    # свои сокращения игрока       # по файлу на язык: it.json, es.json, ...
 GLOSSARY_PATH = DATA / "glossary.json"   # старый единый словарь (переносится сам)
 CACHE_PATH = DATA / "cache.json"
 LOG_PATH = LOGS / "app.log"
@@ -45,6 +46,10 @@ log = logging.getLogger("app")
 DEFAULT_CONFIG = {
     "target_lang": "it",          # язык перевода (см. langs.py)
     "send_mode": "reading",       # "reading" = русская запись, "native" = текст на языке
+    "direction": "out",           # "out" = русский → язык, "in" = любой язык → русский
+    "slang": True,                # сленг и сокращения: lol/brb/afk → полные фразы, спс → спасибо
+    "ui_lang": "ru",              # язык интерфейса: "ru" | "en"
+    "ui_lang_chosen": False,      # игрок уже выбирал язык интерфейса
     "show_settings_on_start": True,  # показывать окно настроек при запуске
     "setup_done": False,          # первый запуск уже пройден
     "ui_scale": 1.0,              # масштаб интерфейса настроек

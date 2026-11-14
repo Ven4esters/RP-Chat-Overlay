@@ -3,6 +3,7 @@ import ctypes
 import os
 import sys
 
+import i18n
 from common import load_config, log, save_config, setup_logging
 
 EXTRA = {
@@ -20,6 +21,8 @@ EXTRA = {
     "auto_min_words": 1,          # длина фрагмента: от скольких слов
     "auto_max_words": 3,          # ... и до скольких
     "auto_prefer_glossary": True, # сначала брать фразы, которые есть в словаре
+    "direction": "out",           # "in" = режим переводчика (любой язык → русский)
+    "slang": True,                # сленг и сокращения (lol, brb, afk; спс, мб)
 }
 
 
@@ -61,6 +64,34 @@ def selftest(cfg):
                   f"переведено: {r.translated} | паразит: {has_fillers(s, cfg, gl)}")
     gl = load_glossary("it")
     eng = Engine(cfg, gl, NoNet())
+    # обратный режим: любой язык → русский (перевод подменяем, сеть не нужна)
+    class FakeIn:
+        def translate(self, text):
+            return {"Ciao, fratello": "Привет, брат",
+                    "Senti, aspetta": "Слушай, подожди",
+                    "машет рукой": "машет рукой",
+                    "/to Ivan Ciao, fratello Ivan": "Привет, брат"}.get(text, "[пер.: " + text + "]")
+
+    gl = load_glossary("it")
+    eng = Engine(cfg, gl, FakeIn())
+    print("\nРежим переводчика (язык сервера → русский):")
+    for s in ("Ciao, fratello", "*машет рукой* Ciao, fratello",
+              "/me *машет рукой* и говорит Ciao, fratello"):
+        r = eng.process_in(s)
+        print(f"  {s!r}\n     -> перевод: {r.text!r} | оригинал: {r.italian!r} | "
+              f"переведено: {r.translated}")
+
+    print("\nСленг и сокращения (раскрытие до перевода и русская подстраховка):")
+    import slang
+    for src in ("brb", "afk 5 min", "I'm afk", "ty, np", "gg wp", "looool, ez",
+                "idk man, wdym", "спс, мб завтра"):
+        ru_src = bool(__import__("re").search("[а-яё]", src, __import__("re").I))
+        expanded = slang.expand_russian(src)[0] if ru_src else slang.expand_foreign(src)[0]
+        print(f"  {src!r} -> {expanded!r}")
+    for src in ("ахах gg", "я afk", "lol, это было ez"):
+        print(f"  подстраховка: {src!r} -> {slang.restore_russian(src)[0]!r}")
+    print(f"  в таблицах: {slang.known()}")
+
     print("\nАвтоперевод (разные seed выбирают разные фрагменты):")
     for seed in (1, 2, 3):
         try:
@@ -105,6 +136,7 @@ def main():
         sys.stderr = open(os.devnull, "w", encoding="utf-8")
     setup_logging()
     cfg = prepare_config()
+    i18n.set_lang(cfg.get("ui_lang", "ru"))
     if "--selftest" in sys.argv:
         return selftest(cfg)
     if "--find-game" in sys.argv:
@@ -113,7 +145,7 @@ def main():
         return list_langs()
     handle, first = single_instance()
     if not first:
-        print("Оверлей уже запущен (иконка «IT» в трее).")
+        print(i18n.t("Оверлей уже запущен (иконка «IT» в трее)."))
         return
     try:
         from overlay import run_gui

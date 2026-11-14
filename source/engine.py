@@ -1,6 +1,9 @@
 """engine.py — разбор сообщения: +маркеры+, *действия*, словарь, автоперевод фрагмента,
 слова-паразиты (всегда), команды /to /lto /l /wt /s /st (учитываются в счётчике).
 
+Сленг и сокращения (lol, brb, afk; спс, мб) разворачиваются в полные фразы
+до перевода — см. slang.py.
+
 Движок не привязан к итальянскому: язык берётся из Glossary.lang,
 словарь и слова-паразиты — из пакета языка (пакет langpacks).
 """
@@ -12,6 +15,7 @@ from collections import namedtuple
 from common import GLOSSARY_DIR, GLOSSARY_PATH, log, read_json, write_json
 from langs import code_of, get as get_lang
 from langpacks import empty_pack, get_pack
+import slang
 from translit import apply_case, has_reading, norm as _norm, translit_word
 
 Result = namedtuple("Result", "text italian translated")
@@ -84,6 +88,18 @@ def split_prefix(text):
 # китайские 那个 / 没办法 и т.д. Русские формы — то, что пользователь печатает в чате.
 # Они переводятся в КАЖДОМ сообщении, вне зависимости от счётчика автоперевода
 # (auto_every) и от того, попало ли сообщение в «переводимый» номер серии.
+
+
+def keep_edges(orig, translated):
+    """Сохраняет пробелы по краям фрагмента: переводчик их срезает.
+
+    Без этого «*машет рукой* ciao» склеивалось в «*машет рукой*привет».
+    """
+    if not translated:
+        return orig
+    lead = orig[:len(orig) - len(orig.lstrip())]
+    tail = orig[len(orig.rstrip()):]
+    return lead + translated.strip() + tail
 
 
 def _filler_key(s):
@@ -557,6 +573,20 @@ class Engine:
         self.g = glossary
         self.tr = translator
 
+    def _sync_direction(self, reverse):
+        """Держит направление переводчика в согласии с режимом движка.
+
+        Окно «Проверка перевода» собирает свой Translator, поэтому направление
+        выставляется здесь, а не только при сохранении настроек: иначе проверка
+        режима «ваш язык → русский» уходила бы на язык сервера.
+        """
+        setter = getattr(self.tr, "set_direction", None)
+        if callable(setter):
+            try:
+                setter("in" if reverse else "out")
+            except Exception:
+                log.exception("Не удалось переключить направление перевода")
+
     def segment(self, text, cap=False):
         """Содержимое одной пары маркеров -> (русская запись, итальянский)."""
         g = self.g
@@ -580,7 +610,8 @@ class Engine:
                 it, ru = ent[0], ent[1]
                 it = split_tail(it)[0]
             elif CYR_RE.search(part):
-                it = split_tail(self.tr.translate(part).strip())[0]   # может бросить TranslateError
+                source = slang.expand_russian(part)[0] if self.cfg.get("slang", True) else part
+                it = split_tail(self.tr.translate(source).strip())[0]   # может бросить TranslateError
                 ru = g.to_ru(it, dialect=True)
             else:
                 it = part
@@ -595,6 +626,7 @@ class Engine:
 
     def process(self, text, auto=False, seed=0.0):
         cfg = self.cfg
+        self._sync_direction(False)
         prefix, body_text, is_cmd, is_counted = split_prefix(text)
         if is_cmd and not is_counted:
             # /me, /do, /b и т.п. в авто-режиме и в паразитах не участвуют;
@@ -630,3 +662,40 @@ class Engine:
             prefix + restore_actions("".join(it), acts),
             found,
         )
+    # ---------- обратный режим: любой язык → русский ----------
+    def process_in(self, text):
+        """Режим для иностранного игрока: любой язык → русский, перевод уходит в чат.
+
+        Переводится всё содержимое сообщения, включая действия *...*.
+        Сленг и сокращения (lol, brb, afk) разворачиваются до перевода:
+        «brb» → «I'll be right back» → «я скоро вернусь».
+        Служебная команда в начале (/me, /do, /to, /l …) остаётся как есть —
+        вместе с ником у /to и /lto. Счётчик автоперевода и словарь не участвуют:
+        текст незнакомый, поэтому переводится целиком.
+        """
+        self._sync_direction(True)
+        src = (text or "").strip()
+        if not src:
+            return Result("", "", False)
+        prefix, body, _is_cmd, _counted = split_prefix(src)
+        slang_on = bool(self.cfg.get("slang", True))
+        if slang_on:
+            # lol / brb / afk → полные фразы: переводчик сам поставит падеж и род
+            body = slang.expand_foreign(body)[0]
+        out, pos = [], 0
+        for m in ACT_RE.finditer(body):
+            part = body[pos:m.start()]
+            out.append(keep_edges(part, self.tr.translate(part)) if part.strip() else part)
+            inner = m.group(0).strip("*")
+            ru_inner = self.tr.translate(inner).strip() if inner.strip() else ""
+            out.append("*" + (ru_inner or inner) + "*")      # действие тоже переводим
+            pos = m.end()
+        rest = body[pos:]
+        out.append(keep_edges(rest, self.tr.translate(rest)) if rest.strip() else rest)
+        ru = "".join(out).strip()
+        if slang_on:
+            # сервис мог оставить «afk»/«gg» как есть — подменяем лаконичным русским
+            ru = slang.restore_russian(ru)[0]
+        if not ru:
+            return Result("", body.strip(), False)
+        return Result(prefix + ru, body.strip(), True)

@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (QApplication, QFrame, QLabel, QLineEdit, QMenu,
 import gamesend as gs
 import langs
 from autoplan import AutoPlan
+import i18n
 from common import log, save_config
 from engine import (Engine, Result, has_fillers, has_markers, is_counted_command,
                       load_glossary, strip_markers)
@@ -112,7 +113,7 @@ class Overlay(QWidget):
         lay.setContentsMargins(10, 10, 10, 8)
         lay.setSpacing(5)
         self.input = QLineEdit()
-        self.input.setPlaceholderText("Текст, +фраза для перевода+, *действие*")  # язык — в статусе
+        self.input.setPlaceholderText(i18n.t("Текст, +фраза для перевода+, *действие*"))
         self.out, self.it, self.stat = QLabel(), QLabel(), QLabel()
         for w, name in ((self.out, "out"), (self.it, "it"), (self.stat, "stat")):
             w.setObjectName(name)
@@ -127,7 +128,8 @@ class Overlay(QWidget):
         self.timer.timeout.connect(self._fire)
         self.input.textChanged.connect(self.on_text)
         self.input.returnPressed.connect(self.on_enter)
-        self.worker = Worker(lambda j: self.engine.process(j[1], j[2], j[3]),
+        self.worker = Worker(lambda j: (self.engine.process_in(j[1]) if j[4]
+                                      else self.engine.process(j[1], j[2], j[3])),
                              lambda j, r, e: self.bridge.translated.emit(j[0], r, str(e) if e else ""))
         self.worker.start()
         bridge.translated.connect(self.on_done, Qt.ConnectionType.QueuedConnection)
@@ -178,6 +180,12 @@ class Overlay(QWidget):
 
     def _show_overlay(self):
         self._reset()
+        if self._rev():
+            self.input.setPlaceholderText(
+                i18n.t("Фраза на вашем языке — перевод уйдёт в чат по Enter"))
+        else:
+            self.input.setPlaceholderText(
+                i18n.t("Текст, +фраза для перевода+, *действие*"))
         self.place()
         self._count()
         self.shown_at = time.time()
@@ -252,16 +260,24 @@ class Overlay(QWidget):
     # ----- ввод и перевод -----
     def _pick(self, res):
         """Что именно отправить в чат: русскую запись или текст на языке."""
+        if self._rev():
+            return res.text or res.italian     # в обратном режиме показываем русский
         mode = str(self.cfg.get("send_mode", "reading")).lower()
         if mode in ("native", "lang", "text", "target"):
             return res.italian or res.text
         return res.text or res.italian
+
+    def _rev(self):
+        """True, если включён режим «ваш язык → русский»."""
+        return str(self.cfg.get("direction", "out")).lower() in ("in", "reverse", "to_ru")
 
     def _lang_tag(self):
         code = str(self.cfg.get("target_lang", "it")).split("-")[0]
         return code.upper() or "IT"
 
     def _auto_now(self, text):
+        if self._rev():
+            return True          # в режиме переводчика переводится всё, что попало в поле
         # /to /lto /l /wt /s /st участвуют в счётчике наравне с обычным текстом
         if text.lstrip().startswith("/") and not is_counted_command(text):
             return False
@@ -273,19 +289,22 @@ class Overlay(QWidget):
 
     def _count(self):
         n, mx = len(self.input.text()), int(self.cfg.get("max_chars", 256))
-        game = "найдена" if self.game_hwnd else "НЕ найдена"
-        parts = [f"{n}/{mx}", f"{langs.label(self.cfg.get('target_lang', 'it'))}", f"игра: {game}"]
+        game = i18n.t("найдена") if self.game_hwnd else i18n.t("НЕ найдена")
+        where = i18n.t("перевод входящего → русский") if self._rev() \
+            else langs.label(self.cfg.get("target_lang", "it"))
+        parts = [f"{n}/{mx}", where, i18n.tf("игра: %s", game)]
         auto = self.plan.label()
         if auto:
             parts.append(auto)
-        parts.append("Enter — отправить · Esc — отмена")
+        parts.append(i18n.t("Enter — отправить · Esc — отмена"))
         self.set_stat(" · ".join(parts), n > mx)
 
     def _show_result(self, out, other="", err=False):
         self.out.setStyleSheet("color:#ff6b6b;" if err else "")
         self.out.setText(out)
         self.out.setVisible(bool(out))
-        self.it.setText((self._lang_tag() + ": " + other) if other else "")
+        tag = i18n.t("оригинал") if self._rev() else self._lang_tag()
+        self.it.setText((tag + ": " + other) if other else "")
         self.it.setVisible(bool(other))
         self.adjustSize()
 
@@ -309,7 +328,7 @@ class Overlay(QWidget):
 
     def _fire(self):
         text = self.input.text()
-        self.worker.submit((self.rid, text, self._auto_now(text), self.plan.seed))
+        self.worker.submit((self.rid, text, self._auto_now(text), self.plan.seed, self._rev()))
 
     def on_done(self, rid, res, err):
         if rid != self.rid:                       # устаревший ответ
@@ -318,15 +337,15 @@ class Overlay(QWidget):
         if err:
             self.err = err
             self.want_send = False
-            self._show_result("Ошибка перевода: " + err[:160], "", True)
-            self.set_stat("Enter — отправить без перевода · Esc — отмена", True)
+            self._show_result(i18n.tf("Ошибка перевода: %s", err[:160]), "", True)
+            self.set_stat(i18n.t("Enter — отправить без перевода · Esc — отмена"), True)
             return
         self.cur = res
         sent = self._pick(res)
         other = res.italian if sent == res.text else res.text
         self._show_result(sent, other if res.translated else "")
-        self.set_stat(f"В чат уйдёт {len(sent)}/{mx} · Enter — отправить · Esc — отмена",
-                      len(sent) > mx)
+        self.set_stat(i18n.tf("В чат уйдёт %d/%d · Enter — отправить · Esc — отмена",
+                              len(sent), mx), len(sent) > mx)
         if self.want_send:
             self.want_send = False
             self.finish(sent)
@@ -376,7 +395,7 @@ class Overlay(QWidget):
             h = self.prev_hwnd
             if h:
                 threading.Thread(target=gs.focus, args=(h,), daemon=True).start()
-            self.notify("Скопировано в буфер обмена (Ctrl+V).")
+            self.notify(i18n.t("Скопировано в буфер обмена (Ctrl+V)."))
 
     def _send_job(self, hwnd, out, chat_open=False):
         try:
@@ -389,7 +408,8 @@ class Overlay(QWidget):
     def on_sent(self, ok, msg):
         self.sending = False
         if not ok:
-            self.notify(msg + " Текст в буфере обмена — вставьте вручную (Ctrl+V).", True)
+            self.notify(msg + i18n.t(" Текст в буфере обмена — вставьте вручную (Ctrl+V)."),
+                        True)
 
     def notify(self, msg, warn=False):
         icon = QSystemTrayIcon.MessageIcon.Warning if warn else QSystemTrayIcon.MessageIcon.Information
@@ -409,6 +429,14 @@ def run_gui(cfg, open_settings_on_start=False):
     app.setQuitOnLastWindowClosed(False)
     app.setStyleSheet(STYLE)
 
+    # язык интерфейса: при первом запуске спрашиваем, дальше берём из настроек
+    if not cfg.get("ui_lang_chosen"):
+        from ui_lang import ask_ui_language
+        cfg["ui_lang"] = ask_ui_language(style=STYLE)
+        cfg["ui_lang_chosen"] = True
+        save_config(cfg)
+    i18n.set_lang(cfg.get("ui_lang", "ru"))
+
     lang = langs.code_of(cfg.get("target_lang", "it"))
     translator = Translator(lang)
     engine = Engine(cfg, load_glossary(lang), translator)
@@ -426,19 +454,24 @@ def run_gui(cfg, open_settings_on_start=False):
         cfg.update(newcfg)
         code = langs.code_of(cfg.get("target_lang", "it"))
         translator.set_target(code)
+        translator.set_direction(cfg.get("direction", "out"))
         win.engine = Engine(cfg, load_glossary(code), translator)
         win.plan = AutoPlan(cfg)              # новая серия под новые параметры
         restart_hotkey()
         build_menu()
+        i18n.set_lang(cfg.get("ui_lang", "ru"))
+        i18n.retranslate(win)
         tray.setToolTip(f"RP Chat Overlay · {cfg['hotkey']} · {langs.label(code)}")
-        win.notify(f"Настройки сохранены. Язык: {langs.label(code)}, "
-                   f"клавиша: {cfg['hotkey']}.")
+        win.notify(i18n.tf("Настройки сохранены. Язык: %s, клавиша: %s.",
+                           langs.label(code), cfg["hotkey"]))
 
-    def set_lang(code):
-        """Быстрое переключение языка из меню трея."""
-        cfg["target_lang"] = langs.code_of(code)
+    def set_direction(direction):
+        """Переключение режима из меню трея: обычный / перевод входящего."""
+        cfg["direction"] = "in" if str(direction).lower() in ("in", "reverse") else "out"
         save_config(cfg)
         apply_settings(dict(cfg))
+        win.notify(i18n.t("Режим: ваш язык → русский") if cfg["direction"] == "in"
+                   else i18n.t("Режим: русский → выбранный язык перевода"))
 
     # ---------- окно настроек ----------
     def open_settings_window(first_run=False):
@@ -472,78 +505,49 @@ def run_gui(cfg, open_settings_on_start=False):
         QTimer.singleShot(450, start_hotkey)   # старый поток успевает снять регистрацию
 
     # ---------- меню трея ----------
-    def toggle(parent, key, label):
-        act = QAction(label, parent)
-        act.setCheckable(True)
-        act.setChecked(bool(cfg.get(key)))
-        act.toggled.connect(lambda v, k=key: set_cfg(k, bool(v)))
-        parent.addAction(act)
-        return act
-
-    def choice(parent, title, key, options):
-        sub = parent.addMenu(title)
-        group = QActionGroup(sub)
-        group.setExclusive(True)
-        cur = str(cfg.get(key)).lower()
-        for value, text in options:
-            act = QAction(text, sub)
-            act.setCheckable(True)
-            act.setChecked(str(value).lower() == cur)
-            group.addAction(act)
-            sub.addAction(act)
-            act.triggered.connect(lambda _c=False, k=key, v=value: set_cfg(k, v))
-        return sub
-
-    def set_cfg(key, value):
-        cfg[key] = value
-        save_config(cfg)
-        win.plan.changed()
-
     def build_menu():
+        """Короткое меню трея: статус переводчика, направление, настройки, выход.
+
+        Всё остальное (язык, автоперевод, отправка в игру, слова-паразиты)
+        настраивается в окне «Настройки…».
+        """
         menu = QMenu()
-        menu.addAction(f"Открыть оверлей ({cfg['hotkey']})", win.open_overlay)
-        act_settings = QAction("Настройки…", menu)
+        mode_in = str(cfg.get("direction", "out")).lower() in ("in", "reverse")
+        code = langs.code_of(cfg.get("target_lang", "it"))
+
+        status = QAction(i18n.t("Статус: ваш язык → русский") if mode_in
+                         else i18n.tf("Статус: русский → %s", langs.label(code)), menu)
+        status.setEnabled(False)
+        menu.addAction(status)
+        menu.addSeparator()
+
+        group = QActionGroup(menu)
+        group.setExclusive(True)
+        for value, text in (("in", i18n.t("Ваш язык → русский")),
+                            ("out", i18n.tf("Русский → %s", langs.label(code)))):
+            act = QAction(text, menu)
+            act.setCheckable(True)
+            act.setChecked((value == "in") == mode_in)
+            act.triggered.connect(
+                lambda _c=False, v=value: set_direction(v) if (v == "in") != mode_in else None)
+            group.addAction(act)
+            menu.addAction(act)
+
+        menu.addSeparator()
+        act_settings = QAction(i18n.t("Настройки…"), menu)
         act_settings.triggered.connect(lambda: open_settings_window())
         menu.addAction(act_settings)
+        menu.addAction(i18n.t("Выход"), app.quit)
 
-        sub_lang = menu.addMenu("Язык перевода")
-        group = QActionGroup(sub_lang)
-        group.setExclusive(True)
-        cur = langs.code_of(cfg.get("target_lang", "it"))
-        for code, name in langs.choices():
-            act = QAction(name, sub_lang)
-            act.setCheckable(True)
-            act.setChecked(code == cur)
-            group.addAction(act)
-            sub_lang.addAction(act)
-            act.triggered.connect(lambda _c=False, c=code: set_lang(c))
-
-        menu.addSeparator()
-        toggle(menu, "game_send", "Вставлять в чат игры")
-        toggle(menu, "game_open_chat_first", "Сначала открывать чат игры (T)")
-        toggle(menu, "game_submit", "Сразу отправлять (Enter в игре)")
-        toggle(menu, "filler_always", "Слова-паразиты всегда")
-
-        auto = menu.addMenu("Авто-перевод")
-        toggle(auto, "auto_mode", "Включить автоперевод")
-        every = sorted({2, 3, 4, 5, 6, 8, 10, _as_int(cfg.get("auto_every"), 4)})
-        choice(auto, "Серия сообщений", "auto_every", [(v, f"по {v} сообщ.") for v in every])
-        choice(auto, "Какое в серии переводить", "auto_position",
-               [("last", "последнее (каждое N-е)"), ("first", "первое"),
-                ("random", "случайное")])
-        choice(auto, "Фрагментов в сообщении", "auto_fragments", [(1, "1"), (2, "2"), (3, "3")])
-        choice(auto, "Длина фрагмента", "auto_max_words",
-               [(1, "только слова"), (2, "до 2 слов"), (3, "до 3 слов"), (4, "до 4 слов")])
-        toggle(auto, "auto_prefer_glossary", "Предпочитать фразы из словаря")
-
-        menu.addSeparator()
-        menu.addAction("Выход", app.quit)
         state["menu"] = menu
         tray.setContextMenu(menu)
         tray.setToolTip(f"RP Chat Overlay · {cfg['hotkey']} · "
-                        f"{langs.label(langs.code_of(cfg.get('target_lang', 'it')))}")
+                        f"{langs.label(code)}")
 
     build_menu()
+    # двойной клик по значку в трее открывает оверлей (пункта в меню нет)
+    tray.activated.connect(lambda r: win.open_overlay()
+                          if r == QSystemTrayIcon.ActivationReason.DoubleClick else None)
     tray.show()
 
     bridge.hotkey.connect(win.open_overlay, Qt.ConnectionType.QueuedConnection)
@@ -551,9 +555,9 @@ def run_gui(cfg, open_settings_on_start=False):
     start_hotkey()
     app.aboutToQuit.connect(lambda: state["hk"] and state["hk"].stop())
 
-    game = "найдена" if tracker.get(True) else "не найдена"
-    win.notify(f"Клавиша: {cfg['hotkey']}. Язык: "
-               f"{langs.label(langs.code_of(cfg.get('target_lang', 'it')))}. Игра: {game}.")
+    game = i18n.t("найдена") if tracker.get(True) else i18n.t("не найдена")
+    win.notify(i18n.tf("Клавиша: %s. Язык: %s. Игра: %s.", cfg["hotkey"],
+                       langs.label(langs.code_of(cfg.get("target_lang", "it"))), game))
 
     if open_settings_on_start or not cfg.get("setup_done") or cfg.get("show_settings_on_start"):
         QTimer.singleShot(250, lambda: open_settings_window(
