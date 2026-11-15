@@ -153,11 +153,25 @@ _NICK_RE = re.compile(r"\s*\S+\s+")          # получатель в /to и /l
 _ACTION_RE = re.compile(r"\*([^*]+)\*")
 _WORD_RE = re.compile(r"[^\W\d_]+(?:[-'’][^\W\d_]+)*", re.UNICODE)   # слова с позициями
 
+# Варианты одной анимации: ключ один, а /anim из него — несколько.
+# Названия и описания задаются в интерфейсе (ПКМ по правилу) и нужны для
+# оверлея выбора: игрок видит не «anim_counterleanbar», а «Опёрся на стойку —
+# Стоит, опершись локтями на барную стойку».
+# Variants of one animation: one keyword, several /anim commands. The titles and
+# descriptions are set in the interface (right-click a rule) and feed the chooser
+# overlay, so the player sees a human name instead of «anim_counterleanbar».
+MAX_CHOICES = 12          # больше вариантов в оверлее не поместится / the chooser fits no more
+MAX_TITLE = 60            # длина названия варианта / the variant title length
+MAX_DESC = 300            # длина описания варианта / the variant description length
+
 VAL_EMPTY_KEYWORD = "ключевое слово не задано"
 VAL_EMPTY_NAME = "название анимации не задано"
 VAL_BAD_NAME = "в названии анимации не должно быть пробелов и косых черт"
 VAL_BAD_MS = "длительность должна быть от 0 до 600000 мс"
 VAL_BAD_MODE = "такой режим считывания не поддерживается"
+VAL_TOO_MANY_CHOICES = f"вариантов анимации не может быть больше {MAX_CHOICES}"
+# в словаре перевода ключ — ровно эта строка с числом
+# the translation key is exactly this string, the number included
 
 
 # ------------------------------------------------------------------- разбор
@@ -454,6 +468,63 @@ class Context:
 
 # -------------------------------------------------------------------- правило
 @dataclass
+class Choice:
+    """Один вариант анимации: имя для /anim плюс подпись и описание.
+
+    One animation variant: the /anim name plus a title and a description.
+    """
+
+    name: str = ""          # имя для /anim / the /anim name
+    title: str = ""         # как назвать игроку / the name shown to the player
+    description: str = ""   # объяснение в оверлее выбора / the chooser description
+
+    def label(self) -> str:
+        """Как вариант подписан: название, а без него — имя команды.
+
+        How the variant is labelled: its title, or the command name without one.
+        """
+        return (self.title or "").strip() or (self.name or "").strip()
+
+    def problem(self) -> str:
+        """Что не так с вариантом; пустая строка — всё в порядке."""
+        if not (self.name or "").strip():
+            return VAL_EMPTY_NAME
+        if re.search(r"[\s/]", self.name.strip()):
+            return VAL_BAD_NAME
+        return ""
+
+    def to_dict(self) -> dict[str, Any]:
+        data: dict[str, Any] = {"name": self.name.strip().lstrip("/")}
+        if (self.title or "").strip():
+            data["title"] = self.title.strip()[:MAX_TITLE]
+        if (self.description or "").strip():
+            data["description"] = self.description.strip()[:MAX_DESC]
+        return data
+
+    @classmethod
+    def from_dict(cls, data: Any) -> "Choice | None":
+        """Вариант из config.json; пустой или мусор — None.
+
+        A variant from config.json; an empty or junk one is None.
+        Можно писать просто строкой: ``"anim_leanrail"`` — тогда ни названия,
+        ни описания у варианта нет.
+        A bare string works too: ``"anim_leanrail"`` gives a variant with neither
+        a title nor a description.
+        """
+        if isinstance(data, str):
+            name = data.strip().lstrip("/")
+            return cls(name=name) if name else None
+        if not isinstance(data, Mapping):
+            return None
+        name = str(data.get("name") or "").strip().lstrip("/")
+        if not name:
+            return None
+        return cls(name=name,
+                   title=str(data.get("title") or "").strip()[:MAX_TITLE],
+                   description=str(data.get("description") or "").strip()[:MAX_DESC])
+
+
+@dataclass
 class Rule:
     """Правило анимации / one animation rule."""
 
@@ -465,6 +536,9 @@ class Rule:
     loop: bool = False
     enabled: bool = True
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
+    # варианты: два и больше — в игре открывается оверлей выбора
+    # variants: two or more make the game show the chooser overlay
+    choices: list[Choice] = field(default_factory=list)
 
     # --- проверка ---
     def problem(self) -> str:
@@ -475,10 +549,16 @@ class Rule:
         if not keywords_of(self.keywords):
             return VAL_EMPTY_KEYWORD
         name = self.name.strip()
-        if not name:
+        if not name and not self.choices:
             return VAL_EMPTY_NAME
-        if re.search(r"[\s/]", name):
+        if name and re.search(r"[\s/]", name):
             return VAL_BAD_NAME
+        if len(self.choices) > MAX_CHOICES:
+            return VAL_TOO_MANY_CHOICES
+        for choice in self.choices:
+            problem = choice.problem()
+            if problem:
+                return problem
         if not isinstance(self.duration_ms, int) or not MIN_MS <= self.duration_ms <= MAX_MS:
             return VAL_BAD_MS
         if self.mode not in MODES:
@@ -488,6 +568,29 @@ class Rule:
     def ready(self) -> bool:
         """Правило можно исполнять / the rule can actually run."""
         return self.enabled and not self.problem()
+
+    # --- варианты ---
+    def variant_list(self) -> list["Choice"]:
+        """Что игрок выберет: варианты, а без них — само правило.
+
+        What the player chooses from: the variants, or the rule itself when it
+        has none. Одно правило без вариантов ведёт себя как раньше — сразу
+        играет, без оверлея.
+        A rule without variants behaves as before: it plays at once, no overlay.
+        """
+        if self.choices:
+            return list(self.choices)
+        name = self.name.strip()
+        return [Choice(name=name)] if name else []
+
+    def needs_choice(self) -> bool:
+        """Нужен ли оверлей выбора: вариантов два и больше.
+
+        Is the chooser needed: two or more variants. Один вариант — это обычное
+        правило, выбор из одного ничего не решает.
+        One variant is an ordinary rule: choosing from one option decides nothing.
+        """
+        return len(self.choices) > 1
 
     # --- сопоставление ---
     def scan(self, text: str, ctx: "Context | None" = None
@@ -588,10 +691,14 @@ class Rule:
 
     # --- хранение ---
     def to_dict(self) -> dict[str, Any]:
-        return {"id": self.id, "keywords": self.keywords, "name": self.name.strip(),
-                "mode": int(self.mode), "forms": int(self.forms),
-                "duration_ms": int(self.duration_ms),
-                "loop": bool(self.loop), "enabled": bool(self.enabled)}
+        data: dict[str, Any] = {
+            "id": self.id, "keywords": self.keywords, "name": self.name.strip(),
+            "mode": int(self.mode), "forms": int(self.forms),
+            "duration_ms": int(self.duration_ms),
+            "loop": bool(self.loop), "enabled": bool(self.enabled)}
+        if self.choices:
+            data["choices"] = [choice.to_dict() for choice in self.choices]
+        return data
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "Rule":
@@ -613,6 +720,13 @@ class Rule:
         forms = _int(data.get("forms"), morph.FORMS_DEFAULT)
         if forms not in morph.FORMS:
             forms = morph.FORMS_DEFAULT
+        choices: list[Choice] = []
+        raw_choices = data.get("choices")
+        if isinstance(raw_choices, (list, tuple)):
+            for item in raw_choices:
+                choice = Choice.from_dict(item)
+                if choice is not None:
+                    choices.append(choice)
         return cls(
             keywords=str(data.get("keywords") or ""),
             name=str(data.get("name") or "").strip().lstrip("/"),
@@ -622,6 +736,7 @@ class Rule:
             loop=bool(data.get("loop")),
             enabled=bool(data.get("enabled", True)),
             id=str(data.get("id") or uuid.uuid4().hex[:8]),
+            choices=choices[:MAX_CHOICES],
         )
 
 
@@ -727,7 +842,8 @@ class Runner:
                  on_event: Callable[[str, str], None] | None = None,
                  equivalent: Callable[[str], str] | None = None,
                  press_key: Callable[[str], tuple[bool, str]] | None = None,
-                 text_keys: Callable[[str], list[tuple[int, int, str]]] | None = None
+                 text_keys: Callable[[str], list[tuple[int, int, str]]] | None = None,
+                 chooser: Callable[["Rule"], "Choice | None"] | None = None
                  ) -> None:
         """equivalent — «фраза -> ключ словаря» для слов-синонимов.
 
@@ -742,6 +858,15 @@ class Runner:
         анимации клавишей вместо команды `/sa`.
         press_key presses a key in the game (a simulated press) so an animation
         can be stopped by a key instead of the /sa command.
+
+        chooser — спросить игрока, какой из вариантов играть. Вызывается из
+        потока очереди и должен вернуть выбранный ``Choice`` или None, если
+        игрок отказался (или оверлей показать не удалось) — тогда правило
+        пропускается целиком. Без неё правило с вариантами играет первый.
+        chooser asks the player which variant to play. It is called from the
+        queue thread and must return the chosen ``Choice``, or None when the
+        player backed out (or the overlay could not be shown) — the rule is then
+        skipped entirely. Without it a rule with variants plays the first one.
         """
         self.cfg: Mapping[str, Any] = cfg or {}
         self.send = send or (lambda command: (False, "отправка недоступна"))
@@ -749,6 +874,7 @@ class Runner:
         self.equivalent = equivalent
         self.press_key = press_key
         self.text_keys = text_keys
+        self.chooser = chooser
         self._rules: list[Rule] = rules_from_cfg(self.cfg)
         self._queue: deque[Rule] = deque()
         self._lock = threading.RLock()
@@ -840,6 +966,11 @@ class Runner:
         play. Only a full stop — ``stop()`` or ``clear()`` — drops it.
         """
         self._reset_pending = True
+        # открытый оверлей выбора закрываем: очередь снимается, окно не должно
+        # висеть поверх игры
+        # an open chooser is closed: the queue is dropped and the window must not
+        # hang above the game
+        self._drop_choice_window()
         with self._cv:
             queued = len(self._queue)
             if not self._current and not queued:
@@ -853,6 +984,7 @@ class Runner:
     def stop(self, reason: str = "") -> bool:
         """Прервать текущий цикл и очистить очередь / abort the run and the queue."""
         stopped = bool(self._current) or bool(self._queue)
+        self._drop_choice_window()
         if reason and reason != "остановлено игроком":
             self._reset_pending = False
         with self._cv:
@@ -1040,7 +1172,19 @@ class Runner:
         self._stop_run.clear()
         with self._lock:
             self._current = rule
-        self._emit("playing", rule.name)
+        # выбор варианта — до первого /anim: пока игрок думает, в игре ничего
+        # не играет, и очередь стоит
+        # the variant is chosen before the first /anim: nothing plays in the game
+        # while the player picks, and the queue waits
+        variant = self._choose(rule)
+        if variant is None:
+            # игрок отказался или оверлей не показать: правило пропускаем целиком,
+            # иначе в чат уйдёт не то, что он ждал
+            # the player backed out or the overlay could not be shown: the whole
+            # rule is skipped, otherwise the game plays what he did not pick
+            self._end_at = time.monotonic()
+            return
+        self._emit("playing", variant.label() if rule.needs_choice() else rule.name)
         # время проигрывания считается от отправки `/anim`: сама отправка тоже
         # занимает время (фокус в игру, чат, вставка, Enter), и оно входит в
         # длительность, иначе каждая пауза незаметно удлинялась бы на полсекунды
@@ -1048,14 +1192,14 @@ class Runner:
         # (focus, game chat, paste, Enter), and it belongs to the duration —
         # otherwise every pause would quietly grow by half a second
         started = time.monotonic()
-        if not self._send(f"/anim {rule.name}", rule):
+        if not self._send(f"/anim {variant.name}", rule):
             self._end_at = started
             return
         if rule.duration_ms <= 0:
             # 0 мс: анимацию не останавливаем — ни /sa, ни клавишей
             # 0 ms: the animation is not stopped at all
             self._end_at = started
-            self._emit("done", rule.name)
+            self._emit("done", variant.name)
             return
         deadline = started + rule.duration_ms / 1000.0
         while True:
@@ -1073,7 +1217,7 @@ class Runner:
                 # with looping on nothing stops: the animation simply starts
                 # again by the timer, exactly one duration later
                 deadline += rule.duration_ms / 1000.0
-                if not self._send(f"/anim {rule.name}", rule, quiet=True):
+                if not self._send(f"/anim {variant.name}", rule, quiet=True):
                     self._end_at = deadline
                     return
                 continue
@@ -1085,8 +1229,71 @@ class Runner:
             # the next animation starts one tail after the END of the play, and
             # the time spent stopping is taken out of that tail
             self._end_at = deadline
-            self._emit("done", rule.name)
+            self._emit("done", variant.name)
             return
+
+    def _choose(self, rule: Rule) -> "Choice | None":
+        """Какой вариант играть / which variant to play.
+
+        Три случая:
+        Three cases:
+
+        * вариантов нет или он один — играем его, оверлей не нужен;
+          no variants or just one — it plays, no overlay needed;
+        * вариантов два и больше, но спросить некого — играем первый, о чём
+          честно пишем в журнал;
+          two or more variants but nobody to ask — the first plays, and the log
+          says so honestly;
+        * есть ``chooser`` — спрашиваем игрока; None от него означает отказ, и
+          тогда правило пропускается.
+          a ``chooser`` is set — the player is asked; None means he backed out and
+          the rule is skipped.
+        """
+        variants = rule.variant_list()
+        if not variants:
+            log.warning("Анимации: у правила «%s» нет ни названия, ни вариантов",
+                        rule.keywords[:40])
+            return None
+        if not rule.needs_choice():
+            return variants[0]
+        if self.chooser is None:
+            log.warning("Анимации: у правила «%s» %d варианта(ов), но выбрать "
+                        "негде — играю первый (%s)", rule.keywords[:40],
+                        len(variants), variants[0].name)
+            return variants[0]
+        # выбор блокирует очередь: пока оверлей открыт, следующее правило ждёт
+        # the choice blocks the queue: while the overlay is open the next rule
+        # waits
+        try:
+            picked = self.chooser(rule)
+        except Exception:
+            log.exception("Анимации: выбор варианта не удался")
+            return variants[0]
+        if picked is None:
+            log.info("Анимации: выбор варианта для «%s» отменён — правило пропущено",
+                     rule.keywords[:40])
+            return None
+        log.info("Анимации: выбран вариант «%s» (%s) по правилу «%s»",
+                 picked.label(), picked.name, rule.keywords[:40])
+        return picked
+
+    def _drop_choice_window(self) -> None:
+        """Закрыть открытый оверлей выбора, если он есть.
+
+        Close the open chooser window, if any.
+
+        chooser — это функция, но у настоящего оверлея есть ещё и ``cancel``:
+        проверяем по наличию метода, чтобы заглушки в проверках оставались
+        простыми функциями.
+        chooser is a function, but the real overlay also has ``cancel``: it is
+        looked up by the method's presence, so plain function stubs stay valid.
+        """
+        cancel = getattr(self.chooser, "cancel", None)
+        if callable(cancel):
+            try:
+                cancel()
+            except Exception:
+                log.exception("Анимации: не удалось закрыть окно выбора")
 
     def _wait(self, seconds: float) -> bool:
         """Пауза с возможностью прервать; True — прервали.

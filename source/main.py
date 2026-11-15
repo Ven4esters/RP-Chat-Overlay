@@ -378,6 +378,63 @@ def selftest_anims(cfg: dict) -> None:
     print(f"  оба ключа в одном правиле, длинный первым: {commands}")
     failed += 0 if commands == ["/anim sit", "/sa"] else 1
 
+    # варианты анимации: два и больше /anim на один ключ — оверлей выбора
+    # animation variants: two or more /anim commands per keyword show a chooser
+    print("\n=== Варианты анимации (выбор из нескольких) ===")
+    cl = anims.Choice
+    variants_rule = anims.Rule(
+        keywords="оперся руками", name="", duration_ms=60,
+        choices=[cl(name="anim_counterleanbar", title="Опёрся на стойку",
+                    description="Локти на барной стойке"),
+                 cl(name="anim_leanrail", title="Опёрся на перила",
+                    description="Опирается на перила")])
+    failed += 0 if variants_rule.problem() == "" else 1
+    print(f"  правило с вариантами проходит проверку: {variants_rule.problem()!r}")
+    failed += 0 if variants_rule.needs_choice() else 1
+    print(f"  нужен оверлей выбора: {variants_rule.needs_choice()}")
+
+    single = anims.Rule(keywords="сел", duration_ms=60, choices=[cl(name="sit")])
+    failed += 0 if not single.needs_choice() else 1
+    print(f"  один вариант — обычное правило, оверлея нет: {single.needs_choice()}")
+
+    plain = anims.Rule(keywords="сел", name="sit", duration_ms=60)
+    failed += 0 if not plain.needs_choice() else 1
+    print(f"  правило без вариантов как раньше: {[c.name for c in plain.variant_list()]}")
+
+    again = anims.Rule.from_dict(variants_rule.to_dict())
+    same = [(c.name, c.title, c.description) for c in again.choices]
+    failed += 0 if same == [(c.name, c.title, c.description)
+                            for c in variants_rule.choices] else 1
+    print(f"  сохранение и чтение вариантов: {len(same)} шт.")
+
+    strings = anims.Rule.from_dict({"keywords": "x", "choices": ["anim_a", "anim_b"]})
+    failed += 0 if [c.name for c in strings.choices] == ["anim_a", "anim_b"] else 1
+    print(f"  варианты можно писать строкой: {[c.name for c in strings.choices]}")
+
+    # выбор: какой вариант уйдёт в игру
+    def choice_run(pick):
+        commands = []
+        chooser = lambda rule: (rule.choices[pick]
+                                if isinstance(pick, int) else pick)
+        runner_ = anims.Runner(
+            {"anims_enabled": True, "anim_extra_ms": 0},
+            send=lambda command: (commands.append(command) or (True, "")),
+            on_event=None, chooser=chooser)
+        runner_._rules = [anims.Rule(keywords="оперся", duration_ms=60,
+                                     choices=[cl(name="anim_a"), cl(name="anim_b")])]
+        runner_.feed("оперся")
+        time.sleep(0.35)
+        runner_.shutdown()
+        return commands
+
+    commands = choice_run(1)
+    print(f"  выбран второй вариант: {commands}")
+    failed += 0 if commands == ["/anim anim_b", "/sa"] else 1
+
+    commands = choice_run(None)
+    print(f"  отказ от выбора — не играет ничего: {commands}")
+    failed += 0 if commands == [] else 1
+
     print("\n=== Проверка неверных правил ===")
     for bad in (rule(keywords=""), rule(name=""), rule(name="my anim"),
                 rule(duration_ms=-5), rule(mode=9)):

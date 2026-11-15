@@ -5,6 +5,47 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
+## 1.10.0 — 15.11.2026
+
+**Один ключ — несколько анимаций: в игре появляется выбор. И перетаскивание починено.**
+
+### Анимации
+- **Оверлей выбора анимации.** Если одному ключу подходят несколько анимаций
+  («Опёрся руками» — это `anim_counterleanbar` и `anim_leanrail`), поверх игры
+  открывается окно со списком вариантов: название, описание и имя команды.
+  Выбор мышью или клавиатурой: **1–9** — номер, **Enter** — первый вариант,
+  **Esc** — ничего не играть. Не выбрал за 30 секунд или закрыл окно — не играет
+  ничего: молчаливая подмена одним из вариантов была бы хуже.
+- **ПКМ по правилу → «Свойства анимации…».** Там задаются варианты: имя для
+  `/anim`, кастомное название и описание. Пункт «Добавить ещё один вариант…»
+  превращает обычное правило в выбор из двух: имя из столбца «/anim» становится
+  первым вариантом. В том же меню — «Дублировать правило».
+- **Старые правила работают как раньше.** Один вариант — обычное правило:
+  оверлей не открывается, `/anim` уходит сразу. Столбец «/anim» у правила с
+  вариантами можно оставить пустым; в таблице видно `anim_counterleanbar +1`,
+  а полный список с названиями — в подсказке ячейки.
+- **Проверка фразы показывает выбор:** «Сработают: /anim выбор из 2:
+  anim_counterleanbar, anim_leanrail». Кнопка «Отправить /anim в игру» у такого
+  правила честно пишет, что отправляет первый вариант.
+- Открытый оверлей выбора закрывается клавишей остановки и полной остановкой —
+  окно не остаётся висеть поверх игры.
+- Варианты хранятся в `config.json` рядом с правилом (`choices`), список можно
+  писать и просто строками: `"choices": ["anim_a", "anim_b"]`.
+
+### Настройки
+- **Исправлено: перетаскивание строк теряло строку.** `QAbstractItemView.startDrag`
+  после переноса вызывает `clearOrRemove`, и при `MoveAction` Qt удалял исходную
+  строку сам — уже **после** того, как таблица пересобралась, поэтому удаление
+  попадало в новую таблицу и строка исчезала. Теперь перенос делается напрямую
+  через `QDrag` без `clearOrRemove`, и строку двигает только пересборка.
+- **Видно, куда встанет строка.** Вместо еле заметного штатного индикатора
+  рисуется своя линия вставки: толстая, акцентного цвета, во всю ширину, с
+  указателем слева. Перетаскиваемая строка подсвечивается, строка-цель — тоже.
+  За краем последней строки линия означает «в самый конец списка».
+- Касается всех трёх таблиц: анимации, словарь, сокращения.
+- Самотест: новый блок «Варианты анимации (выбор из нескольких)» — проверка
+  правила, сохранение и чтение вариантов, выбор второго, отказ от выбора.
+
 ## 1.9.9 — 15.11.2026
 
 **Вложенные ключи: длинная анимация больше не гасится короткой.**
@@ -626,6 +667,47 @@ English version below: [Changelog (English)](#-changelog-english).
 ---
 
 # 📌 Changelog (English)
+
+## 1.10.0 — 15 Nov 2026
+
+**One keyword, several animations: the game now asks. And dragging is fixed.**
+
+### Animations
+- **The animation chooser overlay.** When one keyword fits several animations
+  («Опёрся руками» is both `anim_counterleanbar` and `anim_leanrail`), a window
+  opens above the game listing the variants: title, description and command name.
+  Pick with the mouse or the keyboard: **1–9** for a number, **Enter** for the
+  first, **Esc** to play nothing. Nothing chosen within 30 seconds or the window
+  closed means nothing plays — silently substituting a variant would be worse.
+- **Right-click a rule → Animation properties.** That is where the variants live:
+  the `/anim` name, a custom title and a description. The "Add one more variant"
+  item turns a plain rule into a choice of two: the name from the `/anim` column
+  becomes the first variant. The same menu has "Duplicate rule".
+- **Existing rules behave exactly as before.** One variant is an ordinary rule:
+  no overlay, the `/anim` goes out at once. The `/anim` column may stay empty for
+  a rule with variants; the table shows `anim_counterleanbar +1` and the full
+  titled list sits in the cell tooltip.
+- **The phrase check shows the choice:** "Will fire: /anim a choice of 2:
+  anim_counterleanbar, anim_leanrail". The Send /anim into the game button says
+  honestly that it sends the first variant.
+- An open chooser is closed by the stop key and by a full stop, so the window
+  never hangs above the game.
+- The variants live in `config.json` next to the rule (`choices`), and a plain
+  list of strings works too: `"choices": ["anim_a", "anim_b"]`.
+
+### Settings
+- **Fixed: dragging a row lost the row.** `QAbstractItemView.startDrag` calls
+  `clearOrRemove` after the drop, and with `MoveAction` Qt deleted the source row
+  itself — right **after** the table had been rebuilt, so the deletion hit the new
+  table and the row vanished. The drag now goes through `QDrag` directly, without
+  `clearOrRemove`, and only the rebuild moves anything.
+- **It is visible where the row will land.** Instead of the barely visible stock
+  indicator the table paints its own drop line: thick, accent-coloured, full
+  width, with an arrow on the left. The dragged row is tinted and so is the
+  target row. Past the last row, the line means the very end of the list.
+- Applies to all three tables: animations, glossary, abbreviations.
+- Self-test: a new block "Animation variants (a choice of several)" — rule
+  validation, saving and reading the variants, picking the second, backing out.
 
 ## 1.9.9 — 15 Nov 2026
 

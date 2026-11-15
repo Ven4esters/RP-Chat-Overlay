@@ -797,12 +797,25 @@ STRINGS = {
         "Rows can be dragged with the mouse; the order is kept in the settings "
         "and stays that way the next time the window opens.",
     "Строки таблицы перетаскиваются мышью — вместе с правилом едут его "
-    "режим, формы, длительность и галочки. Порядок в таблице нужен для "
-    "удобства: в игре анимации играют по порядку слов в сообщении.":
+    "режим, формы, длительность и галочки. Пока строку тянут, она "
+    "подсвечена, а синяя линия показывает, куда она встанет. Порядок в "
+    "таблице нужен для удобства: в игре анимации играют по порядку слов "
+    "в сообщении.":
         "Rows can be dragged with the mouse, and the rule's mode, forms, "
-        "duration and checkboxes travel with it. The table order is for "
-        "convenience: in the game animations play in the order of the words in "
-        "the message.",
+        "duration and checkboxes travel with it. While a row is dragged it is "
+        "highlighted, and a blue line shows where it will land. The table order "
+        "is for convenience: in the game animations play in the order of the "
+        "words in the message.",
+    "ПКМ по строке — «Свойства анимации…»: там задаются варианты, если "
+    "одному ключу подходят несколько анимаций. Например, ключ «оперся "
+    "руками» с вариантами anim_counterleanbar и anim_leanrail: в игре "
+    "откроется оверлей выбора с названием и описанием каждого. Один "
+    "вариант — обычное правило, оно играет сразу.":
+        "Right-click a row and choose Animation properties: that is where the "
+        "variants live, for when one keyword fits several animations. Take the "
+        "keyword «оперся руками» with the anim_counterleanbar and anim_leanrail "
+        "variants: the game shows a chooser with a title and a description for "
+        "each. A single variant is an ordinary rule and plays at once.",
     "Пауза после анимации, мс":
         "Pause after an animation, ms",
     "Добавляется к длительности самой анимации, и только потом "
@@ -830,6 +843,46 @@ STRINGS = {
         "Any case, number and conjugation: «открыл», «открывает», «откроет» share one stem. No dictionaries, always available.",
     "Сравнение по словарной форме слова (пакет pymorphy3) и по основе: «люди/человек», «зонта/зонт», «открыл/открывает». Без пакета pymorphy3 работает как «Основы».":
         "Comparison by the dictionary form (the pymorphy3 package) and by the stem: «люди/человек», «зонта/зонт», «открыл/открывает». Without pymorphy3 it works like «Stems».",
+    # ---------- варианты анимации и оверлей выбора / variants and the chooser ----------
+    "Свойства анимации": "Animation properties",
+    "Свойства анимации…": "Animation properties…",
+    "Добавить ещё один вариант…": "Add one more variant…",
+    "Дублировать правило": "Duplicate rule",
+    "Удалить правило": "Delete rule",
+    "Ключевые слова: %s": "Keywords: %s",
+    "не заданы": "none",
+    "Название": "Title",
+    "Описание": "Description",
+    "Добавить вариант": "Add variant",
+    "Удалить вариант": "Remove variant",
+    "Отмена": "Cancel",
+    "Готово": "Done",
+    "такая анимация уже есть в списке": "that animation is already in the list",
+    "Сначала выберите вариант.": "Select a variant first.",
+    "Сначала задайте название анимации в таблице.":
+        "Set the animation name in the table first.",
+    "Заполните варианты: имя для /anim, название и описание. Если "
+    "вариантов два и больше, в игре откроется оверлей выбора — игрок "
+    "увидит название и описание, а не имя команды. Один вариант — "
+    "обычное правило, оно играет сразу.":
+        "Fill in the variants: the /anim name, a title and a description. With "
+        "two or more variants the game opens a chooser, and the player sees the "
+        "title and description instead of the command name. One variant is an "
+        "ordinary rule and plays at once.",
+    "Выбор анимации": "Animation choice",
+    "Какую анимацию играть?": "Which animation should play?",
+    "1–9 — выбрать · Enter — первый · Esc — ничего":
+        "1–9 — pick · Enter — the first · Esc — nothing",
+    "Ничего": "Nothing",
+    "Ключ «%s» — какую анимацию играть?": "Keyword «%s» — which animation?",
+    "Выбор отправится в чат игры как /anim.":
+        "The choice is sent into the game chat as /anim.",
+    "выбор из %d: ": "a choice of %d: ",
+    "У правила %d варианта(ов) — отправляю первый: /anim %s":
+        "The rule has %d variants — sending the first one: /anim %s",
+    "Добавить ещё один вариант": "Add one more variant",
+    "вариантов анимации не может быть больше 12":
+        "there cannot be more than 12 animation variants",
     "Пакет pymorphy3 не найден: уровень «Леммы» сравнивает по основе.":
         "The pymorphy3 package is missing: the «Lemmas» level compares by stem.",
     "Добавить правило":

@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (QApplication, QFrame, QLabel, QLineEdit, QMenu,
                                QSystemTrayIcon, QVBoxLayout, QWidget)
 
 from app import APP_NAME, gamesend as gs, i18n, langs, modules
+from app import animchoice
 from app import anims as anims_mod
 from app.autoplan import AutoPlan
 from app.config import log, resource_path, save_config
@@ -733,10 +734,19 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
 
     bridge.anims_text.connect(lambda text, error: win.notify(text, error),
                               Qt.ConnectionType.QueuedConnection)
+    # выбор варианта анимации: у правила с двумя и более /anim открывается
+    # оверлей, и в чат уходит то, что выбрал игрок
+    # the variant chooser: a rule with two or more /anim commands opens an
+    # overlay, and what the player picked goes into the chat
+    def choose_anim_variant(rule):
+        """Спросить игрока, какой вариант играть / ask the player which to play."""
+        return animchoice.ask(rule)
+
     runner = anims_mod.Runner(cfg, send=anims_send, on_event=anims_event,
                               equivalent=anim_equivalent,
                               press_key=anims_press_key,
-                              text_keys=anim_text_keys)
+                              text_keys=anim_text_keys,
+                              chooser=choose_anim_variant)
     win.anims = runner
     # окно настроек проверяет этим словарём, доходит ли команда до игры
     # the settings window uses this mapping to check whether a command arrives
