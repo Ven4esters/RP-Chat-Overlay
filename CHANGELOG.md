@@ -5,6 +5,29 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
+## 1.10.3 — 15.11.2026
+
+**Исправлено: не показывалось второе меню выбора и не было видно кнопки «Закрыть».**
+
+### Анимации
+- **Второе меню выбора в одном сообщении не открывалось.** Отвеченное меню
+  оставалось в очереди — им же держалось окно. Из-за этого следующее срабатывание
+  добавляло своё меню в хвост, окно продолжало показывать первое, а новое ждало
+  своего показа до таймаута и пропускалось, то есть анимация по второму ключу не
+  играла вовсе. Теперь отвеченное меню уходит из очереди всегда, а окно держит
+  ссылка на него — оно по-прежнему не закрывается само.
+- **Пауза перед следующим меню больше не зацикливалась.** Таймер перезапускался
+  бесконечно: `time.monotonic()` при перезапуске отставал от нужной точки на
+  микросекунды, и «осталось подождать» никогда не доходило до нуля. Теперь точка
+  окончания паузы запоминается, а продлевают её только реальные нажатия.
+- **Кнопка «Закрыть» больше не уезжает за край окна.** Высота считалась через
+  подсказку раскладки, а она врёт на узком окне: заголовок и подсказка
+  переносились на лишние строки, окно выходило короче содержимого, и нижняя строка
+  обрезалась. Теперь высота складывается по частям с учётом переноса, а если экран
+  тесный — прокручивается список, а не пропадает кнопка.
+- Попутно: полная остановка (`stop`) действительно убирает окно, а закрытие окна
+  без выбора больше не роняет обработчик на `QTimer.singleShot`.
+
 ## 1.10.2 — 15.11.2026
 
 **Два ключа с выбором в одном сообщении: окна не наслаиваются.**
@@ -702,6 +725,30 @@ English version below: [Changelog (English)](#-changelog-english).
 ---
 
 # 📌 Changelog (English)
+
+## 1.10.3 — 15 Nov 2026
+
+**Fixed: the second chooser menu never appeared and the "Закрыть" button was out of sight.**
+
+### Animations
+- **The second chooser menu in one message did not open.** An answered menu stayed
+  in the queue — it was what kept the window alive. So the next hit appended its
+  menu to the tail, the window kept showing the first one, and the new one waited
+  for its display until the timeout and was dropped: the animation for the second
+  keyword did not play at all. An answered menu now always leaves the queue, while
+  the window stays open because of the reference it holds.
+- **The pause before the next menu no longer looped forever.** The timer restarted
+  endlessly: on each restart `time.monotonic()` was microseconds short of the mark,
+  so "time left to wait" never reached zero. The end of the pause is now a fixed
+  timestamp, and only real keypresses extend it.
+- **The "Закрыть" button no longer falls past the window edge.** The height came
+  from the layout hint, which lies on a narrow window: the title and the hint
+  wrapped into extra lines, the window ended up shorter than its content, and the
+  bottom row was cut. The height is now summed from its parts with wrapping taken
+  into account, and on a tight screen the list scrolls instead of the button
+  disappearing.
+- Also: a full stop (`stop`) really takes the window down, and closing the window
+  without a pick no longer crashes on `QTimer.singleShot`.
 
 ## 1.10.2 — 15 Nov 2026
 

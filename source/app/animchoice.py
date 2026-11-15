@@ -268,12 +268,15 @@ class ChoiceWindow(QWidget):
         head.setObjectName("choiceTitle")
         head.setWordWrap(True)
         lay.addWidget(head)
+        self._head = head
 
+        self._sub = None
         if subtitle:
             sub = QLabel(subtitle)
             sub.setObjectName("choiceEmpty")
             sub.setWordWrap(True)
             lay.addWidget(sub)
+            self._sub = sub
 
         # список прокручивается: вариантов может быть много, а окно не должно
         # вырасти выше экрана
@@ -314,6 +317,15 @@ class ChoiceWindow(QWidget):
         cancel.clicked.connect(lambda: self._answer(None))
         bottom.addWidget(cancel)
         lay.addLayout(bottom)
+        # Нижнюю строку держим отдельно: её высота резервируется при расчёте
+        # размера первой. Иначе на тесном экране окно ужимается и «Закрыть»
+        # уезжает за нижний край — выглядит так, будто кнопки нет совсем.
+        # The bottom row is kept apart: its height is reserved first when the size
+        # is worked out. Otherwise on a tight screen the window shrinks and
+        # "Закрыть" goes past the bottom edge — it looks like there is no button.
+        self._hint = hint
+        self._cancel = cancel
+        self._lay = lay
 
         self._fit()
 
@@ -388,6 +400,10 @@ class ChoiceWindow(QWidget):
 
         needed = self._content_height(width)
         if area:
+            # Экран может быть тесным, но нижнюю строку с «Закрыть» не режем:
+            # лучше пусть список прокручивается, чем кнопка уедет за край.
+            # The screen may be tight, but the bottom row with "Закрыть" is never
+            # cut: better for the list to scroll than for the button to be lost.
             needed = min(needed, int(area.height() * 0.85))
         self.resize(width, max(needed, 200))
         if area:
@@ -403,26 +419,55 @@ class ChoiceWindow(QWidget):
 
         How much height the content asks for at this width.
 
-        Список меряем по его содержимому: у ``QScrollArea`` собственная высота
-        всегда маленькая, а вариантов может быть и три, и десять.
-        The list is measured by its content: a ``QScrollArea`` always reports a
-        small height of its own, while there may be three variants or ten.
+        Считаем по частям, а не через ``layout().sizeHint()``: подсказка
+        раскладки считается для уже назначенной ширины и на узком окне врёт —
+        заголовок и подсказка переносятся на лишние строки, а окно выходит
+        короче содержимого. Тогда нижняя строка с «Закрыть» уезжает за край.
+        Parts are summed instead of trusting ``layout().sizeHint()``: the layout
+        hint is computed for the width already set and lies on a narrow window —
+        the title and the hint wrap into extra lines while the window ends up
+        shorter than its content. Then the bottom row with "Закрыть" falls past
+        the edge.
         """
+        margins = self._lay.contentsMargins()
+        spacing = self._lay.spacing()
+        inner = max(width - margins.left() - margins.right(), 200)
+
+        # Заголовок, подзаголовок и подсказка переносятся: меряем на своей
+        # ширине, а не гадаем по одной строке.
+        # The title, subtitle and hint wrap: they are measured at their own width
+        # instead of guessed as a single line.
+        def wrapped_height(label, extra=0):
+            if label is None:
+                return 0
+            label.setFixedWidth(inner - (extra or 0))
+            label.adjustSize()
+            return label.sizeHint().height()
+
+        head_h = wrapped_height(self._head)
+        sub_h = wrapped_height(self._sub)
+        # подсказка делит строку с кнопкой, поэтому её ширина меньше на кнопку
+        # the hint shares the row with the button, so its width is smaller
+        hint_h = wrapped_height(self._hint, extra=self._cancel.sizeHint().width() + 8)
+        button_h = max(self._cancel.sizeHint().height(), 28)
+        bottom_h = max(hint_h, button_h)
+        self._cancel.setFixedHeight(button_h)
+
         scroll = getattr(self, "_scroll", None)
         holder = getattr(self, "_holder", None)
-        if scroll is None or holder is None:
-            return 260
-        # список должен успеть переразложиться под новую ширину
-        # the list has to re-flow for the new width first
-        holder.setFixedWidth(max(width - 60, 200))
-        holder.adjustSize()
-        list_height = holder.sizeHint().height()
-        hint = self.layout().sizeHint().height()
-        without_list = max(hint - scroll.sizeHint().height(), 90)
-        total = without_list + list_height
-        # сплошная прокрутка вместо списка из одной строки
-        # a solid scroll area instead of a list of a single line
-        return min(max(total, without_list + 150), 900)
+        if holder is not None:
+            holder.setFixedWidth(max(inner - 24, 200))
+            holder.adjustSize()
+            list_h = holder.sizeHint().height()
+        else:
+            list_h = 150
+        # список не меньше двух карточек и не больше половины экрана
+        # the list is at least two cards and at most half the screen
+        list_h = max(min(list_h, 520), 150)
+
+        total = (margins.top() + margins.bottom() + head_h + sub_h
+                 + list_h + bottom_h + spacing * 4 + 8)
+        return total
 
     # --- ответ ---
     def _answer(self, choice):
@@ -545,6 +590,7 @@ class _Menu:
         self.window = None                  # окно, где оно сейчас
         self.settle_timer = None            # пауза перед следующим меню
         self.last_pick_at = 0.0             # когда последний раз выбирали
+        self.settle_until = 0.0             # до какого времени ждать паузу
         # чем сыграть выбор, если правило уже доиграло (ставит Runner)
         # what to play the pick with when the rule has already finished (set by
         # Runner)
@@ -792,6 +838,14 @@ class Chooser:
             entry = self._menus[0] if self._menus else None
             waiting = len(self._menus) - 1 if entry is not None else 0
         if entry is None:
+            # Очередь пуста. Если в окне уже отвеченное меню — оставляем его:
+            # игрок может передумать и выбрать другой вариант. Новое меню,
+            # пришедшее позже, просто займёт окно (это другая ветка).
+            # The queue is empty. If the window shows an answered menu, keep it: the
+            # player may change his mind and pick another variant. A menu arriving
+            # later simply takes the window over (that is the other branch).
+            if self._window is not None and self._window.entry is not None:
+                return
             self._close_window()
             return
         if self._window is not None and self._window.entry is entry:
@@ -855,7 +909,19 @@ class Chooser:
         log.info("Выбор анимации: окно закрыто игроком, в очереди меню: %d",
                  len(self._menus))
         if was_first:
-            QTimer.singleShot(int(SETTLE_S * 1000), self._bridge.wake.emit)
+            # Следующее меню (если оно придёт) покажется не мгновенно: между
+            # закрытием окна и новым показом должна быть пауза, иначе окно
+            # мигает на одном месте.
+            # The next menu, when it comes, is not shown instantly: a pause is
+            # needed between closing and showing again, otherwise the window blinks
+            # in place.
+            if self._timer_parent is None:
+                self._timer_parent = QObject()
+            pause = QTimer(self._timer_parent)
+            pause.setSingleShot(True)
+            pause.timeout.connect(lambda: self._bridge is not None
+                                  and self._bridge.wake.emit())
+            pause.start(int(SETTLE_S * 1000))
 
     @staticmethod
     def _tell_replay(entry, choice):
@@ -887,6 +953,10 @@ class Chooser:
         """
         if entry.settle_timer is not None:
             entry.settle_timer.stop()
+        # Новый выбор продлевает паузу: пока игрок нажимает, следующее меню ждёт
+        # a new pick extends the pause: while the player keeps pressing, the next
+        # menu waits
+        entry.settle_until = time.monotonic() + SETTLE_S
         # Таймеру нужен родитель из главного потока: сам Chooser живёт и в
         # рабочем потоке, поэтому родитель — маленький объект, созданный в
         # главном.
@@ -912,22 +982,39 @@ class Chooser:
         """
         if entry.settle_timer is timer:
             entry.settle_timer = None
-        left = SETTLE_S - (time.monotonic() - entry.last_pick_at)
-        if left > 0.05 and entry in self._menus:
+        # Пауза отсчитывается от выбора, но продлевается только НОВЫМИ выборами.
+        # Раньше здесь каждый раз сравнивалось «прошло ли SETTLE_S» с последним
+        # выбором, и таймер перезапускался бесконечно: `time.monotonic()` при
+        # перезапуске отставал на микросекунды от нужной точки, `left` всё время
+        # был чуть больше нуля, и меню никогда не уходило из очереди. Следующее
+        # меню из-за этого не показывалось вовсе.
+        # The pause counts from the pick but is extended only by NEW picks. The old
+        # code re-compared "has SETTLE_S passed" against the last pick and restarted
+        # the timer forever: on each restart `time.monotonic()` was microseconds
+        # short of the mark, `left` stayed just above zero, and the menu never left
+        # the queue. That is why the next menu was never shown at all.
+        if entry.settle_until and time.monotonic() < entry.settle_until - 0.01:
+            left = entry.settle_until - time.monotonic()
             again = QTimer(self._timer_parent)
             again.setSingleShot(True)
             again.timeout.connect(lambda: self._advance(entry, again))
             entry.settle_timer = again
-            again.start(int(left * 1000))
+            again.start(max(int(left * 1000), 10))
             return
+        entry.settle_until = 0.0
         with self._lock:
-            others = [item for item in self._menus if item is not entry]
-            if not others:
-                # Меню последнее: окно остаётся, чтобы можно было передумать и
-                # выбрать другой вариант, а не искать окно заново.
-                # It is the last menu: the window stays, so the player can change
-                # his mind and pick another variant instead of calling it up again.
-                return
+            # Отвеченное меню уходит из очереди ВСЕГДА. Раньше последнее меню
+            # здесь оставалось, чтобы окно не закрывалось, — и это ломало второе
+            # меню: следующее срабатывание добавляло своё меню в хвост очереди,
+            # `_render` продолжал показывать первое (оно ведь ещё «в очереди»), а
+            # новое ждало своего показа до таймаута и пропускалось. Окно и так
+            # не закрывается: его держит не очередь, а сам список меню.
+            # An answered menu ALWAYS leaves the queue. The last one used to stay
+            # here to keep the window open, and that broke the second menu: the
+            # next hit appended its menu to the tail, `_render` kept showing the
+            # first one (still "queued") and the new one waited for its display
+            # until the timeout and was dropped. The window does not need the queue
+            # to stay open: the menu list itself keeps it.
             if entry in self._menus:
                 self._menus.remove(entry)
         self._render()
@@ -1046,7 +1133,18 @@ class Chooser:
                 entry.picks.append(None)
             entry.first.set()
             entry.finished = True
-        self._bridge.hide.emit() if self._bridge is not None else None
+        # Окно снимаем сигналом в главный поток — он для того и есть. Ссылку
+        # забываем сразу: очередь меню пуста, и следующий показ начнётся с чистого
+        # листа. Если Qt ещё не запущен, убираем напрямую.
+        # The window is taken down through the signal into the main thread — that
+        # is what it is for. The reference is dropped at once: the menu queue is
+        # empty and the next display starts from scratch. With Qt not running yet,
+        # it is removed directly.
+        if self._bridge is not None:
+            self._bridge.hide.emit()
+        else:
+            self._close_window()
+        self._window = None
         self.open = False
 
     def cancel(self, close: bool = False):

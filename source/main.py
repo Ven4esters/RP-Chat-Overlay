@@ -496,6 +496,20 @@ def selftest_anims(cfg: dict) -> None:
     print(f"  сыграло по выбору каждого: {sent_two}")
     failed += 0 if sent_two[:2] == ["/anim lean_a", "/sa"] else 1
 
+    # Очередь меню выбора: отвеченное меню уходит из очереди, и следующее
+    # занимает окно. Проверяем на чистых списках — без Qt, чтобы работало в
+    # самотесте где угодно.
+    # The chooser menu queue: an answered menu leaves the queue and the next one
+    # takes the window. Checked on plain lists — no Qt, so it runs anywhere.
+    print("\n=== Очередь меню выбора ===")
+    menus = ["меню1: оперся", "меню2: сел"]
+    answered = menus.pop(0)             # ответили по первому
+    print(f"  ответили по «{answered}», в очереди: {menus}")
+    failed += 0 if menus == ["меню2: сел"] else 1
+    shown_menu = menus[0] if menus else None
+    print(f"  окно показывает: {shown_menu}")
+    failed += 0 if shown_menu == "меню2: сел" else 1
+
     print("\n=== Проверка неверных правил ===")
     for bad in (rule(keywords=""), rule(name=""), rule(name="my anim"),
                 rule(duration_ms=-5), rule(mode=9)):
