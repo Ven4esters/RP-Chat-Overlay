@@ -435,6 +435,36 @@ def selftest_anims(cfg: dict) -> None:
     print(f"  отказ от выбора — не играет ничего: {commands}")
     failed += 0 if commands == [] else 1
 
+    # смена варианта на ходу: окно не закрывается, и новый выбор меняет анимацию
+    # swapping on the fly: the window stays open and a new pick changes it
+    commands = []
+    swap = {}
+
+    def slow_pick(rule_obj, on_change=None):
+        """Первый ответ сразу, второй приходит во время проигрывания.
+
+        The first answer is immediate, the second arrives mid-play.
+        """
+        if on_change is not None:
+            swap["change"] = on_change
+        return rule_obj.choices[0]
+
+    runner_swap = anims.Runner(
+        {"anims_enabled": True, "anim_extra_ms": 0},
+        send=lambda command: (commands.append(command) or (True, "")),
+        on_event=None, chooser=slow_pick)
+    runner_swap._rules = [anims.Rule(keywords="оперся", duration_ms=400,
+                                     choices=[cl(name="anim_a"), cl(name="anim_b")])]
+    runner_swap.feed("оперся")
+    time.sleep(0.15)
+    swap["change"](anims.Choice(name="anim_b"))
+    time.sleep(0.7)
+    runner_swap.shutdown()
+    print(f"  смена варианта на ходу: {commands}")
+    # после смены новая анимация тоже гасится своим /sa
+    # the swapped-in animation is put out with its own /sa as well
+    failed += 0 if commands == ["/anim anim_a", "/sa", "/anim anim_b", "/sa"] else 1
+
     print("\n=== Проверка неверных правил ===")
     for bad in (rule(keywords=""), rule(name=""), rule(name="my anim"),
                 rule(duration_ms=-5), rule(mode=9)):

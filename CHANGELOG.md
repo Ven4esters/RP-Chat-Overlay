@@ -5,7 +5,7 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
-## 1.10.0 — 15.11.2026
+## 1.10.1 — 15.11.2026
 
 **Один ключ — несколько анимаций: в игре появляется выбор. И перетаскивание починено.**
 
@@ -40,6 +40,12 @@ English version below: [Changelog (English)](#-changelog-english).
   до двух с половиной вариантов на обычном мониторе.
 - Заголовок окна — просто «Какую анимацию вы собираетесь использовать?»:
   перечисление ключей растягивало его на три строки и отжимало сам список.
+- **Окно появляется справа и не закрывается само.** Таймер на 30 секунд убран:
+  окно висит, пока его не закроют. После первого выбора оно остаётся на месте,
+  выбранная анимация помечается зелёной рамкой и словом «играет», а нажатие
+  другого варианта меняет анимацию на ходу (текущая гасится, новая запускается).
+  Так можно перебирать варианты, пока не найдётся нужный. Закрывают окно Esc или
+  «Закрыть»; если ничего не выбрано — не играет ничего.
 
 ### Настройки
 - **Исправлено: перетаскивание строк теряло строку.** `QAbstractItemView.startDrag`
@@ -677,7 +683,7 @@ English version below: [Changelog (English)](#-changelog-english).
 
 # 📌 Changelog (English)
 
-## 1.10.0 — 15 Nov 2026
+## 1.10.1 — 15 Nov 2026
 
 **One keyword, several animations: the game now asks. And dragging is fixed.**
 
@@ -712,6 +718,13 @@ English version below: [Changelog (English)](#-changelog-english).
   cut down to two and a half variants on an ordinary monitor.
 - The window title is simply "Which animation are you going to use?": listing
   the keywords stretched it to three lines and squeezed the list itself.
+- **The window appears on the right and never closes itself.** The 30-second
+  timer is gone: the window stays until it is closed. After the first pick it
+  remains in place, the chosen animation is marked with a green frame and the
+  word "playing", and pressing another variant swaps the animation on the fly
+  (the current one is put out, the new one starts). That makes it possible to
+  flip through the variants until the right one shows up. Esc or Close closes
+  the window; with nothing picked, nothing plays.
 
 ### Settings
 - **Fixed: dragging a row lost the row.** `QAbstractItemView.startDrag` calls

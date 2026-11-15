@@ -30,17 +30,18 @@ answer. The window lives in the Qt main thread, so :func:`ask` hands the display
 over through a signal and blocks on a ``threading.Event`` with a timeout — the
 game never hangs if the window could not be shown for some reason.
 
-Окно закрывается само / the window closes itself
------------------------------------------------
-Есть таймаут (по умолчанию 30 секунд): если игрок отошёл, очередь не стоит
-вечно. Esc и кнопка «Отмена» означают «ничего не играть». Если игрок ничего не
-выбрал, вариант не играет вовсе — молчаливая подмена одним из вариантов была бы
-хуже, чем ничего.
+Окно закрывается только вручную / the window closes only by hand
+---------------------------------------------------------------
+Таймаута нет: окно висит справа, пока игрок сам его не закроет. Так можно
+спокойно рассмотреть варианты, передумать и нажать другой — окно остаётся на
+месте. Esc и «Ничего» означают «ничего не играть»: игрок нажал именно это, и
+подставлять вариант за него нельзя.
 
-There is a timeout (30 seconds by default), so the queue never waits forever if
-the player walked away. Esc and the Cancel button mean "play nothing". When nothing
-is chosen, no variant plays at all — silently substituting one would be worse than
-nothing.
+There is no timeout: the window sits on the right until the player closes it.
+That leaves time to read the variants, change your mind and pick another one —
+the window stays where it is. Esc and "Nothing" mean "play nothing": that is what
+was pressed, and substituting a variant would be putting words in the player's
+mouth.
 """
 
 from __future__ import annotations
@@ -56,8 +57,8 @@ from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel,
 from app import i18n
 from app.config import log
 
-# сколько ждать выбора: игрок мог отойти / how long to wait for the player
-CHOICE_TIMEOUT_S = 30.0
+# таймаута нет: окно закрывает сам игрок / no timeout: the player closes the window
+CHOICE_TIMEOUT_S = 0.0
 # сколько ждать показа окна, прежде чем счесть, что его нет
 # how long to wait for the window to appear before deciding there is none
 SHOW_TIMEOUT_S = 5.0
@@ -76,6 +77,8 @@ QFrame#choiceCard {
 }
 QFrame#choiceCard:hover { background: #262636; border-color: #5b8cff; }
 QFrame#choiceCard:focus { background: #2a2a3c; border: 2px solid #5b8cff; }
+QFrame#choiceCard[chosen="true"] { background: #1b2b1f; border: 2px solid #4ad07a; }
+QLabel#choiceMark { color: #4ad07a; font-size: 11px; font-weight: 700; }
 QLabel#choiceNum {
     color: #c9d4ff; background: #2a3350; border: 1px solid #3f4d78;
     border-radius: 6px; font-size: 13px; font-weight: 700;
@@ -130,6 +133,8 @@ class _Card(QFrame):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
+        self.setProperty("chosen", False)
+        self.mark = None
 
         row = QHBoxLayout(self)
         row.setContentsMargins(12, 10, 14, 10)
@@ -147,10 +152,20 @@ class _Card(QFrame):
         text.setContentsMargins(0, 0, 0, 0)
         text.setSpacing(3)
 
+        title_row = QHBoxLayout()
+        title_row.setContentsMargins(0, 0, 0, 0)
+        title_row.setSpacing(8)
         title = QLabel(choice.label())
         title.setObjectName("choiceLabel")
         title.setWordWrap(True)
-        text.addWidget(title)
+        title_row.addWidget(title, 1)
+        # метка «играет» появляется на выбранной карточке
+        # the "playing" mark appears on the chosen card
+        self.mark = QLabel("")
+        self.mark.setObjectName("choiceMark")
+        self.mark.setVisible(False)
+        title_row.addWidget(self.mark, 0)
+        text.addLayout(title_row)
 
         # описание пустым не оставляем: пустая строка выглядит как ошибка
         # the description is never empty: a blank line looks like a bug
@@ -167,10 +182,18 @@ class _Card(QFrame):
 
         row.addLayout(text, 1)
 
+    def set_mark(self, playing: bool) -> None:
+        """Поставить или снять метку «играет» / set or clear the "playing" mark."""
+        if self.mark is None:
+            return
+        self.mark.setText(i18n.t("играет") if playing else "")
+        self.mark.setVisible(bool(playing))
+
     def mouseReleaseEvent(self, event):
         """Клик по карточке = выбор варианта / a click picks the variant."""
         if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(
                 event.position().toPoint()):
+            self.setFocus(Qt.FocusReason.MouseFocusReason)
             self._on_pick(self.index)
             return
         super().mouseReleaseEvent(event)
@@ -181,18 +204,29 @@ class ChoiceWindow(QWidget):
 
     The chooser window: a list of variants above the game.
 
-    Показывается без рамки и поверх всех окон, но с фокусом — иначе клавиатура
-    осталась бы у игры. Как только игрок выбрал, окно скрывается и возвращает
-    ответ через ``done_callback``.
+    Показывается без рамки справа поверх игры, но с фокусом — иначе клавиатура
+    осталась бы у игры. После выбора окно **не закрывается**: анимация играет, а
+    окно висит рядом, и другой вариант можно нажать в любой момент — он и
+    заменит играющую анимацию. Закрывает окно только сам игрок (Esc или
+    «Ничего»).
 
-    Frameless and always on top, but focused — otherwise the keyboard would stay
-    with the game. As soon as the player picks, the window hides and reports the
-    answer through ``done_callback``.
+    Frameless and always on top on the right, but focused — otherwise the keyboard
+    would stay with the game. After a pick the window does **not** close: the
+    animation plays and the window stays beside it, so another variant can be
+    pressed at any moment and it replaces the playing animation. Only the player
+    closes it (Esc or "Nothing").
+
+    ``done_callback`` зовётся на каждый выбор и получает ``Choice`` или None.
+    ``done_callback`` is called on every pick with a ``Choice`` or None.
     """
 
-    def __init__(self, title, subtitle, variants, done_callback, parent=None):
+    def __init__(self, title, subtitle, variants, done_callback, parent=None,
+                 on_closed=None):
         super().__init__(parent)
         self.done_callback = done_callback
+        # кого известить, когда окно закроют: сам игрок, а не таймер
+        # who to tell when the window is closed: the player, not a timer
+        self.on_closed = on_closed
         self._variants = list(variants)
         self._answered = False
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint
@@ -250,11 +284,12 @@ class ChoiceWindow(QWidget):
         self._holder = holder
 
         bottom = QHBoxLayout()
-        hint = QLabel(i18n.t("1–9 — выбрать · Enter — первый · Esc — ничего"))
+        hint = QLabel(i18n.t("Окно не закроется само: другой вариант можно "
+                             "выбрать в любой момент · Esc — закрыть"))
         hint.setObjectName("choiceKeys")
         hint.setWordWrap(True)
         bottom.addWidget(hint, 1)
-        cancel = QPushButton(i18n.t("Ничего"))
+        cancel = QPushButton(i18n.t("Закрыть"))
         cancel.setObjectName("choiceCancel")
         cancel.setAutoDefault(False)
         cancel.clicked.connect(lambda: self._answer(None))
@@ -270,8 +305,40 @@ class ChoiceWindow(QWidget):
         return card
 
     def _choose(self, index):
-        if 0 <= index < len(self._variants):
-            self._answer(self._variants[index])
+        """Выбрать вариант, не закрывая окно / pick a variant without closing."""
+        if not (0 <= index < len(self._variants)):
+            return
+        self._mark_chosen(index)
+        self._answer(self._variants[index])
+
+    def clear_marks(self):
+        """Снять пометки «играет»: правило доиграло.
+
+        Clear the "playing" marks: the rule has finished.
+        Окно при этом остаётся открытым — игрок закроет его сам.
+        The window stays open — the player closes it himself.
+        """
+        for card in self.buttons:
+            card.setProperty("chosen", False)
+            card.style().unpolish(card)
+            card.style().polish(card)
+            card.set_mark(False)
+
+    def _mark_chosen(self, index):
+        """Подсветить выбранный вариант: видно, что сейчас играет.
+
+        Highlight the chosen variant, so it is clear what is playing now.
+
+        Окно больше не закрывается после выбора, поэтому «какой сейчас» надо
+        показывать: рамка и метка «играет» на выбранной карточке.
+        The window no longer closes after a pick, so "which one is playing" has to
+        be shown: a frame and a "playing" mark on the chosen card.
+        """
+        for position, card in enumerate(self.buttons):
+            card.setProperty("chosen", position == index)
+            card.style().unpolish(card)
+            card.style().polish(card)
+            card.set_mark(position == index)
 
     def _fit(self):
         """Размер и место окна: по центру экрана, не выше рабочей области.
@@ -305,7 +372,11 @@ class ChoiceWindow(QWidget):
             needed = min(needed, int(area.height() * 0.85))
         self.resize(width, max(needed, 200))
         if area:
-            self.move(area.left() + (area.width() - width) // 2,
+            # справа по центру: игра слева, окно не закрывает то, что играет
+            # on the right, centred: the game is on the left, and the window does
+            # not cover what is being played
+            margin = 24
+            self.move(area.right() - width - margin,
                       area.top() + (area.height() - self.height()) // 2)
 
     def _content_height(self, width: int) -> int:
@@ -336,11 +407,18 @@ class ChoiceWindow(QWidget):
 
     # --- ответ ---
     def _answer(self, choice):
-        """Закрыть окно и сообщить выбор / close the window and report the pick."""
-        if self._answered:
-            return
+        """Сообщить выбор, оставив окно открытым.
+
+        Report the pick and keep the window open.
+
+        ``_answered`` больше не «одноразовый»: вариант можно менять сколько
+        угодно раз, пока окно открыто. Повторный выбор того же варианта ничего
+        не ломает — очередь просто заменит анимацию на ту же.
+        ``_answered`` is no longer one-shot: the variant may change any number of
+        times while the window is open. Picking the same variant again breaks
+        nothing — the queue just replaces the animation with the same one.
+        """
         self._answered = True
-        self.hide()
         try:
             self.done_callback(choice)
         except Exception:
@@ -350,7 +428,11 @@ class ChoiceWindow(QWidget):
         """Клавиатура: цифры, Enter и Esc / the keyboard: digits, Enter and Esc."""
         key = event.key()
         if key == Qt.Key.Key_Escape:
-            self._answer(None)
+            # Esc — это «закрыть окно», а не «ничего не играть»: если анимация
+            # уже выбрана и играет, окно просто убирается, ничего не меняя
+            # Esc means "close the window", not "play nothing": if an animation
+            # is already picked and playing, the window just goes away
+            self.close()
             return
         if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             self._choose(0)
@@ -368,9 +450,16 @@ class ChoiceWindow(QWidget):
         super().keyPressEvent(event)
 
     def closeEvent(self, event):
-        """Крестик или закрытие окна = «ничего не играть».
+        """Закрытие окна игроком: если ничего не выбрано — правило пропускается.
 
-        The close button or a plain close means "play nothing".
+        The player closes the window: if nothing was picked, the rule is skipped.
+
+        Когда вариант уже выбран и играет, закрытие окна ничего не меняет —
+        анимация продолжается. Если не выбрано ничего, ответ None означает
+        «ничего не играть»: молчаливая подмена вариантом была бы хуже.
+        When a variant is already picked and playing, closing the window changes
+        nothing — the animation goes on. When nothing was picked, the None answer
+        means "play nothing": silently substituting a variant would be worse.
         """
         if not self._answered:
             self._answered = True
@@ -378,6 +467,11 @@ class ChoiceWindow(QWidget):
                 self.done_callback(None)
             except Exception:
                 log.exception("Выбор анимации: колбэк падения окна упал")
+        if self.on_closed is not None:
+            try:
+                self.on_closed()
+            except Exception:
+                log.exception("Выбор анимации: колбэк закрытия окна упал")
         super().closeEvent(event)
 
 
@@ -402,10 +496,46 @@ class Chooser:
     """
 
     def __init__(self, timeout_s: float = CHOICE_TIMEOUT_S):
+        # С asyncio-ожиданием не путать: timeout_s больше не используется, окно
+        # закрывает сам игрок. Параметр оставлен, чтобы не ломать вызовы.
+        # Not to be confused with an async wait: timeout_s is unused now, the
+        # player closes the window. The parameter stays so calls do not break.
         self.timeout_s = timeout_s
         self._bridge = None
         self._window = None
         self._lock = threading.Lock()
+        # Кто ждёт первого ответа; после него окно живёт само и сообщает о
+        # смене варианта в `_on_change`.
+        # Who waits for the first answer; after it the window lives on its own and
+        # reports a variant change through `_on_change`.
+        self._answer = None
+        self._answered = None
+        self._on_change = None
+        self.open = False
+
+    def __call__(self, rule, on_change=None):
+        """Экземпляр сам и есть функция выбора: ``chooser(rule)``.
+
+        The instance is the chooser function itself: ``chooser(rule)``.
+
+        Так очередь получает объект, а не обёртку: у него есть ``cancel`` и
+        ``rule_finished``, которые обёртка бы спрятала.
+        That way the queue gets an object rather than a wrapper: it has ``cancel``
+        and ``rule_finished``, which a wrapper would hide.
+        """
+        return self.ask(rule, on_change=on_change)
+
+    def rule_finished(self):
+        """Правило доиграло: снять с окна пометки «играет».
+
+        The rule has finished: clear the "playing" marks on the window.
+        """
+        window = self._window
+        if window is not None:
+            try:
+                window.clear_marks()
+            except Exception:
+                log.exception("Выбор анимации: не удалось снять пометки")
 
     def _ensure_bridge(self) -> bool:
         """Создать мост и привязать его к главному потоку; False — Qt нет.
@@ -432,13 +562,18 @@ class Chooser:
         self._bridge.show.connect(self._show, Qt.ConnectionType.QueuedConnection)
         return True
 
-    def ask(self, rule) -> "object | None":
+    def ask(self, rule, on_change=None) -> "object | None":
         """Спросить игрока, какой вариант играть / ask which variant to play.
 
-        Вызывается из потока очереди анимаций и блокируется до ответа, таймаута
-        или отказа. Возвращает выбранный ``Choice`` или None.
-        Called from the animation queue thread and blocks until an answer, the
-        timeout or a refusal. Returns the chosen ``Choice`` or None.
+        Вызывается из потока очереди анимаций и блокируется до первого ответа
+        или закрытия окна. Возвращает выбранный ``Choice`` или None.
+
+        ``on_change`` зовётся на каждый следующий выбор, пока окно открыто:
+        игрок меняет анимацию, не закрывая окно.
+        Called from the animation queue thread and blocks until the first answer
+        or the window's close. Returns the chosen ``Choice`` or None.
+        ``on_change`` is called on every later pick while the window is open: the
+        player swaps the animation without closing it.
         """
         variants = rule.variant_list()
         if not variants:
@@ -450,10 +585,43 @@ class Chooser:
             answer: dict[str, object] = {}
             answered = threading.Event()
             shown = threading.Event()
+            self._answer = answer
+            self._answered = answered
 
             def done(choice):
+                """Первый выбор — ответ очереди, следующие — смена анимации.
+
+                The first pick answers the queue, the later ones change the
+                animation.
+
+                Окно после выбора не закрывается, поэтому сюда приходит и второй,
+                и третий выбор: первый раз игрок отвечает «какую играть», а
+                потом просто меняет её на другую.
+                The window does not close after a pick, so the second and third
+                picks arrive here too: the first time the player answers "which
+                one", after that he just swaps it for another.
+                """
+                first = not answered.is_set()
                 answer["choice"] = choice
                 answered.set()
+                if choice is None:
+                    # окно закрыли, ничего не выбрав — правило пропускается
+                    # the window was closed with nothing picked — skip the rule
+                    # окно закрыто игроком: ссылка уже сброшена в `_forget`
+                    # the window was closed by the player: the reference is gone
+                    self.open = False
+                    return
+                self.open = True
+                if first:
+                    # очередь сама заберёт ответ из `answer`
+                    # the queue takes the answer from `answer` itself
+                    return
+                if on_change is None:
+                    return
+                try:
+                    on_change(choice)
+                except Exception:
+                    log.exception("Выбор анимации: смена варианта не удалась")
 
             payload = {"rule": rule, "variants": variants, "done": done,
                        "shown": shown}
@@ -468,14 +636,15 @@ class Chooser:
                 log.warning("Выбор анимации: окно не показалось за %d с",
                             int(SHOW_TIMEOUT_S))
                 return None
-            if answered.wait(self.timeout_s):
-                return answer.get("choice")
-            log.info("Выбор анимации: игрок не выбрал за %d с — правило "
-                     "пропущено", int(self.timeout_s))
-            # окно закрываем сами: иначе оно висело бы поверх игры
-            # the window is closed by us, otherwise it would hang over the game
-            self._close_window()
-            return None
+            # Без таймаута: очередь стоит, пока игрок не выберет или не закроет
+            # окно. Сколько смотреть варианты — решает он сам.
+            # No timeout: the queue waits until the player picks or closes the
+            # window. How long to read the variants is his call.
+            if self.timeout_s:
+                answered.wait(self.timeout_s)
+            else:
+                answered.wait()
+            return answer.get("choice")
 
     # --- главный поток ---
     def _show(self, payload):
@@ -491,7 +660,8 @@ class Chooser:
         # question alone is enough.
         window = ChoiceWindow(i18n.t("Какую анимацию вы собираетесь использовать?"),
                               i18n.t("Выбор отправится в чат игры как /anim."),
-                              variants, done)
+                              variants, done,
+                              on_closed=lambda: self._forget(window))
         self._window = window
         window.show()
         window.raise_()
@@ -500,19 +670,34 @@ class Chooser:
             window.buttons[0].setFocus()
         payload["shown"].set()
 
-    def cancel(self):
-        """Закрыть окно выбора, ничего не выбрав (остановка, выход).
+    def _forget(self, window):
+        """Забыть закрытое окно / forget the closed window."""
+        if self._window is window:
+            self._window = None
+            self.open = False
 
-        Close the chooser without choosing (a stop or a shutdown).
-        Нужна, когда игрок нажал клавишу остановки, пока окно открыто: очередь
-        снимается, и окно не должно остаться висеть поверх игры.
-        Needed when the stop key is pressed while the window is open: the queue is
-        dropped and the window must not stay above the game.
+    def cancel(self, close: bool = False):
+        """Отпустить ожидающую очередь, ничего не выбрав.
+
+        Release the waiting queue without choosing.
+
+        ``close=False`` (клавиша остановки) — окно остаётся: игрок нажал
+        «остановить», но может тут же выбрать другой вариант.
+        ``close=True`` (полная остановка, выход) — окно закрывается совсем.
+        ``close=False`` (the stop key) keeps the window: the player asked to stop,
+        but may pick another variant right away. ``close=True`` (a full stop, an
+        exit) closes the window for good.
         """
         window = self._window
-        if window is not None:
+        if window is None:
+            return
+        if close:
             log.info("Выбор анимации: закрыт остановкой")
             window._answer(None)
+            self._close_window()
+            return
+        log.info("Выбор анимации: остановка — окно остаётся")
+        window._answer(None)
 
     def _close_window(self):
         window, self._window = self._window, None

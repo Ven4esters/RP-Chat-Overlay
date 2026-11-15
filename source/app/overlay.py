@@ -738,15 +738,15 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
     # оверлей, и в чат уходит то, что выбрал игрок
     # the variant chooser: a rule with two or more /anim commands opens an
     # overlay, and what the player picked goes into the chat
-    def choose_anim_variant(rule):
-        """Спросить игрока, какой вариант играть / ask the player which to play."""
-        return animchoice.ask(rule)
-
+    # Передаём сам объект выбора, а не обёртку: у него есть `cancel` и
+    # `rule_finished`, которыми очередь закрывает окно и снимает пометки.
+    # The chooser object itself is passed, not a wrapper: it carries `cancel` and
+    # `rule_finished`, which the queue uses to close the window and clear marks.
     runner = anims_mod.Runner(cfg, send=anims_send, on_event=anims_event,
                               equivalent=anim_equivalent,
                               press_key=anims_press_key,
                               text_keys=anim_text_keys,
-                              chooser=choose_anim_variant)
+                              chooser=animchoice.chooser())
     win.anims = runner
     # окно настроек проверяет этим словарём, доходит ли команда до игры
     # the settings window uses this mapping to check whether a command arrives

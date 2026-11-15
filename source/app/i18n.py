@@ -874,8 +874,10 @@ STRINGS = {
     "Какую анимацию вы собираетесь использовать?":
         "Which animation are you going to use?",
     "Без описания": "No description",
-    "1–9 — выбрать · Enter — первый · Esc — ничего":
-        "1–9 — pick · Enter — the first · Esc — nothing",
+    "играет": "playing",
+    "Окно не закроется само: другой вариант можно выбрать в любой момент · Esc — закрыть":
+        "The window will not close on its own: you can pick another variant "
+        "at any time · Esc closes it",
     "Ничего": "Nothing",
     "Ключ «%s» — какую анимацию играть?": "Keyword «%s» — which animation?",
     "Выбор отправится в чат игры как /anim.":

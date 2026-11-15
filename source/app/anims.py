@@ -882,6 +882,13 @@ class Runner:
         self._thread: threading.Thread | None = None
         self._done = threading.Event()
         self._end_at = 0.0                      # конец проигрывания, monotonic
+        # Смена анимации на ходу: окно выбора остаётся открытым, и новый выбор
+        # приходит сюда, а не в очередь.
+        # Swapping the animation on the fly: the chooser stays open, and a new pick
+        # arrives here instead of the queue.
+        self._swap_choice = None                # какой вариант просят играть
+        self._swap_token = 0                    # какой заход правила это застал
+        self._play_token = 0                    # номер текущего захода правила
         self._quiet_off = False                 # про выключенный модуль пишем раз
         self._stop_run = threading.Event()      # прервать текущий цикл / abort the run
         self._current: Rule | None = None
@@ -966,10 +973,11 @@ class Runner:
         play. Only a full stop — ``stop()`` or ``clear()`` — drops it.
         """
         self._reset_pending = True
-        # открытый оверлей выбора закрываем: очередь снимается, окно не должно
-        # висеть поверх игры
-        # an open chooser is closed: the queue is dropped and the window must not
-        # hang above the game
+        # Окно выбора остаётся открытым: игрок нажал «остановить», но выбрать
+        # другой вариант после остановки — обычное дело. Совсем убирает окно
+        # только полная остановка (stop/clear).
+        # The chooser stays open: the player asked to stop, but picking another
+        # variant afterwards is normal. Only a full stop (stop/clear) removes it.
         self._drop_choice_window()
         with self._cv:
             queued = len(self._queue)
@@ -984,7 +992,9 @@ class Runner:
     def stop(self, reason: str = "") -> bool:
         """Прервать текущий цикл и очистить очередь / abort the run and the queue."""
         stopped = bool(self._current) or bool(self._queue)
-        self._drop_choice_window()
+        # полная остановка убирает окно совсем; клавиша остановки его оставляет
+        # a full stop removes the window for good; the stop key keeps it
+        self._drop_choice_window(close=True)
         if reason and reason != "остановлено игроком":
             self._reset_pending = False
         with self._cv:
@@ -1172,17 +1182,23 @@ class Runner:
         self._stop_run.clear()
         with self._lock:
             self._current = rule
+            self._play_token += 1
+            token = self._play_token
+            self._swap_choice = None
         # выбор варианта — до первого /anim: пока игрок думает, в игре ничего
-        # не играет, и очередь стоит
+        # не играет, и очередь стоит. Окно после выбора не закрывается, и выбор
+        # другого варианта меняет анимацию на ходу.
         # the variant is chosen before the first /anim: nothing plays in the game
-        # while the player picks, and the queue waits
-        variant = self._choose(rule)
+        # while the player picks, and the queue waits. The window stays open after
+        # the pick, and picking another variant swaps the animation on the fly.
+        variant = self._choose(rule, token)
         if variant is None:
             # игрок отказался или оверлей не показать: правило пропускаем целиком,
             # иначе в чат уйдёт не то, что он ждал
             # the player backed out or the overlay could not be shown: the whole
             # rule is skipped, otherwise the game plays what he did not pick
             self._end_at = time.monotonic()
+            self._withdraw_choice(token)
             return
         self._emit("playing", variant.label() if rule.needs_choice() else rule.name)
         # время проигрывания считается от отправки `/anim`: сама отправка тоже
@@ -1203,14 +1219,45 @@ class Runner:
             return
         deadline = started + rule.duration_ms / 1000.0
         while True:
-            if self._wait(max(0.0, deadline - time.monotonic())):
-                # анимацию остановили клавишей игрока: гасим её выбранным способом
-                # the player stopped the animation: put it out the chosen way
-                if self._reset_pending:
-                    self._reset_pending = False
-                    self._stop_animation(rule)
-                self._end_at = time.monotonic()
-                return
+            # Смена варианта проверяется ДО решения о конце: за время ожидания
+            # игрок мог нажать другой вариант, и тогда правило не заканчивается,
+            # а играет выбранное — при зацикливании и без него одинаково.
+            # The swap is checked BEFORE deciding the run is over: while waiting the
+            # player may have picked another variant, and then the rule does not
+            # end but plays the pick — with looping and without it alike.
+            swapped = self._take_swap(token)
+            if swapped is not None and swapped.name != variant.name:
+                log.info("Анимации: смена варианта %s -> %s", variant.name,
+                         swapped.name)
+                self._stop_animation(rule)
+                variant = swapped
+                self._emit("playing", variant.label())
+                started = time.monotonic()
+                if not self._send(f"/anim {variant.name}", rule):
+                    self._end_at = started
+                    return
+                if rule.duration_ms <= 0:
+                    self._end_at = started
+                    self._emit("done", variant.name)
+                    return
+                deadline = started + rule.duration_ms / 1000.0
+                continue
+            if time.monotonic() < deadline:
+                # Ждём короткими шагами, чтобы не проспать смену варианта.
+                # Wait in short steps so a variant swap is not slept through.
+                left = deadline - time.monotonic()
+                if self._stop_run.wait(min(left, 0.08)):
+                    # анимацию остановили клавишей игрока: гасим её выбранным
+                    # способом
+                    # the player stopped the animation: put it out the chosen way
+                    if self._reset_pending:
+                        self._reset_pending = False
+                        self._stop_animation(rule)
+                    self._end_at = time.monotonic()
+                    self._withdraw_choice(token)
+                    self._notify_rule_done()
+                    return
+                continue
             if rule.loop:
                 # при зацикливании остановки нет: анимация просто запускается
                 # снова по таймеру, ровно через свою длительность
@@ -1229,10 +1276,12 @@ class Runner:
             # the next animation starts one tail after the END of the play, and
             # the time spent stopping is taken out of that tail
             self._end_at = deadline
+            self._withdraw_choice(token)
+            self._notify_rule_done()
             self._emit("done", variant.name)
             return
 
-    def _choose(self, rule: Rule) -> "Choice | None":
+    def _choose(self, rule: Rule, token: int = 0) -> "Choice | None":
         """Какой вариант играть / which variant to play.
 
         Три случая:
@@ -1264,8 +1313,24 @@ class Runner:
         # выбор блокирует очередь: пока оверлей открыт, следующее правило ждёт
         # the choice blocks the queue: while the overlay is open the next rule
         # waits
+        # Окно выбора не закрывается после ответа: игрок может передумать и
+        # нажать другой вариант, и тогда анимация меняется на ходу.
+        # The chooser does not close after the answer: the player may change his
+        # mind and press another variant, and then the animation swaps on the fly.
+        def on_change(choice):
+            if token and token != self._play_token:
+                return                  # это уже другое срабатывание правила
+                                        # that is a different rule run by now
+            with self._lock:
+                self._swap_choice = choice
+
         try:
-            picked = self.chooser(rule)
+            try:
+                picked = self.chooser(rule, on_change=on_change)
+            except TypeError:
+                # заглушка без второго аргумента — обычная функция
+                # a stub without the second argument is a plain function
+                picked = self.chooser(rule)
         except Exception:
             log.exception("Анимации: выбор варианта не удался")
             return variants[0]
@@ -1277,7 +1342,44 @@ class Runner:
                  picked.label(), picked.name, rule.keywords[:40])
         return picked
 
-    def _drop_choice_window(self) -> None:
+    def _notify_rule_done(self) -> None:
+        """Сказать окну выбора, что правило доиграло.
+
+        Tell the chooser window that the rule has finished.
+
+        Окно остаётся открытым (закрывает его только игрок), но пометку «играет»
+        снимаем: анимация больше не идёт.
+        The window stays open (only the player closes it), but the "playing" mark
+        is cleared: the animation is not running any more.
+        """
+        finished = getattr(self.chooser, "rule_finished", None)
+        if callable(finished):
+            try:
+                finished()
+            except Exception:
+                log.exception("Анимации: не удалось снять пометку в окне выбора")
+
+    def _take_swap(self, token: int) -> "Choice | None":
+        """Забрать запрошенную смену варианта для этого захода правила.
+
+        Take the requested variant swap for this rule run.
+        """
+        with self._lock:
+            if token != self._play_token:
+                return None
+            choice, self._swap_choice = self._swap_choice, None
+            return choice
+
+    def _withdraw_choice(self, token: int) -> None:
+        """Снять подписку на смену варианта: правило доиграло.
+
+        Drop the variant-swap subscription: the rule has finished.
+        """
+        with self._lock:
+            if token == self._play_token:
+                self._swap_choice = None
+
+    def _drop_choice_window(self, close: bool = False) -> None:
         """Закрыть открытый оверлей выбора, если он есть.
 
         Close the open chooser window, if any.
@@ -1291,6 +1393,9 @@ class Runner:
         cancel = getattr(self.chooser, "cancel", None)
         if callable(cancel):
             try:
+                cancel(close=close)
+            except TypeError:
+                # заглушка без параметра / a stub without the parameter
                 cancel()
             except Exception:
                 log.exception("Анимации: не удалось закрыть окно выбора")
