@@ -5,6 +5,28 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
+## 1.10.5 — 15.11.2026
+
+**Исправлено: после Esc во время анимации программа считала её «играющей» и по повторному ключу показывала старое меню.**
+
+### Анимации
+- **Остановка по F или `/sa` больше не оставляет меню «живым».** Раньше выбор
+  варианта продолжал жить в очереди меню даже после остановки анимации. При
+  повторном использовании ключевого слова поднималось то же старое меню — с уже
+  отмеченным вариантом и пометкой «играет», хотя в игре ничего не играло. Теперь
+  остановка снимает меню этого правила, и следующий ключ открывает **свежее**
+  меню без выбора.
+- **Окно после остановки ведёт себя по-человечески.** Если вариант ещё не был
+  выбран — окно убирается (спрашивать некого, а кнопки без действия только
+  путали). Если вариант уже играл — окно остаётся, пометка «играет» гаснет, и
+  выбор другого варианта снова запускает анимацию.
+- **Пометки снимаются только у меню того правила, которое остановили.** Раньше
+  снимались у любого видимого меню: остановка одного правила гасила пометку у
+  другого. Правило, доигравшее само, больше не снимает пометки у чужого меню.
+- **Выбор после остановки больше не пропадает.** Если правило уже не играет —
+  доиграло само, остановлено или очередь ушла дальше — нажатый вариант играет
+  заново, а не теряется молча.
+
 ## 1.10.4 — 15.11.2026
 
 **Исправлено: кнопка «Закрыть» не закрывала окно.**
@@ -738,6 +760,28 @@ English version below: [Changelog (English)](#-changelog-english).
 ---
 
 # 📌 Changelog (English)
+
+## 1.10.5 — 15 Nov 2026
+
+**Fixed: after Esc during an animation the app still believed it was playing and the next keyword showed the old menu.**
+
+### Animations
+- **Stopping with F or `/sa` no longer leaves the menu "live".** A picked variant
+  used to live on in the menu queue even after the animation was stopped. The next
+  hit of the keyword brought back that very menu — with a variant already marked
+  and a "playing" badge, although nothing was playing in the game. A stop now
+  drops that rule's menu, and the next keyword opens a **fresh** menu with nothing
+  picked.
+- **The window behaves sensibly after a stop.** If no variant was picked yet, the
+  window goes away (there is nobody left to ask, and dead buttons only confuse).
+  If a variant was already playing, the window stays, the "playing" badge is
+  cleared, and picking another variant replays the animation.
+- **Marks are cleared only on the menu of the rule that was stopped.** They used to
+  be cleared on whatever menu was visible: stopping one rule blanked another
+  one's badge. A rule that finished by itself no longer clears a foreign menu.
+- **A pick made after a stop is no longer lost.** When the rule is not playing any
+  more — it ended, was stopped, or the queue moved on — the pressed variant
+  replays instead of vanishing silently.
 
 ## 1.10.4 — 15 Nov 2026
 

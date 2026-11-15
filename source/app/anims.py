@@ -994,11 +994,13 @@ class Runner:
         play. Only a full stop — ``stop()`` or ``clear()`` — drops it.
         """
         self._reset_pending = True
-        # Окно выбора остаётся открытым: игрок нажал «остановить», но выбрать
-        # другой вариант после остановки — обычное дело. Совсем убирает окно
-        # только полная остановка (stop/clear).
-        # The chooser stays open: the player asked to stop, but picking another
-        # variant afterwards is normal. Only a full stop (stop/clear) removes it.
+        # Меню остановленного правила больше не живое: следующий тот же ключ
+        # должен открыть свежее меню, а не вернуть старое с отмеченным вариантом.
+        # Само окно остаётся на экране — игрок может выбрать другой вариант.
+        # The stopped rule's menu is no longer live: the next hit of the same
+        # keyword must open a fresh menu, not bring back the old one with a marked
+        # variant. The window itself stays — the player may pick another variant.
+        self._chooser_stopped(self._current)
         self._drop_choice_window()
         with self._cv:
             queued = len(self._queue)
@@ -1276,7 +1278,7 @@ class Runner:
                         self._stop_animation(rule)
                     self._end_at = time.monotonic()
                     self._withdraw_choice(token)
-                    self._notify_rule_done()
+                    self._notify_rule_done(rule)
                     return
                 continue
             if rule.loop:
@@ -1301,7 +1303,7 @@ class Runner:
             # анимацию — тогда она сыграет заново (push_swap)
             # the subscription stays: the menu is still up, and the player may swap
             # the animation — then it plays again (push_swap)
-            self._notify_rule_done()
+            self._notify_rule_done(rule)
             self._emit("done", variant.name)
             return
 
@@ -1342,9 +1344,17 @@ class Runner:
         # The chooser does not close after the answer: the player may change his
         # mind and press another variant, and then the animation swaps on the fly.
         def on_change(choice):
-            if token and token != self._play_token:
-                # правило уже доиграло, а меню ещё открыто: выбор играет заново
-                # the rule has finished but its menu is still up: replay the pick
+            # Правило уже не играет — меню всё ещё открыто, и выбор должен
+            # сыграть заново, а не пропасть. Это бывает в трёх случаях: правило
+            # доиграло само, его остановил игрок (F) или очередь ушла дальше и
+            # текущим стало другое правило.
+            # The rule is not playing any more — the menu is still up and the pick
+            # must replay instead of vanishing. That happens in three cases: the
+            # rule ended by itself, the player stopped it (F), or the queue moved
+            # on and another rule is current now.
+            current = self._current
+            if ((token and token != self._play_token) or current is None
+                    or not _same_rule(current, rule)):
                 self.push_swap(rule, choice)
                 return
             with self._lock:
@@ -1373,7 +1383,7 @@ class Runner:
                  picked.label(), picked.name, rule.keywords[:40])
         return picked
 
-    def _notify_rule_done(self) -> None:
+    def _notify_rule_done(self, rule: "Rule | None" = None) -> None:
         """Сказать окну выбора, что правило доиграло.
 
         Tell the chooser window that the rule has finished.
@@ -1386,7 +1396,11 @@ class Runner:
         finished = getattr(self.chooser, "rule_finished", None)
         if callable(finished):
             try:
-                finished()
+                try:
+                    finished(rule)
+                except TypeError:
+                    # заглушка без параметра / a stub without the parameter
+                    finished()
             except Exception:
                 log.exception("Анимации: не удалось снять пометку в окне выбора")
 
@@ -1444,6 +1458,26 @@ class Runner:
         with self._lock:
             if token == self._play_token:
                 self._swap_choice = None
+
+    def _chooser_stopped(self, rule: "Rule | None" = None) -> None:
+        """Сказать окну выбора, что анимацию остановили.
+
+        Tell the chooser that the animation was stopped.
+
+        Отдельно от ``_notify_rule_done``: там правило доиграло само, а здесь его
+        прервали, и меню по нему отвечать больше не должно.
+        Separate from ``_notify_rule_done``: there the rule ended by itself, while
+        here it was cut short and its menu must not be answered any more.
+        """
+        stopped = getattr(self.chooser, "rule_stopped", None)
+        if callable(stopped):
+            try:
+                stopped(rule)
+            except TypeError:
+                # заглушка без параметра / a stub without the parameter
+                stopped()
+            except Exception:
+                log.exception("Анимации: не удалось снять меню остановленного правила")
 
     def _drop_choice_window(self, close: bool = False) -> None:
         """Закрыть открытый оверлей выбора, если он есть.

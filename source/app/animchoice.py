@@ -611,6 +611,9 @@ class _Menu:
         self.focused = False                # меню подняли повторно
         self.window = None                  # окно, где оно сейчас
         self.settle_timer = None            # пауза перед следующим меню
+        # сейчас ли это меню на экране: по этому признаку снимаются пометки
+        # whether this menu is the one on screen: that decides the marks
+        self.on_screen = False
         self.last_pick_at = 0.0             # когда последний раз выбирали
         self.settle_until = 0.0             # до какого времени ждать паузу
         # чем сыграть выбор, если правило уже доиграло (ставит Runner)
@@ -722,21 +725,85 @@ class Chooser:
         """
         return self.ask(rule, on_change=on_change)
 
-    def rule_finished(self):
-        """Правило доиграло: снять с окна пометки «играет».
+    def rule_finished(self, rule=None):
+        """Правило доиграло или его анимацию остановили: снять «играет».
 
-        The rule has finished: clear the "playing" marks on the window.
-        Снимаем только если в окне сейчас меню этого правила: пометки соседнего
-        меню к нему не относятся.
-        They are cleared only when this rule's menu is on screen: the marks of a
-        neighbouring menu are none of its business.
+        The rule has finished or its animation was stopped: clear "playing".
+
+        Снимаем только у меню ЭТОГО правила: пометки соседнего меню к нему не
+        относятся. Раньше снимались у любого видимого меню — из-за этого
+        останавливал одно правило, а гасла пометка у другого.
+        The marks are cleared only on THIS rule's menu: a neighbouring menu's marks
+        are none of its business. Clearance used to hit whatever menu was visible,
+        so stopping one rule blanked another one's mark.
         """
         window = self._window
-        if window is not None and getattr(window, "entry", None) is not None:
-            try:
-                window.clear_marks()
-            except Exception:
-                log.exception("Выбор анимации: не удалось снять пометки")
+        entry = getattr(window, "entry", None) if window is not None else None
+        if entry is None:
+            return
+        if rule is not None and not entry.matches(rule):
+            return
+        try:
+            window.clear_marks()
+        except Exception:
+            log.exception("Выбор анимации: не удалось снять пометки")
+
+    def rule_stopped(self, rule=None):
+        """Анимацию остановили (F или /sa): меню правила больше не живое.
+
+        The animation was stopped (F or /sa): this rule's menu is no longer live.
+
+        Останавливает игрок — значит и спрашивать по этому правилу больше нечего:
+        меню уходит из очереди, и следующий тот же ключ открывает СВЕЖЕЕ меню, а
+        не возвращает старое с уже отмеченным вариантом. Окно не закрываем: игрок
+        может нажать другой вариант и сыграть заново — но пометку «играет» снимаем,
+        в игре ведь ничего не идёт.
+        The player stopped it, so there is nothing left to ask about this rule: the
+        menu leaves the queue and the next hit of the same keyword opens a FRESH
+        menu instead of bringing back the old one with a variant already marked.
+        The window is not closed: the player may pick another variant and replay —
+        but the "playing" mark is cleared, because nothing is playing any more.
+        """
+        with self._lock:
+            dead = [entry for entry in self._order
+                    if rule is None or entry.matches(rule)]
+            for entry in dead:
+                if entry.settle_timer is not None:
+                    entry.settle_timer.stop()
+                    entry.settle_timer = None
+                if entry in self._menus:
+                    self._menus.remove(entry)
+                if entry in self._order:
+                    self._order.remove(entry)
+                if not entry.picks:
+                    entry.picks.append(None)
+                entry.first.set()
+                entry.finished = True
+                entry.on_screen = False
+        self.open = bool(self._menus)
+        window = self._window
+        entry = getattr(window, "entry", None) if window is not None else None
+        if entry is not None and any(entry is gone for gone in dead):
+            if not entry.picks or entry.picks[-1] is None:
+                # по этому меню ничего не выбрано — спрашивать некого, окно
+                # убираем: иначе на нём остаются кнопки, которые уже ничего не
+                # делают
+                # nothing was picked in this menu, so there is nobody to ask: the
+                # window goes away, otherwise its buttons stay and do nothing
+                if self._bridge is not None:
+                    self._bridge.hide.emit()
+                else:
+                    self._close_window()
+            else:
+                # вариант уже играл — окно оставляем: игрок может выбрать
+                # другой, и он сыграет заново; пометку «играет» снимаем
+                # a variant was already playing — the window stays: the player may
+                # pick another one and it replays; the "playing" mark is cleared
+                try:
+                    window.clear_marks()
+                except Exception:
+                    log.exception("Выбор анимации: не удалось снять пометки")
+        log.info("Выбор анимации: анимацию остановили, меню правила снято")
 
     def _ensure_bridge(self) -> bool:
         """Создать мост и привязать его к главному потоку; False — Qt нет.
@@ -886,6 +953,9 @@ class Chooser:
         window.on_pick = lambda: self._settle(entry)
         self._window = window
         entry.window = window
+        with self._lock:
+            for item in self._order:
+                item.on_screen = item is entry
         window.show()
         window.raise_()
         window.activateWindow()
@@ -1205,6 +1275,24 @@ class Chooser:
         if pending:
             log.info("Выбор анимации: остановка сняла меню без выбора: %d",
                      len(pending))
+            # Окно показывало именно такое меню, и спрашивать больше некого:
+            # убираем его с экрана. Иначе на нём остаются кнопки, которые уже
+            # ничего не делают, — игрок жмёт вариант, а в игру ничего не уходит.
+            # The window was showing exactly such a menu and there is nobody left
+            # to ask: it leaves the screen. Otherwise its buttons stay and do
+            # nothing — the player presses a variant and nothing reaches the game.
+            window = self._window
+            if window is not None and any(window.entry is entry
+                                          for entry in pending):
+                if self._bridge is not None:
+                    self._bridge.hide.emit()
+                else:
+                    self._close_window()
+        # Анимацию остановили — значит «играет» больше не правда, даже если
+        # вариант уже выбран и меню осталось на экране.
+        # The animation was stopped, so "playing" is no longer true, even when a
+        # variant was already picked and the menu stayed on screen.
+        self.rule_finished()
         self.open = bool(self._menus)
         self._bridge.wake.emit() if self._bridge is not None else None
 
