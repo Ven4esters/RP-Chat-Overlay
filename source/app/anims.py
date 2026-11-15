@@ -524,6 +524,12 @@ class Choice:
                    description=str(data.get("description") or "").strip()[:MAX_DESC])
 
 
+def _same_rule(one: "Rule", other: "Rule") -> bool:
+    """Это срабатывания одного правила / do both come from the same rule."""
+    return (getattr(one, "id", None) == getattr(other, "id", None)
+            and one.keywords == other.keywords)
+
+
 @dataclass
 class Rule:
     """Правило анимации / one animation rule."""
@@ -946,6 +952,21 @@ class Runner:
         log.info("Анимации: в очередь %s", " -> ".join("/anim " + rule.name
                                                        for _, _, rule, _ in hits))
         for _, _, rule, _ in hits:
+            # Меню этого правила ещё висит в очереди выбора — возвращаем его,
+            # а не открываем второе такое же: игрок как раз хочет поменять
+            # анимацию по этому ключу.
+            # This rule's menu is still waiting in the choice queue: it is brought
+            # back instead of opening a second one — the player wants to change the
+            # animation for that keyword.
+            focus = getattr(self.chooser, "focus_menu_for", None)
+            if callable(focus) and rule.needs_choice():
+                try:
+                    if focus(rule):
+                        log.info("Анимации: меню «%s» поднято из очереди выбора",
+                                 rule.keywords[:40])
+                        continue
+                except Exception:
+                    log.exception("Анимации: не удалось вернуть меню выбора")
             self._enqueue(rule)
         return [rule for _, _, rule, _ in hits]
 
@@ -1276,7 +1297,10 @@ class Runner:
             # the next animation starts one tail after the END of the play, and
             # the time spent stopping is taken out of that tail
             self._end_at = deadline
-            self._withdraw_choice(token)
+            # подписку не снимаем: меню ещё висит, и игрок может поменять
+            # анимацию — тогда она сыграет заново (push_swap)
+            # the subscription stays: the menu is still up, and the player may swap
+            # the animation — then it plays again (push_swap)
             self._notify_rule_done()
             self._emit("done", variant.name)
             return
@@ -1319,11 +1343,18 @@ class Runner:
         # mind and press another variant, and then the animation swaps on the fly.
         def on_change(choice):
             if token and token != self._play_token:
-                return                  # это уже другое срабатывание правила
-                                        # that is a different rule run by now
+                # правило уже доиграло, а меню ещё открыто: выбор играет заново
+                # the rule has finished but its menu is still up: replay the pick
+                self.push_swap(rule, choice)
+                return
             with self._lock:
                 self._swap_choice = choice
 
+        attach = getattr(self.chooser, "attach", None)
+        if callable(attach):
+            # меню запоминает, чем сыграть выбор после конца правила
+            # the menu remembers what to play a pick with after the rule ends
+            attach(rule, lambda choice: self.push_swap(rule, choice))
         try:
             try:
                 picked = self.chooser(rule, on_change=on_change)
@@ -1358,6 +1389,41 @@ class Runner:
                 finished()
             except Exception:
                 log.exception("Анимации: не удалось снять пометку в окне выбора")
+
+    def push_swap(self, rule, choice) -> bool:
+        """Меню открыто, а его правило уже доиграло: сыграть выбор заново.
+
+        The menu is still open but its rule has finished: play the pick again.
+
+        Иначе выбор по первому ключу пропадал бы, как только доиграет его
+        анимация, — а игрок как раз может вернуться к нему и передумать.
+        ``choice is None`` означает «закрыть»: поставленная в очередь анимация
+        этого правила снимается, если ещё не началась.
+        Otherwise a pick for the first keyword would be lost the moment its
+        animation ends — while the player may well come back and change his mind.
+        ``choice is None`` means "close": a queued animation of that rule is
+        dropped if it has not started yet.
+        """
+        if choice is None:
+            with self._cv:
+                self._queue = deque(item for item in self._queue
+                                    if not _same_rule(item, rule))
+                if self._current is not None and _same_rule(self._current, rule):
+                    self._stop_run.set()
+                self._cv.notify_all()
+            return True
+        with self._cv:
+            self._queue = deque(item for item in self._queue
+                                if not _same_rule(item, rule))
+            copy = Rule.from_dict(rule.to_dict())
+            copy.choices = [choice]
+            copy.name = choice.name
+            self._queue.appendleft(copy)
+            self._ensure_thread()
+            self._cv.notify_all()
+        log.info("Анимации: выбор по «%s» играет заново (%s)",
+                 rule.keywords[:40], choice.name)
+        return True
 
     def _take_swap(self, token: int) -> "Choice | None":
         """Забрать запрошенную смену варианта для этого захода правила.

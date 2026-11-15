@@ -305,8 +305,35 @@ class Overlay(QWidget):
         except Exception:
             log.exception("Не удалось закрыть чат игры")
 
+    def _chooser(self):
+        """Окно выбора анимации, если оно сейчас что-то показывает.
+
+        The animation chooser, when it is showing something.
+        """
+        try:
+            return animchoice.chooser() if animchoice.chooser().busy() else None
+        except Exception:
+            return None
+
     def keyPressEvent(self, e):
         ctrl = bool(e.modifiers() & Qt.KeyboardModifier.ControlModifier)
+        # Окно выбора анимации смотрит в игру, а нажатия идут сюда: без этого
+        # цифры и Esc работали только с мышью, а окно висело само по себе.
+        # The chooser looks into the game while the keys arrive here: without
+        # this the digits and Esc worked only with the mouse, and the window just
+        # hung there.
+        chooser = self._chooser()
+        if chooser is not None:
+            key = e.key()
+            if key == Qt.Key.Key_Escape:
+                chooser.close_window()
+                return
+            if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                chooser.confirm()
+                return
+            if Qt.Key.Key_1 <= key <= Qt.Key.Key_9:
+                if chooser.type_digit(key - Qt.Key.Key_0):
+                    return
         if e.key() == Qt.Key.Key_Escape:
             self.close_overlay()
         elif ctrl and e.nativeVirtualKey() == 0x52:          # Ctrl+R в любой раскладке

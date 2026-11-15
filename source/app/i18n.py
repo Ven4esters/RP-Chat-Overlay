@@ -875,6 +875,8 @@ STRINGS = {
         "Which animation are you going to use?",
     "Без описания": "No description",
     "играет": "playing",
+    "Ещё меню в очереди: %d — после этого.":
+        "Menus still to come: %d, right after this one.",
     "Окно не закроется само: другой вариант можно выбрать в любой момент · Esc — закрыть":
         "The window will not close on its own: you can pick another variant "
         "at any time · Esc closes it",

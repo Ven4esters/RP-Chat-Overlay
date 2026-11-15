@@ -465,6 +465,37 @@ def selftest_anims(cfg: dict) -> None:
     # the swapped-in animation is put out with its own /sa as well
     failed += 0 if commands == ["/anim anim_a", "/sa", "/anim anim_b", "/sa"] else 1
 
+    # два ключа с выбором в одном сообщении: окна не наслаиваются, очередь меню
+    # идёт по одному, а выбор по каждому ключу сохраняется
+    # two chooser keywords in one message: the windows never stack, the menus run
+    # one at a time, and each keyword keeps its own pick
+    print("\n=== Два ключа с выбором в одном сообщении ===")
+    two = [anims.Rule(keywords="оперся", duration_ms=200,
+                      choices=[cl(name="lean_a"), cl(name="lean_b")],
+                      id="r1"),
+           anims.Rule(keywords="сел", duration_ms=200,
+                      choices=[cl(name="sit_a"), cl(name="sit_b")], id="r2")]
+    asked, orders = [], []
+
+    def two_pick(rule, on_change=None):
+        asked.append(rule.keywords)
+        return rule.choices[0]
+
+    sent_two = []
+    runner_two = anims.Runner(
+        {"anims_enabled": True, "anim_extra_ms": 0},
+        send=lambda command: (sent_two.append(command) or (True, "")),
+        on_event=None, chooser=two_pick)
+    runner_two._rules = two
+    runner_two.feed("оперся и сел")
+    time.sleep(0.9)
+    runner_two.shutdown()
+    orders.append(asked)
+    print(f"  спросили по очереди: {asked}")
+    failed += 0 if asked == ["оперся", "сел"] else 1
+    print(f"  сыграло по выбору каждого: {sent_two}")
+    failed += 0 if sent_two[:2] == ["/anim lean_a", "/sa"] else 1
+
     print("\n=== Проверка неверных правил ===")
     for bad in (rule(keywords=""), rule(name=""), rule(name="my anim"),
                 rule(duration_ms=-5), rule(mode=9)):

@@ -47,6 +47,7 @@ mouth.
 from __future__ import annotations
 
 import threading
+import time
 
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from PySide6.QtGui import QGuiApplication
@@ -62,6 +63,14 @@ CHOICE_TIMEOUT_S = 0.0
 # сколько ждать показа окна, прежде чем счесть, что его нет
 # how long to wait for the window to appear before deciding there is none
 SHOW_TIMEOUT_S = 5.0
+
+# сколько ждать ввода, прежде чем показать следующее меню. Игрок уже набирает
+# цифру или тянется мышью, и подменить список под курсором — худшее, что можно
+# сделать: он выберет не то, что хотел.
+# how long to wait for input before showing the next menu. The player may already
+# be typing a digit or reaching for the mouse, and swapping the list under the
+# pointer is the worst thing to do: he would pick something he did not mean.
+SETTLE_S = 0.6
 
 STYLE = """
 #choiceBox { background: rgba(16,16,22,250); border: 1px solid #3a3a4a;
@@ -224,6 +233,14 @@ class ChoiceWindow(QWidget):
                  on_closed=None):
         super().__init__(parent)
         self.done_callback = done_callback
+        # меню, которое сейчас показано: выбор уходит в него, а не в глобальное
+        # состояние — иначе второй ключ в сообщении крал бы ответ первого
+        # the menu on screen: a pick goes into it, not into global state —
+        # otherwise the second keyword in a message would steal the first's answer
+        self.entry = None
+        # кого позвать после выбора: очередь меню решает, показывать ли следующее
+        # who to call after a pick: the menu queue decides whether to move on
+        self.on_pick = None
         # кого известить, когда окно закроют: сам игрок, а не таймер
         # who to tell when the window is closed: the player, not a timer
         self.on_closed = on_closed
@@ -235,6 +252,8 @@ class ChoiceWindow(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setStyleSheet(STYLE)
         self.setWindowTitle(i18n.t("Выбор анимации"))
+        # Esc закрывает окно штатно: closeEvent снимает меню с очереди
+        # Esc closes the window properly: closeEvent takes the menu off the queue
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -423,6 +442,15 @@ class ChoiceWindow(QWidget):
             self.done_callback(choice)
         except Exception:
             log.exception("Выбор анимации: колбэк упал")
+        if choice is not None and self.on_pick is not None:
+            # первый выбор отвечает ожидающей очереди анимаций; каждый выбор
+            # заодно откладывает показ следующего меню — игрок ещё выбирает
+            # the first pick answers the waiting animation queue; every pick also
+            # postpones the next menu — the player is still choosing
+            try:
+                self.on_pick()
+            except Exception:
+                log.exception("Выбор анимации: очередь меню не обновилась")
 
     def keyPressEvent(self, event):
         """Клавиатура: цифры, Enter и Esc / the keyboard: digits, Enter and Esc."""
@@ -482,6 +510,96 @@ class _Bridge(QObject):
     """
 
     show = Signal(object)
+    wake = Signal()          # пересобрать очередь меню / rebuild the menu queue
+    hide = Signal()          # убрать окно / take the window away
+
+
+def _key(rule):
+    """Ключ правила для привязок / the rule's key for links."""
+    return (getattr(rule, "id", None), getattr(rule, "keywords", ""))
+
+
+class _Menu:
+    """Одно меню выбора: правило, варианты и всё, что о нём надо помнить.
+
+    One choice menu: the rule, the variants and everything to remember about it.
+
+    Меню живёт дольше своего окна: пока окно показывает другое меню, это ждёт в
+    очереди и помнит уже сделанный выбор. Поэтому «нажал 2» по первому ключу
+    меняет именно его анимацию, даже если на экране давно другое меню.
+    A menu outlives its window: while the window shows another menu, this one
+    waits in the queue and keeps the pick already made. That is why "pressed 2"
+    for the first keyword changes exactly its animation, even when another menu
+    has long been on screen.
+    """
+
+    def __init__(self, rule, variants, on_change=None):
+        self.rule = rule
+        self.variants = list(variants)
+        self.on_change = on_change
+        self.first = threading.Event()      # первый ответ / the first answer
+        self.shown = threading.Event()      # окно показано / the window is up
+        self.picks = []                     # [(Choice|None)] по порядку
+        self.finished = False               # правило доиграло
+        self.focused = False                # меню подняли повторно
+        self.window = None                  # окно, где оно сейчас
+        self.settle_timer = None            # пауза перед следующим меню
+        self.last_pick_at = 0.0             # когда последний раз выбирали
+        # чем сыграть выбор, если правило уже доиграло (ставит Runner)
+        # what to play the pick with when the rule has already finished (set by
+        # Runner)
+        self.replay = None
+
+    def matches(self, rule) -> bool:
+        """Это меню того же правила / is this the menu of the same rule."""
+        return _key(rule) == _key(self.rule)
+
+    def current_index(self) -> int:
+        """Какой вариант выбран сейчас, -1 если ещё нет.
+
+        Which variant is picked right now, -1 when none is.
+        """
+        if not self.picks or self.picks[-1] is None:
+            return -1
+        last = self.picks[-1]
+        for position, variant in enumerate(self.variants):
+            if variant.name == last.name:
+                return position
+        return -1
+
+    def pick(self, choice):
+        """Игрок выбрал вариант в этом меню (главный поток Qt).
+
+        The player picked a variant in this menu (Qt main thread).
+
+        Первый выбор отвечает ожидающей очереди анимаций, следующие — меняют уже
+        играющую анимацию.
+        The first pick answers the waiting animation queue, the later ones change
+        the animation already playing.
+        """
+        first = not self.picks
+        self.picks.append(choice)
+        self.last_pick_at = time.monotonic()
+        if first:
+            self.first.set()
+        else:
+            change = self.on_change
+            if change is not None:
+                try:
+                    change(choice)
+                except Exception:
+                    log.exception("Выбор анимации: смена варианта не удалась")
+                return
+            # Правило доиграло (или доиграет раньше, чем очередь дойдёт) —
+            # тогда выбор играет заново через `replay`.
+            # The rule has finished (or will before the queue gets to it) — then
+            # the pick plays again through `replay`.
+            replay = self.replay
+            if replay is not None:
+                try:
+                    replay(choice)
+                except Exception:
+                    log.exception("Выбор анимации: повторный запуск не удался")
 
 
 class Chooser:
@@ -508,9 +626,20 @@ class Chooser:
         # смене варианта в `_on_change`.
         # Who waits for the first answer; after it the window lives on its own and
         # reports a variant change through `_on_change`.
-        self._answer = None
-        self._answered = None
-        self._on_change = None
+        # Очередь меню: `_menus` — те, что ждут или показываются, `_order` — все
+        # меню этой сессии, чтобы повторный ключ вернул своё меню, а не открыл
+        # второе такое же.
+        # The menu queue: `_menus` wait or show, `_order` keeps every menu of this
+        # session so a repeated keyword brings back its own menu instead of opening
+        # a second identical one.
+        self._menus = []
+        self._order = []
+        self._timer_parent = None
+        # чем сыграть выбор заново, по правилу: очередь зовёт attach до создания
+        # меню, поэтому привязка живёт здесь
+        # what to replay a pick with, per rule: the queue calls attach before the
+        # menu exists, so the link lives here
+        self._replay_hooks = {}
         self.open = False
 
     def __call__(self, rule, on_change=None):
@@ -529,9 +658,13 @@ class Chooser:
         """Правило доиграло: снять с окна пометки «играет».
 
         The rule has finished: clear the "playing" marks on the window.
+        Снимаем только если в окне сейчас меню этого правила: пометки соседнего
+        меню к нему не относятся.
+        They are cleared only when this rule's menu is on screen: the marks of a
+        neighbouring menu are none of its business.
         """
         window = self._window
-        if window is not None:
+        if window is not None and getattr(window, "entry", None) is not None:
             try:
                 window.clear_marks()
             except Exception:
@@ -560,6 +693,14 @@ class Chooser:
         self._bridge = _Bridge()
         self._bridge.moveToThread(application.thread())
         self._bridge.show.connect(self._show, Qt.ConnectionType.QueuedConnection)
+        # Очередь меню живёт в главном потоке: будить её сигналом обязательно,
+        # иначе окно не появится, а ожидание в `ask` упрётся в SHOW_TIMEOUT_S.
+        # The menu queue lives on the main thread: it must be woken by a signal,
+        # otherwise no window appears and `ask` waits out SHOW_TIMEOUT_S.
+        self._bridge.wake.connect(self._render,
+                                  Qt.ConnectionType.QueuedConnection)
+        self._bridge.hide.connect(self._close_window,
+                                  Qt.ConnectionType.QueuedConnection)
         return True
 
     def ask(self, rule, on_change=None) -> "object | None":
@@ -570,6 +711,22 @@ class Chooser:
 
         ``on_change`` зовётся на каждый следующий выбор, пока окно открыто:
         игрок меняет анимацию, не закрывая окно.
+
+        В одном сообщении может сработать несколько ключей с выбором. Тогда окна
+        не наслаиваются: у программы одно окно, а меню ждут своей очереди в
+        ``self._menus``. Пока игрок не выбрал по текущему меню, следующее не
+        открывается, поэтому «нажал 2» всегда попадает туда, что он видит.
+        Several keywords with a choice may fire in one message. The windows never
+        stack: the program has one window, and the menus wait their turn in
+        ``self._menus``. The next one does not open until the player has picked in
+        the current one, so "pressed 2" always lands where he is looking.
+
+        Пока меню ждёт в очереди, оно помнит уже сделанный по нему выбор: если
+        игрок вернётся к первому ключу и нажмёт другой вариант, заменится именно
+        та анимация, а не последняя.
+        While a menu waits in the queue it keeps the pick already made through it:
+        when the player returns to the first keyword and presses another variant,
+        that is the animation which changes, not the last one.
         Called from the animation queue thread and blocks until the first answer
         or the window's close. Returns the chosen ``Choice`` or None.
         ``on_change`` is called on every later pick while the window is open: the
@@ -579,102 +736,318 @@ class Chooser:
         if not variants:
             return None
         with self._lock:
-            if not self._ensure_bridge():
+            if not self._ensure_bridge() and self._bridge is None:
                 log.warning("Выбор анимации: Qt не запущен — спросить некого")
                 return None
-            answer: dict[str, object] = {}
-            answered = threading.Event()
-            shown = threading.Event()
-            self._answer = answer
-            self._answered = answered
-
-            def done(choice):
-                """Первый выбор — ответ очереди, следующие — смена анимации.
-
-                The first pick answers the queue, the later ones change the
-                animation.
-
-                Окно после выбора не закрывается, поэтому сюда приходит и второй,
-                и третий выбор: первый раз игрок отвечает «какую играть», а
-                потом просто меняет её на другую.
-                The window does not close after a pick, so the second and third
-                picks arrive here too: the first time the player answers "which
-                one", after that he just swaps it for another.
-                """
-                first = not answered.is_set()
-                answer["choice"] = choice
-                answered.set()
-                if choice is None:
-                    # окно закрыли, ничего не выбрав — правило пропускается
-                    # the window was closed with nothing picked — skip the rule
-                    # окно закрыто игроком: ссылка уже сброшена в `_forget`
-                    # the window was closed by the player: the reference is gone
-                    self.open = False
-                    return
-                self.open = True
-                if first:
-                    # очередь сама заберёт ответ из `answer`
-                    # the queue takes the answer from `answer` itself
-                    return
-                if on_change is None:
-                    return
-                try:
-                    on_change(choice)
-                except Exception:
-                    log.exception("Выбор анимации: смена варианта не удалась")
-
-            payload = {"rule": rule, "variants": variants, "done": done,
-                       "shown": shown}
-            self._bridge.show.emit(payload)
-            # Сначала ждём появления окна, потом самого выбора: это два разных
-            # события, и путать их нельзя — иначе ответ вернулся бы сразу, ещё
-            # до того, как игрок что-то нажал.
-            # The window appearing and the answer arriving are two different
-            # events and must not be mixed up: otherwise the answer would come
-            # back at once, before the player pressed anything.
-            if not shown.wait(SHOW_TIMEOUT_S):
-                log.warning("Выбор анимации: окно не показалось за %d с",
+        entry = _Menu(rule, variants, on_change)
+        with self._lock:
+            entry.replay = self._replay_hooks.get(_key(rule))
+        # вход в очередь: сразу поднимаем мост, чтобы окно показалось сразу,
+        # если очереди нет
+        # joining the queue: the bridge is raised at once so the window appears
+        # immediately when nothing else is open
+        with self._lock:
+            self._menus.append(entry)
+            self._order.append(entry)
+        self._bridge.wake.emit()
+        # Сначала ждём появления: это отдельное событие от ответа, иначе ответ
+        # вернулся бы мгновенно, ещё до нажатия.
+        # The appearance is a separate event from the answer, otherwise the answer
+        # would come back at once, before anything was pressed.
+        if not entry.shown.wait(SHOW_TIMEOUT_S):
+            log.warning("Выбор анимации: окно не показалось за %d с",
                             int(SHOW_TIMEOUT_S))
-                return None
-            # Без таймаута: очередь стоит, пока игрок не выберет или не закроет
-            # окно. Сколько смотреть варианты — решает он сам.
-            # No timeout: the queue waits until the player picks or closes the
-            # window. How long to read the variants is his call.
-            if self.timeout_s:
-                answered.wait(self.timeout_s)
-            else:
-                answered.wait()
-            return answer.get("choice")
+            with self._lock:
+                if entry in self._menus:
+                    self._menus.remove(entry)
+                if entry in self._order:
+                    self._order.remove(entry)
+            return None
+        if self.timeout_s:
+            entry.first.wait(self.timeout_s)
+        else:
+            entry.first.wait()
+        return entry.picks[0] if entry.picks else None
 
     # --- главный поток ---
     def _show(self, payload):
-        """Показать окно выбора (главный поток Qt) / show the chooser (Qt main)."""
-        rule = payload["rule"]
-        variants = payload["variants"]
-        done = payload["done"]
+        """Показать окно с меню (главный поток Qt).
+
+        Show the window with a menu (Qt main thread).
+        """
         self._close_window()
-        # Ключи в заголовке не перечисляем: их бывает три-четыре, и заголовок
-        # растягивался на три строки, отжимая сам список. Достаточно вопроса.
-        # The keywords are not listed in the title: there may be three or four,
-        # and the title grew to three lines and squeezed the list itself. The
-        # question alone is enough.
-        window = ChoiceWindow(i18n.t("Какую анимацию вы собираетесь использовать?"),
-                              i18n.t("Выбор отправится в чат игры как /anim."),
-                              variants, done,
-                              on_closed=lambda: self._forget(window))
+        self._render()
+
+    def _render(self):
+        """Показать меню, до которого дошла очередь (главный поток Qt).
+
+        Show the menu whose turn it is (Qt main thread).
+
+        Одно окно переиспользуется: при переходе к следующему меню меняется
+        только содержимое. Так игрок не видит, как окно мигает и прыгает.
+        One window is reused: moving to the next menu only swaps the contents, so
+        the player never sees the window blink and jump.
+        """
+        with self._lock:
+            entry = self._menus[0] if self._menus else None
+            waiting = len(self._menus) - 1 if entry is not None else 0
+        if entry is None:
+            self._close_window()
+            return
+        if self._window is not None and self._window.entry is entry:
+            return
+        self._close_window()
+        subtitle = i18n.t("Выбор отправится в чат игры как /anim.")
+        if waiting > 0:
+            subtitle += " " + i18n.tf(
+                "Ещё меню в очереди: %d — после этого.", waiting)
+        window = ChoiceWindow(i18n.t("Какую анимацию вы собираетесь "
+                                     "использовать?"),
+                              subtitle, entry.variants,
+                              entry.pick,
+                              on_closed=lambda: self._window_closed(entry))
+        window.entry = entry
+        window.on_pick = lambda: self._settle(entry)
         self._window = window
+        entry.window = window
         window.show()
         window.raise_()
         window.activateWindow()
-        if window.buttons:
-            window.buttons[0].setFocus()
-        payload["shown"].set()
+        # останавливаемся на уже выбранном варианте: игрок мог вернуться к этому
+        # ключу, чтобы поменять анимацию
+        # the focus lands on the variant already picked: the player may have come
+        # back to this keyword to change the animation
+        index = entry.current_index()
+        if 0 <= index < len(window.buttons):
+            window.buttons[index].setFocus()
+        if index >= 0:
+            window._mark_chosen(index)
+        entry.shown.set()
 
-    def _forget(self, window):
-        """Забыть закрытое окно / forget the closed window."""
-        if self._window is window:
+    def _window_closed(self, entry):
+        """Окно закрыл игрок: меню снято с очереди.
+
+        The player closed the window: the menu leaves the queue.
+
+        Всё, что не выбрано, — не играет: и текущее меню, и те, что ждали. Но
+        уже сыгранные и выбранные варианты остаются: закрытие окна не отменяет
+        то, что игрок выбрал раньше.
+        Whatever is unpicked does not play: the current menu and the ones waiting.
+        What was already picked stays: closing the window does not undo the
+        player's earlier choices.
+        """
+        with self._lock:
+            was_first = bool(self._menus) and self._menus[0] is entry
+            if entry in self._menus:
+                self._menus.remove(entry)
+            if entry in self._order:
+                self._order.remove(entry)
+        if self._window is not None and self._window.entry is entry:
             self._window = None
-            self.open = False
+        if not entry.picks:
+            entry.picks.append(None)
+            # ничего не выбрано, и анимацию этого правила запускать незачем
+            # nothing was picked, and this rule's animation need not start
+            self._tell_replay(entry, None)
+        entry.first.set()
+        entry.finished = True
+        self.open = bool(self._menus)
+        log.info("Выбор анимации: окно закрыто игроком, в очереди меню: %d",
+                 len(self._menus))
+        if was_first:
+            QTimer.singleShot(int(SETTLE_S * 1000), self._bridge.wake.emit)
+
+    @staticmethod
+    def _tell_replay(entry, choice):
+        """Сказать очереди анимаций «сыграть заново» или «снять».
+
+        Tell the animation queue to replay or to drop.
+        """
+        replay = entry.replay
+        if replay is None:
+            return
+        try:
+            replay(choice)
+        except Exception:
+            log.exception("Выбор анимации: очередь анимаций не ответила")
+
+    def _settle(self, entry) -> None:
+        """Ответ по меню получен: решить, показывать ли следующее.
+
+        An answer for the menu has arrived: decide whether to move on.
+
+        Следующее меню показывается не сразу, а через ``SETTLE_S``: игрок может
+        набирать цифру или уже вести мышь к другой строке. Если он нажмёт цифру
+        ещё раз, ожидание сбрасывается и показ откладывается — значит, он ещё
+        разбирается с этим меню, а не ждёт следующего.
+        The next menu is shown after ``SETTLE_S`` rather than at once: the player
+        may be typing a digit or already moving the pointer to another row. If he
+        presses another digit, the wait is reset and the display postponed — he is
+        still busy with this menu, not waiting for the next one.
+        """
+        if entry.settle_timer is not None:
+            entry.settle_timer.stop()
+        # Таймеру нужен родитель из главного потока: сам Chooser живёт и в
+        # рабочем потоке, поэтому родитель — маленький объект, созданный в
+        # главном.
+        # The timer needs a parent from the main thread: Chooser itself lives on
+        # the worker thread too, so the parent is a small object made on main.
+        if self._timer_parent is None:
+            self._timer_parent = QObject()
+        timer = QTimer(self._timer_parent)
+        timer.setSingleShot(True)
+        timer.timeout.connect(lambda: self._advance(entry, timer))
+        entry.settle_timer = timer
+        timer.start(int(SETTLE_S * 1000))
+
+    def _advance(self, entry, timer):
+        """Пора показать следующее меню / time to show the next menu.
+
+        Пауза соблюдается не формально: если игрок только что нажал другую
+        цифру, показ откладывается ещё раз. Он ещё выбирает — подменять список
+        под его рукой нельзя.
+        The pause is not merely nominal: if the player pressed another digit just
+        now, the display is postponed again. He is still choosing, and swapping the
+        list under his hand is not allowed.
+        """
+        if entry.settle_timer is timer:
+            entry.settle_timer = None
+        left = SETTLE_S - (time.monotonic() - entry.last_pick_at)
+        if left > 0.05 and entry in self._menus:
+            again = QTimer(self._timer_parent)
+            again.setSingleShot(True)
+            again.timeout.connect(lambda: self._advance(entry, again))
+            entry.settle_timer = again
+            again.start(int(left * 1000))
+            return
+        with self._lock:
+            others = [item for item in self._menus if item is not entry]
+            if not others:
+                # Меню последнее: окно остаётся, чтобы можно было передумать и
+                # выбрать другой вариант, а не искать окно заново.
+                # It is the last menu: the window stays, so the player can change
+                # his mind and pick another variant instead of calling it up again.
+                return
+            if entry in self._menus:
+                self._menus.remove(entry)
+        self._render()
+
+    def select(self, index: int = 0) -> bool:
+        """Ответить по открытому меню (цифры, Enter).
+
+        Answer the open menu (digits, Enter).
+        Отвечаем именно по тому меню, которое игрок видит.
+        The answer goes to the menu the player is looking at.
+        """
+        window = self._window
+        if window is None:
+            return False
+        window._choose(index)
+        return True
+
+    def type_digit(self, digit: int) -> bool:
+        """Нажата цифра в игре: ответить по видимому меню.
+
+        A digit was pressed in the game: answer the menu on screen.
+        ``digit`` — 1..9, как в окне / ``digit`` is 1..9, as in the window.
+        """
+        if self._window is None:
+            return False
+        return self.select(digit - 1)
+
+    def confirm(self) -> bool:
+        """Enter в игре: первый вариант видимого меню.
+
+        Enter in the game: the first variant of the menu on screen.
+        """
+        if self._window is None:
+            return False
+        return self.select(0)
+
+    def close_window(self) -> bool:
+        """Esc в игре: закрыть окно выбора / Esc in the game: close the chooser."""
+        window = self._window
+        if window is None:
+            return False
+        window.close()
+        return True
+
+    def busy(self) -> bool:
+        """Окно выбора что-то показывает / the chooser is showing something."""
+        return self._window is not None
+
+    def attach(self, rule, replay) -> bool:
+        """Связать меню правила с очередью анимаций / link a rule menu to the queue.
+
+        ``replay(choice)`` вызывается, когда правило уже доиграло, а игрок
+        выбрал по его меню: выбор играет заново. ``replay(None)`` снимает
+        поставленное в очередь.
+        ``replay(choice)`` is called when the rule has already finished and the
+        player picks in its menu: the pick plays again. ``replay(None)`` drops
+        what was queued.
+        """
+        with self._lock:
+            for entry in reversed(self._order):
+                if entry.matches(rule):
+                    entry.replay = replay
+                    self._replay_hooks[_key(rule)] = replay
+                    return True
+            # меню ещё не создано: очередь зовёт attach раньше, чем ask заводит
+            # меню, и без этого выбор по «старому» ключу не сыграл бы заново
+            # the menu does not exist yet: the queue calls attach before ask makes
+            # it, and without this a pick for an "old" keyword would not replay
+            self._replay_hooks[_key(rule)] = replay
+        return False
+
+    def focus_menu_for(self, rule) -> bool:
+        """Вернуть окно к меню этого правила / bring the menu of this rule back.
+
+        Нужна, когда игрок снова написал ключ, меню которого ещё ждёт в очереди:
+        лучше вернуть его меню с уже выбранным вариантом, чем открыть второе
+        такое же.
+        Needed when the player writes a keyword again while its menu is still
+        waiting: better to bring that menu back, with its pick, than to open a
+        second one like it.
+        """
+        with self._lock:
+            entry = None
+            for candidate in reversed(self._order):
+                if not candidate.finished and candidate.matches(rule):
+                    entry = candidate
+                    break
+            if entry is None:
+                return False
+            # Меню могло уже уйти с экрана, когда доиграло правило. Возвращаем его
+            # в начало очереди: игрок думает именно о нём.
+            # The menu may have left the screen when its rule finished. It goes
+            # back to the front of the queue: that is the one on his mind.
+            if entry in self._menus:
+                self._menus.remove(entry)
+            self._menus.insert(0, entry)
+            entry.focused = True
+            entry.shown.set()
+        self._bridge.wake.emit()
+        return True
+
+    def close_all(self):
+        """Закрыть окно и снять очередь меню (полная остановка, выход).
+
+        Close the window and drop the menu queue (a full stop, an exit).
+        """
+        with self._lock:
+            entries = list(self._menus)
+            self._menus.clear()
+            self._order.clear()
+        for entry in entries:
+            if entry.settle_timer is not None:
+                entry.settle_timer.stop()
+                entry.settle_timer = None
+            if not entry.picks:
+                entry.picks.append(None)
+            entry.first.set()
+            entry.finished = True
+        self._bridge.hide.emit() if self._bridge is not None else None
+        self.open = False
 
     def cancel(self, close: bool = False):
         """Отпустить ожидающую очередь, ничего не выбрав.
@@ -683,21 +1056,37 @@ class Chooser:
 
         ``close=False`` (клавиша остановки) — окно остаётся: игрок нажал
         «остановить», но может тут же выбрать другой вариант.
-        ``close=True`` (полная остановка, выход) — окно закрывается совсем.
+        ``close=True`` (полная остановка, выход) — окно и вся очередь меню
+        закрываются совсем.
         ``close=False`` (the stop key) keeps the window: the player asked to stop,
         but may pick another variant right away. ``close=True`` (a full stop, an
-        exit) closes the window for good.
+        exit) closes the window and the whole menu queue for good.
         """
-        window = self._window
-        if window is None:
-            return
         if close:
             log.info("Выбор анимации: закрыт остановкой")
-            window._answer(None)
-            self._close_window()
+            self.close_all()
             return
-        log.info("Выбор анимации: остановка — окно остаётся")
-        window._answer(None)
+        # остановка снимает меню, по которому ещё ничего не выбрано: анимация
+        # остановлена, и спрашивать «какую играть» уже поздно
+        # a stop drops the menus nothing was picked in yet: the animation was
+        # stopped, and asking "which one" is too late
+        with self._lock:
+            pending = [entry for entry in self._menus if not entry.picks]
+            for entry in pending:
+                if entry.settle_timer is not None:
+                    entry.settle_timer.stop()
+                    entry.settle_timer = None
+                entry.picks.append(None)
+                entry.first.set()
+                entry.finished = True
+                self._menus.remove(entry)
+                if entry in self._order:
+                    self._order.remove(entry)
+        if pending:
+            log.info("Выбор анимации: остановка сняла меню без выбора: %d",
+                     len(pending))
+        self.open = bool(self._menus)
+        self._bridge.wake.emit() if self._bridge is not None else None
 
     def _close_window(self):
         window, self._window = self._window, None

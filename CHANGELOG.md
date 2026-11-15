@@ -5,6 +5,26 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
+## 1.10.2 — 15.11.2026
+
+**Два ключа с выбором в одном сообщении: окна не наслаиваются.**
+
+### Анимации
+- **Окно выбора одно на программу.** Раньше каждое новое срабатывание заменяло
+  окно предыдущего, и выбор по первому ключу терялся. Теперь меню стоят в
+  очереди: спрашивают по одному, в подзаголовке видно «Ещё меню в очереди: N».
+  Следующее показывается через полсекунды после выбора (и пауза начинается заново,
+  если нажать ещё цифру) — иначе случайное нажатие попало бы в другое меню.
+- **Выбор сохраняется по каждому ключу.** Меню помнит свой вариант, даже когда его
+  сменило другое. Написали первый ключ снова — вернулось его меню с отмеченным
+  вариантом, и другой вариант меняет именно его анимацию.
+- **Esc закрывает окно и снимает все невыбранные меню.** Уже выбранное и
+  сыгранное остаётся.
+- Клавиши в игре: цифры 1–9 и Enter отвечают по видимому меню даже без мыши
+  (окно не забирает фокус у игры), Esc закрывает окно выбора, а не чат игры.
+- Клавиша остановки снимает меню, по которым ещё ничего не выбрано; выбор,
+  уже сделанный в меню, она не отменяет.
+
 ## 1.10.1 — 15.11.2026
 
 **Один ключ — несколько анимаций: в игре появляется выбор. И перетаскивание починено.**
@@ -682,6 +702,29 @@ English version below: [Changelog (English)](#-changelog-english).
 ---
 
 # 📌 Changelog (English)
+
+## 1.10.2 — 15 Nov 2026
+
+**Two chooser keywords in one message: the windows never stack.**
+
+### Animations
+- **One chooser window per program.** Every new hit used to replace the previous
+  window, and the pick for the first keyword was lost. The menus now queue up:
+  they are asked one at a time, and the subtitle shows "Menus still to come: N".
+  The next one appears half a second after a pick (and the pause restarts if
+  another digit is pressed) — otherwise a stray keypress would land in a
+  different menu.
+- **Every keyword keeps its own pick.** A menu remembers its variant even after
+  another menu took the window. Write the first keyword again and its menu comes
+  back with the variant marked, and picking another one changes exactly that
+  animation.
+- **Esc closes the window and drops every unpicked menu.** What was already
+  picked and played stays.
+- Keys in the game: 1–9 and Enter answer the visible menu even without the mouse
+  (the window does not steal the focus), and Esc closes the chooser rather than
+  the game chat.
+- The stop key drops menus nothing was picked in; a pick already made in a menu
+  is not undone.
 
 ## 1.10.1 — 15 Nov 2026
 
