@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="64" viewBox="0 0 480 64" font-family="DejaVu Sans, Segoe UI, Roboto, Arial, sans-serif"><defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#0e1017"/><stop offset="0.55" stop-color="#151824"/>
+    <stop offset="1" stop-color="#0f1319"/></linearGradient>
+  <linearGradient id="logo" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#3d6fd8"/><stop offset="1" stop-color="#57c98a"/></linearGradient>
+  <linearGradient id="green" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#2fa364"/><stop offset="1" stop-color="#6fdd9b"/></linearGradient>
+  <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#3d6fd8"/><stop offset="1" stop-color="#57c98a"/></linearGradient>
+  <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
+    <path d="M30 0H0V30" fill="none" stroke="#ffffff" stroke-opacity="0.035"/></pattern>
+</defs><rect x="3" y="3" width="474" height="58" rx="12" fill="#171b24" stroke="#3d6fd8" stroke-width="2"/><text x="34" y="40" font-size="18" font-weight="bold" fill="#3d6fd8" text-anchor="middle">{ }</text><text x="62" y="30" font-size="17" font-weight="bold" fill="#f2f4f8">ИСХОДНИКИ НА GITHUB</text><text x="64" y="50" font-size="12" fill="#78829a">папка source · Python 3.12 + PySide6</text></svg>

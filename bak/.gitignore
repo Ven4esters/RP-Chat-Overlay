@@ -1,0 +1,20 @@
+# ---- служебное и пользовательские данные ----
+source/data/
+source/logs/
+source/build/
+source/.venv/
+source/.build-venv/
+source/runtime/
+source/__pycache__/
+source/**/__pycache__/
+*.pyc
+dist/data/
+dist/logs/
+
+# ---- собранный exe ----
+# ВАЖНО: GitHub не принимает файлы больше 25 МБ через веб-загрузку,
+# а лимит на файл в репозитории — 100 МБ. Exe весит 60-90 МБ, поэтому:
+#   * или выкладывайте его в Releases (лимит 2 ГБ) — самый простой путь;
+#   * или раскомментируйте строку ниже и коммитьте через Git LFS
+#     (см. .gitattributes) — тогда exe будет храниться прямо в dist/.
+# dist/RPChatOverlay.exe
