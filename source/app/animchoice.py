@@ -97,6 +97,14 @@ QLabel#choiceDesc { color: #b9b9c8; font-size: 12px; }
 QLabel#choiceNoDesc { color: #6a6a78; font-size: 12px; font-style: italic; }
 QLabel#choiceName { color: #7b88b8; font-size: 11px; }
 
+/* заголовок группы вариантов и черта между группами
+   a variants group title and the rule between groups */
+QLabel#choiceGroup {
+    color: #9fb0ff; font-size: 11px; font-weight: 700; padding-top: 4px;
+}
+QFrame#choiceSep { background: #3a3a4c; border: none;
+                   min-height: 1px; max-height: 1px; }
+
 QPushButton#choiceCancel {
     background: #24242e; border: 1px solid #3a3a46; border-radius: 6px;
     padding: 7px 16px; color: #c8c8d2; font-size: 12px;
@@ -292,8 +300,28 @@ class ChoiceWindow(QWidget):
         holder_lay.setContentsMargins(0, 0, 0, 0)
         holder_lay.setSpacing(6)
         self.buttons = []
+        # Группы: варианты одной группы идут подряд под её названием, разные
+        # группы разделены чертой. Одного названия мало — подпись без черты
+        # читается как ещё один вариант, и список сливается в кашу.
+        # Groups: the variants of one group sit together under its title and
+        # different groups are separated by a rule. A bare heading is not enough —
+        # without the rule it reads as just another variant and the list blurs.
+        self._groups = []          # (название, [карточки]) / (title, [cards])
+        previous = None
         for index, choice in enumerate(self._variants):
-            holder_lay.addWidget(self._item(index, choice))
+            group = (choice.group or "").strip()
+            if index == 0 or group != previous:
+                if index > 0:
+                    holder_lay.addWidget(self._separator())
+                if group:
+                    holder_lay.addWidget(self._group_head(group))
+                    self._groups.append((group, []))
+                else:
+                    self._groups.append(("", []))
+            card = self._item(index, choice)
+            holder_lay.addWidget(card)
+            self._groups[-1][1].append(card)
+            previous = group
         holder_lay.addStretch(1)
         scroll.setWidget(holder)
         # хотя бы пара вариантов должна быть видна, даже на тесном экране:
@@ -334,6 +362,32 @@ class ChoiceWindow(QWidget):
         self._lay = lay
 
         self._fit()
+
+    @staticmethod
+    def _group_head(title: str) -> QWidget:
+        """Название группы над её вариантами / the group title above its variants."""
+        label = QLabel(title.upper())
+        label.setObjectName("choiceGroup")
+        label.setWordWrap(True)
+        return label
+
+    @staticmethod
+    def _separator() -> QWidget:
+        """Черта между группами / the rule between groups.
+
+        Именно ``QFrame``, а не голый ``QWidget``: у обычного виджета фон из
+        таблицы стилей не рисуется без WA_StyledBackground, и черта просто
+        исчезла бы — разделения групп не было бы видно.
+        A ``QFrame`` and not a bare ``QWidget``: a plain widget does not paint a
+        stylesheet background without WA_StyledBackground, and the rule would
+        simply vanish — the group split would be invisible.
+        """
+        line = QFrame()
+        line.setObjectName("choiceSep")
+        line.setFrameShape(QFrame.Shape.NoFrame)
+        line.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        line.setFixedHeight(1)
+        return line
 
     def _item(self, index, choice) -> QWidget:
         """Карточка одного варианта / one variant card."""
@@ -586,6 +640,34 @@ def _key(rule):
     return (getattr(rule, "id", None), getattr(rule, "keywords", ""))
 
 
+def _grouped_order(variants) -> list:
+    """Разложить варианты по группам, сохранив порядок внутри группы.
+
+    Lay the variants out by group, keeping the order inside each group.
+
+    Группы идут в порядке первого появления, варианты без группы — как были.
+    Без этого одинаковые названия групп повторялись бы в списке, если в таблице
+    строки одной группы стоят вразбивку: «А, Б, А» вместо «А, А, Б». Сортировка
+    устойчивая — внутри группы ничего не переставляется.
+    Groups follow their first appearance and ungrouped variants stay where they
+    were. Without it the same group name would repeat in the list whenever the
+    table has that group's rows split apart: "A, B, A" instead of "A, A, B". The
+    sort is stable — nothing is reordered inside a group.
+    """
+    order = []
+    buckets = {}
+    for variant in variants:
+        group = (getattr(variant, "group", "") or "").strip()
+        if group not in buckets:
+            buckets[group] = []
+            order.append(group)
+        buckets[group].append(variant)
+    out = []
+    for group in order:
+        out.extend(buckets[group])
+    return out
+
+
 class _Menu:
     """Одно меню выбора: правило, варианты и всё, что о нём надо помнить.
 
@@ -602,7 +684,7 @@ class _Menu:
 
     def __init__(self, rule, variants, on_change=None):
         self.rule = rule
-        self.variants = list(variants)
+        self.variants = _grouped_order(variants)
         self.on_change = on_change
         self.first = threading.Event()      # первый ответ / the first answer
         self.shown = threading.Event()      # окно показано / the window is up

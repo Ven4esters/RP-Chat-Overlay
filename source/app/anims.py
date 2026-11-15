@@ -163,6 +163,7 @@ _WORD_RE = re.compile(r"[^\W\d_]+(?:[-'’][^\W\d_]+)*", re.UNICODE)   # сло�
 MAX_CHOICES = 12          # больше вариантов в оверлее не поместится / the chooser fits no more
 MAX_TITLE = 60            # длина названия варианта / the variant title length
 MAX_DESC = 300            # длина описания варианта / the variant description length
+MAX_GROUP = 40            # длина названия группы / the group title length
 
 VAL_EMPTY_KEYWORD = "ключевое слово не задано"
 VAL_EMPTY_NAME = "название анимации не задано"
@@ -477,6 +478,11 @@ class Choice:
     name: str = ""          # имя для /anim / the /anim name
     title: str = ""         # как назвать игроку / the name shown to the player
     description: str = ""   # объяснение в оверлее выбора / the chooser description
+    # Группа в меню выбора: варианты одной группы идут подряд под её названием,
+    # разные группы разделены чертой. Пусто — вариант без группы.
+    # The group in the chooser: variants of one group sit together under its
+    # title, and different groups are separated by a rule. Empty means no group.
+    group: str = ""
 
     def label(self) -> str:
         """Как вариант подписан: название, а без него — имя команды.
@@ -499,6 +505,8 @@ class Choice:
             data["title"] = self.title.strip()[:MAX_TITLE]
         if (self.description or "").strip():
             data["description"] = self.description.strip()[:MAX_DESC]
+        if (self.group or "").strip():
+            data["group"] = self.group.strip()[:MAX_GROUP]
         return data
 
     @classmethod
@@ -521,7 +529,8 @@ class Choice:
             return None
         return cls(name=name,
                    title=str(data.get("title") or "").strip()[:MAX_TITLE],
-                   description=str(data.get("description") or "").strip()[:MAX_DESC])
+                   description=str(data.get("description") or "").strip()[:MAX_DESC],
+                   group=str(data.get("group") or "").strip()[:MAX_GROUP])
 
 
 def _same_rule(one: "Rule", other: "Rule") -> bool:

@@ -869,6 +869,21 @@ STRINGS = {
         "two or more variants the game opens a chooser, and the player sees the "
         "title and description instead of the command name. One variant is an "
         "ordinary rule and plays at once.",
+    "Группа": "Group",
+    "Группа…": "Group…",
+    "Группа вариантов": "Variant group",
+    "Дать выбранным вариантам общее название группы — в оверлее они встанут "
+    "подряд под ним и будут отделены чертой от других групп.":
+        "Give the selected variants a common group title — in the chooser they "
+        "will sit together under it, separated from other groups by a rule.",
+    "Название группы для строк: %d. Пустое поле — убрать группу.":
+        "Group title for %d row(s). An empty field removes the group.",
+    "Группа необязательна: впишите одинаковое название у нескольких вариантов — "
+    "в оверлее они встанут подряд под этим названием, а разные группы будут "
+    "разделены чертой.":
+        "The group is optional: give several variants the same title and in the "
+        "chooser they will sit together under it, while different groups are "
+        "separated by a rule.",
     "Выбор анимации": "Animation choice",
     "Какую анимацию играть?": "Which animation should play?",
     "Какую анимацию вы собираетесь использовать?":

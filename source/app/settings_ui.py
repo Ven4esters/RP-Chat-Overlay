@@ -31,7 +31,8 @@ import urllib.parse
 
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox,
                                QDialog, QFileDialog, QFormLayout, QFrame, QHBoxLayout,
-                               QHeaderView, QLabel, QLineEdit, QListWidget,
+                               QHeaderView, QInputDialog, QLabel, QLineEdit,
+                               QListWidget,
                                QListWidgetItem, QMenu, QMessageBox, QPushButton,
                                QScrollArea, QSizePolicy, QSpinBox, QStackedWidget,
                                QTableWidget, QTableWidgetItem, QToolButton,
@@ -2917,6 +2918,8 @@ class SettingsWindow(QDialog):
                 line += " — " + choice.title
             if choice.description:
                 line += ": " + choice.description
+            if choice.group:
+                line += "  [" + choice.group + "]"
             lines.append(line)
         return "\n".join(lines)
 
@@ -3920,13 +3923,21 @@ class AnimProps(QDialog):
             "увидит название и описание, а не имя команды. Один вариант — "
             "обычное правило, оно играет сразу.")))
 
-        self.tbl = QTableWidget(0, 3)
+        lay.addWidget(_hint(i18n.t(
+            "Группа необязательна: впишите одинаковое название у нескольких "
+            "вариантов — в оверлее они встанут подряд под этим названием, а "
+            "разные группы будут разделены чертой.")))
+
+        self.tbl = QTableWidget(0, 4)
         self.tbl.setHorizontalHeaderLabels(
-            [i18n.t("/anim"), i18n.t("Название"), i18n.t("Описание")])
+            [i18n.t("/anim"), i18n.t("Название"), i18n.t("Описание"),
+             i18n.t("Группа")])
         head_view = self.tbl.horizontalHeader()
         head_view.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         head_view.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         head_view.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        head_view.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        head_view.setStretchLastSection(False)
         self.tbl.verticalHeader().setVisible(False)
         self.tbl.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.tbl.setMinimumHeight(190)
@@ -3942,7 +3953,17 @@ class AnimProps(QDialog):
         self.bt_up.clicked.connect(lambda: self._move(-1))
         self.bt_down = QPushButton(i18n.t("Ниже"))
         self.bt_down.clicked.connect(lambda: self._move(1))
-        for button in (self.bt_add, self.bt_del, self.bt_up, self.bt_down):
+        # Группа ставится сразу нескольким строкам: вписывать одно и то же
+        # название в каждую ячейку вручную — лишняя работа.
+        # A group is given to several rows at once: typing the same title into
+        # every cell by hand is busywork.
+        self.bt_group = QPushButton(i18n.t("Группа…"))
+        self.bt_group.setToolTip(i18n.t(
+            "Дать выбранным вариантам общее название группы — в оверлее они "
+            "встанут подряд под ним и будут отделены чертой от других групп."))
+        self.bt_group.clicked.connect(self._assign_group)
+        for button in (self.bt_add, self.bt_del, self.bt_up, self.bt_down,
+                       self.bt_group):
             btns.addWidget(button)
         btns.addStretch(1)
         lay.addLayout(btns)
@@ -3994,7 +4015,7 @@ class AnimProps(QDialog):
         row = self.tbl.rowCount()
         self.tbl.insertRow(row)
         for column, text in enumerate((choice.name, choice.title,
-                                       choice.description)):
+                                       choice.description, choice.group)):
             item = QTableWidgetItem(text)
             item.setToolTip(text)
             self.tbl.setItem(row, column, item)
@@ -4040,6 +4061,43 @@ class AnimProps(QDialog):
         has = bool(self.tbl.selectionModel().selectedRows())
         for button in (self.bt_del, self.bt_up, self.bt_down):
             button.setEnabled(has)
+        group = getattr(self, "bt_group", None)
+        if group is not None:
+            # группу можно дать любой строке — даже одной
+            group.setEnabled(self.tbl.rowCount() > 0)
+
+    def _assign_group(self):
+        """Вписать название группы в выбранные строки (или во все).
+
+        Write the group title into the selected rows, or into all of them.
+        """
+        rows = sorted({index.row() for index in self.tbl.selectedIndexes()})
+        if not rows:
+            rows = list(range(self.tbl.rowCount()))
+        if not rows:
+            return
+        current = ""
+        item = self.tbl.item(rows[0], 3)
+        if item is not None:
+            current = item.text().strip()
+        title, ok = QInputDialog.getText(
+            self, i18n.t("Группа вариантов"),
+            i18n.tf("Название группы для строк: %d. Пустое поле — убрать группу.",
+                    len(rows)),
+            text=current)
+        if not ok:
+            return
+        title = (title or "").strip()[:anims.MAX_GROUP]
+        self.tbl.blockSignals(True)
+        for row in rows:
+            cell = self.tbl.item(row, 3)
+            if cell is None:
+                cell = QTableWidgetItem("")
+                self.tbl.setItem(row, 3, cell)
+            cell.setText(title)
+            cell.setToolTip(title)
+        self.tbl.blockSignals(False)
+        self._validate()
 
     def _problem_hint(self, text):
         self.lb_problem.setText(text)
@@ -4072,7 +4130,7 @@ class AnimProps(QDialog):
             item = self.tbl.item(row, column)
             return item.text().strip() if item is not None else ""
         return anims.Choice(name=text(0).lstrip("/"), title=text(1),
-                            description=text(2))
+                            description=text(2), group=text(3))
 
     def choices(self) -> list["anims.Choice"]:
         """Итоговые варианты в порядке таблицы / the variants in table order."""

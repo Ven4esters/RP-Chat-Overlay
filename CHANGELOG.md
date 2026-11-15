@@ -5,6 +5,25 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
+## 1.11.0 — 15.11.2026
+
+**Новое: группы с названиями в меню выбора анимации.**
+
+### Анимации
+- В «Свойствах анимации» (ПКМ по строке) появился столбец **«Группа»**. Впишите
+  одинаковое название у нескольких вариантов — в оверлее они встанут подряд под
+  этим названием, а разные группы будут разделены тонкой чертой. Название
+  группы пишется заглавными и слегка приглушённым цветом: это подпись, а не ещё
+  один вариант.
+- Кнопка **«Группа…»** ставит название сразу всем выбранным строкам — вписывать
+  одно и то же в каждую ячейку не нужно. Пустое поле в диалоге убирает группу.
+- Варианты одной группы в меню идут подряд, даже если в таблице строки стоят
+  вразбивку: «А, Б, А» больше не повторяет заголовок дважды. Порядок внутри
+  группы сохраняется, варианты без группы остаются на своих местах.
+- Группа необязательна и хранится в `config.json` рядом с названием и описанием
+  (`"group": "..."`). Старые конфиги читаются как раньше: вариантов без группы
+  просто нет заголовков и черты.
+
 ## 1.10.5 — 15.11.2026
 
 **Исправлено: после Esc во время анимации программа считала её «играющей» и по повторному ключу показывала старое меню.**
@@ -760,6 +779,24 @@ English version below: [Changelog (English)](#-changelog-english).
 ---
 
 # 📌 Changelog (English)
+
+## 1.11.0 — 15 Nov 2026
+
+**New: named groups in the animation chooser.**
+
+### Animations
+- The animation properties dialog (right-click a row) gained a **"Group"** column.
+  Give several variants the same title and in the chooser they sit together under
+  it, while different groups are separated by a thin rule. The group title is
+  upper-cased and slightly dimmed: it is a heading, not one more variant.
+- The **"Group…"** button sets the title for all selected rows at once — no need
+  to retype it into every cell. An empty field in the dialog removes the group.
+- The variants of one group go together in the chooser even when the table has
+  their rows split apart: "A, B, A" no longer repeats the heading twice. The order
+  inside a group is kept and ungrouped variants stay where they were.
+- The group is optional and lives in `config.json` next to the title and
+  description (`"group": "..."`). Older configs read as before: variants without a
+  group simply get no heading and no rule.
 
 ## 1.10.5 — 15 Nov 2026
 
