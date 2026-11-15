@@ -5,6 +5,33 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
+## 1.9.9 — 15.11.2026
+
+**Вложенные ключи: длинная анимация больше не гасится короткой.**
+
+### Анимации
+- **Исправлено: «Активно хлопает в ладоши» и «хлопает в ладоши» запускали две
+  анимации подряд.** Короткий ключ находился внутри длинной фразы, поэтому в
+  очередь вставали обе: сначала длинная, а сразу за ней короткая, и `/sa` от
+  второй гасил первую. Игрок видел мигание вместо анимации. Теперь **играет
+  только длинное совпадение**: на «Сел откинувшись» сработает «сел откинувшись»,
+  а «сел» промолчит.
+- **Решение принимается сразу по всем правилам**, а не по каждому отдельно:
+  «сел» и «сел откинувшись» могут жить как в одном правиле через запятую, так и
+  в двух разных — результат одинаковый.
+- **Отдельные упоминания не пострадали:** «Сел откинувшись, а потом сел прямо»
+  по-прежнему играет дважды — короткое слово в другом месте текста остаётся
+  самостоятельным срабатыванием.
+- **В журнале видно пропуск:** `Анимации: «Сел» входит в более длинное
+  совпадение — правило «сел» пропущено`.
+- **Поле «Проверить» показывает то же, что сыграет в игре:** проверка фразы идёт
+  через тот же разбор, поэтому вложенные ключи видны так же, как сработают.
+- **Попутно исправлено:** ключевая фраза могла совпасть, даже когда между её
+  словами стояло больше слов, чем разрешает зазор (лишнее слово уводило поиск за
+  границу, и это не проверялось).
+- Самотест: новый блок «Вложенные ключи: длинное совпадение важнее короткого» —
+  четыре прогона и оба ключа в одном правиле.
+
 ## 1.9.8 — 14.11.2026
 
 **Чат игры очищается перед каждой вставкой.**
@@ -599,6 +626,33 @@ English version below: [Changelog (English)](#-changelog-english).
 ---
 
 # 📌 Changelog (English)
+
+## 1.9.9 — 15 Nov 2026
+
+**Nested keywords: a short animation no longer puts the long one out.**
+
+### Animations
+- **Fixed: «Активно хлопает в ладоши» and «хлопает в ладоши» started two
+  animations in a row.** The short keyword was found inside the long phrase, so
+  both went into the queue: the long one first and the short one right after it,
+  and the second `/sa` put the first one out. The player saw a flicker instead of
+  an animation. Now **only the long match plays**: on «Сел откинувшись» the «сел
+  откинувшись» rule fires and «сел» stays quiet.
+- **The decision covers all rules at once**, not each rule on its own: «сел» and
+  «сел откинувшись» may live in one rule separated by a comma or in two separate
+  rules — the result is the same.
+- **Separate mentions are untouched:** «Сел откинувшись, а потом сел прямо» still
+  plays twice, as the short word at another place in the message stays a hit of
+  its own.
+- **The log shows the skip:** `Анимации: «Сел» входит в более длинное совпадение
+  — правило «сел» пропущено`.
+- **The Check field shows what the game will really play:** a phrase is checked
+  through the same resolution, so nested keywords show up they way they fire.
+- **Also fixed:** a keyword phrase could match even when more words sat between
+  its words than the gap allows (an extra word pushed the search past the limit
+  and that was not checked).
+- Self-test: a new block «Вложенные ключи: длинное совпадение важнее короткого» —
+  four runs plus both keywords in one rule.
 
 ## 1.9.8 — 14 Nov 2026
 

@@ -295,24 +295,28 @@ def _keyword_negated(keyword: str) -> bool:
 
 def _phrase_hits(words: list[tuple[int, int, str]], word_keys: list[frozenset[str]],
                  chunk: str, keyword: str, keys: "morph.KeyCache", forms: int,
-                 negation: bool = True) -> list[tuple[int, str]]:
-    """Совпадения ключевой фразы в куске текста: (смещение, найденный текст).
+                 negation: bool = True) -> list[tuple[int, int]]:
+    """Совпадения ключевой фразы в куске текста: (начало, конец).
 
-    Every match of the keyword phrase in a chunk: (offset, the text found).
+    Every match of the keyword phrase in a chunk: (start, end).
 
     Слова фразы ищутся по порядку, между ними допускается не больше
     ``GAP_WORDS`` посторонних слов; на уровне «Точно» — только вплотную.
     ``negation`` включает проверку отрицания (кроме ключей, где оно уже есть).
+    Возвращаются границы найденного, а не текст: по границам потом видно,
+    какое совпадение длиннее и какое лежит внутри другого.
     The phrase words are matched in order with at most ``GAP_WORDS`` words in
     between (the "Exact" level wants them adjacent). ``negation`` turns the
     negation check on — except for keywords that already negate themselves.
+    The span is returned rather than the text: the spans show which match is
+    longer and which one sits inside another.
     """
     want = [keys(word, forms) for word in _WORD_RE.findall(keyword)]
     if not want:
         return []
     check = negation and not _keyword_negated(keyword)
     gap = 0 if forms == morph.FORMS_EXACT else GAP_WORDS
-    found: list[tuple[int, str]] = []
+    found: list[tuple[int, int]] = []
     for index in range(len(words)):
         if not word_keys[index] & want[0]:
             continue
@@ -320,10 +324,10 @@ def _phrase_hits(words: list[tuple[int, int, str]], word_keys: list[frozenset[st
         matched = [index]
         for need in want[1:]:
             step = previous + 1
-            last = previous + 1 + gap
+            last = previous + 1 + gap      # не больше ``gap`` слов между словами
             while step <= last and step < len(words) and not word_keys[step] & need:
                 step += 1
-            if step >= len(words) or not word_keys[step] & need:
+            if step > last or step >= len(words) or not word_keys[step] & need:
                 previous = -1
                 break
             previous = step
@@ -334,9 +338,75 @@ def _phrase_hits(words: list[tuple[int, int, str]], word_keys: list[frozenset[st
             log.info("Анимации: «%s» найдено, но отрицание — пропуск",
                      chunk[words[index][0]:words[previous][1]])
             continue
-        start, end = words[index][0], words[previous][1]
-        found.append((start, chunk[start:end].strip()))
+        found.append((words[index][0], words[previous][1]))
     return found
+
+
+def _inside(inner: tuple[int, int], outer: tuple[int, int]) -> bool:
+    """Лежит ли ``inner`` внутри ``outer`` и короче ли он.
+
+    Does ``inner`` sit inside ``outer``, and is it shorter.
+
+    Нужно для вложенных ключей: «сел» находится внутри «сел откинувшись», и
+    играть должно не оба, а только более точное — длинное — совпадение.
+    Совпадение той же длины вложенным не считается: два правила с одинаковым
+    ключом — осознанный выбор игрока, и оба срабатывают.
+    This is for nested keywords: «сел» is found inside «сел откинувшись», and only
+    the more precise, longer match must play — never both. A match of the same
+    length is not nested: two rules with an identical keyword are the player's
+    deliberate choice, and both fire.
+    """
+    return (outer[0] <= inner[0] and inner[1] <= outer[1]
+            and (outer[1] - outer[0]) > (inner[1] - inner[0]))
+
+
+def select_spans(candidates: Iterable[tuple[int, int, object]]
+                 ) -> list[tuple[int, int, object]]:
+    """Какие совпадения играют: длинное забирает своё, короткое отступает.
+
+    Which matches play: the long one takes its place and the short one steps
+    aside.
+
+    ``candidates`` — (начало, конец, метка ключа) по всем правилам сразу.
+    Метка — это (правило, номер ключевого слова): по ней видно, какое срабатывание
+    чьё, ведь у каждого правила свои ключи.
+    ``candidates`` are (start, end, a keyword label) for every rule at once. The
+    label is (rule, keyword number): it tells whose hit is whose, as every rule
+    has keywords of its own.
+    Порядок разбора такой:
+    The selection goes like this:
+
+    1. Совпадения покороче отбрасываются, если лежат внутри более длинного:
+       «сел» внутри «сел откинувшись» — это та же мысль, только короче.
+       Shorter matches are dropped when they sit inside a longer one: «сел»
+       inside «сел откинувшись» says the same thing in fewer words.
+    2. Один ключ играет один раз: повтор того же слова второй раз молчит.
+       Два разных ключа одного правила, стоящие рядом («да ну да брось»), —
+       это два срабатывания, поэтому метки у них разные.
+       One keyword plays once: a repeated word stays quiet the second time. Two
+       different keywords of one rule side by side («да ну да брось») are two
+       hits, which is why their labels differ.
+    """
+    items = sorted(candidates,
+                   key=lambda item: (-(item[1] - item[0]), item[0], repr(item[2])))
+    # 1: короткое внутри длинного — не отдельное срабатывание
+    # 1: a short match inside a long one is not a hit of its own
+    outer = [(begin, end) for begin, end, _ in items]
+    alive = [item for index, item in enumerate(items)
+             if not any(_inside((item[0], item[1]), other)
+                        for other_index, other in enumerate(outer)
+                        if other_index != index)]
+    # 2: один ключ играет один раз
+    # 2: one keyword plays once
+    picked: list[tuple[int, int, object]] = []
+    taken: set[object] = set()
+    for begin, end, label in alive:
+        if label in taken:
+            continue
+        taken.add(label)
+        picked.append((begin, end, label))
+    picked.sort(key=lambda item: (item[0], item[1]))
+    return picked
 
 
 # -------------------------------------------------------------- контекст поиска
@@ -444,20 +514,50 @@ class Rule:
         The hits of the rule in order: (position, the text found). Two different
         keywords in one message give two hits, a repeated word gives one.
         """
+        return [(start, form) for start, _, form in self.spans(text, ctx)]
+
+    def spans(self, text: str, ctx: "Context | None" = None
+              ) -> list[tuple[int, int, str]]:
+        """Срабатывания правила с границами: (начало, конец, найденный текст).
+
+        Свои совпадения правило разбирает само — тем же правилом «длинное
+        побеждает вложенное», что и в работе: два ключа одного правила, один из
+        которых вложен в другой, дают одно срабатывание, а не два.
+        The hits of the rule with their bounds: (start, end, the text found). The
+        rule resolves its own matches with the same "the longer one wins" rule
+        used at run time: two keywords of one rule, one nested in the other, give
+        one hit, not two.
+        """
+        picked = select_spans(self.candidates(text, ctx))
+        return [(begin, end, text[begin:end].strip()) for begin, end, _label
+                in picked]
+
+    def candidates(self, text: str, ctx: "Context | None" = None
+                   ) -> list[tuple[int, int, int]]:
+        """Все совпадения правила без разбора: (начало, конец, номер ключа).
+
+        Отдаются и вложенные совпадения: короткое слово внутри длинной фразы —
+        это тоже находка, просто её потом отбросит отбор. Нужно это затем, что
+        решать, какое совпадение лишнее, приходится сразу для **всех** правил:
+        «сел» и «сел откинувшись» могут жить в двух разных правилах.
+        Every match of the rule, nested ones included: (start, end, keyword
+        number). A short word inside a long phrase is a find too, it is just
+        dropped later. The selection has to happen across **all** rules at once,
+        because «сел» and «сел откинувшись» may live in two different rules.
+        """
         if not self.enabled:
-            return [], []
+            return []
         keywords = keywords_of(self.keywords)
         if not keywords:
-            return [], []
+            return []
         ctx = ctx or Context()
-        hits: list[tuple[int, str]] = []
+        found: list[tuple[int, int, int]] = []
         for start, chunk in analysed_spans(text, self.mode):
             words = _words_of(chunk)
             word_keys = [ctx.keys(word, self.forms) for _, _, word in words]
             phrases = ctx.phrases(chunk)
-            claimed: list[tuple[int, int]] = []      # уже занятые места в куске
-            for keyword in keywords:
-                here: list[tuple[int, str]] = list(
+            for order, keyword in enumerate(keywords):
+                here: list[tuple[int, int]] = list(
                     _phrase_hits(words, word_keys, chunk, keyword, ctx.keys,
                                  self.forms, ctx.negation))
                 key = ctx.key_of(keyword)
@@ -476,30 +576,11 @@ class Rule:
                             log.info("Анимации: «%s» найдено, но отрицание — пропуск",
                                      chunk[offset:end])
                             continue
-                        here.append((offset, chunk[offset:end].strip()))
-                if not here:
-                    continue
-                here.sort(key=lambda item: item[0])
-                # одно срабатывание на ключ: повтор того же слова второй раз не
-                # играет, а место берётся первое, ещё никем не занятое —
-                # так «да ну» и «да брось» в одной фразе дают два срабатывания
-                # one hit per keyword: a repeated word plays once, and the place
-                # is the first still free one, so «да ну» plus «да брось» in one
-                # phrase fire twice
-                span = None
-                for offset, form in here:
-                    candidate = (offset, offset + len(form))
-                    if any(candidate[0] < other_end and other_start < candidate[1]
-                           for other_start, other_end in claimed):
-                        continue
-                    span = candidate
-                    break
-                if span is None:
-                    continue
-                claimed.append(span)
-                hits.append((start + span[0], chunk[span[0]:span[1]].strip()))
-        hits.sort(key=lambda item: item[0])
-        return hits
+                        here.append((offset, end))
+                for begin, end in here:
+                    found.append((start + begin, start + end, order))
+        found.sort(key=lambda item: (item[0], -(item[1] - item[0]), item[2]))
+        return found
 
     def matches(self, text: str, ctx: "Context | None" = None) -> list[str]:
         """Какие слова нашлись в сообщении / which words matched."""
@@ -561,6 +642,72 @@ def rules_from_cfg(cfg: Mapping[str, Any]) -> list[Rule]:
 def rules_to_cfg(rules: Iterable[Rule]) -> list[dict[str, Any]]:
     """Правила для config.json / the rules in a JSON-friendly shape."""
     return [rule.to_dict() for rule in rules]
+
+
+# ------------------------------------------------------------------ разбор
+def plan(rules: Iterable["Rule"], text: str, ctx: "Context | None" = None
+         ) -> list[tuple[int, int, "Rule", str]]:
+    """Что сыграет и в каком порядке: (место, номер правила, правило, текст).
+
+    What plays, and in which order: (position, rule number, rule, text).
+
+    Это единственное место, где решается судьба вложенных ключей: «сел» и «сел
+    откинувшись» — разные правила, и решать приходится сразу за оба. Порядок —
+    по месту в сообщении, при равных местах — по таблице правил.
+    This is the only place where nested keywords are settled: «сел» and «сел
+    откинувшись» are separate rules, so the decision has to cover both at once.
+    The order follows the message, ties follow the rule table.
+    """
+    table = list(rules)
+    ctx = ctx or Context()
+    candidates: list[tuple[int, int, int, int, str]] = []
+    for index, rule in enumerate(table):
+        for begin, end, order in rule.candidates(text, ctx):
+            candidates.append((begin, end, index, order, text[begin:end]))
+    if not candidates:
+        return []
+    picked = select_spans((begin, end, (index, order))
+                          for begin, end, index, order, _ in candidates)
+    chosen = {(begin, end) for begin, end, _ in picked}
+    # что не сыграло и почему — видно в журнале
+    # what did not play, and why, is visible in the log
+    for begin, end, index, _order, form in candidates:
+        if (begin, end) in chosen:
+            continue
+        if any(other_begin <= begin and end <= other_end
+               and (other_end - other_begin) > (end - begin)
+               for other_begin, other_end, _label in picked):
+            log.info("Анимации: «%s» входит в более длинное совпадение — "
+                     "правило «%s» пропущено", form, table[index].keywords[:40])
+    # одно правило в одном месте срабатывает один раз, а разные правила на одном
+    # и том же слове — оба, как было и раньше
+    # a rule fires once at one place; different rules on the same word both fire,
+    # exactly as before
+    per_rule_span: dict[tuple[int, int, int], None] = {}
+    for begin, end, (index, _order) in picked:
+        per_rule_span[(begin, end, index)] = None
+    result = [(begin, index, table[index], text[begin:end]) for begin, end, index
+              in sorted(per_rule_span, key=lambda item: item[:2])]
+    for index, rule in enumerate(table):
+        forms: list[str] = []
+        played = 0
+        for begin, end, hit_index, _order, form in candidates:
+            if hit_index != index:
+                continue
+            if form not in forms:
+                forms.append(form)
+            if (begin, end) in chosen:
+                played += 1
+        if not forms:
+            continue
+        # одно срабатывание на каждое ключевое слово правила: разные ключи
+        # играют подряд, повтор того же слова — только раз
+        # one hit per keyword of the rule: different keywords play in turn, a
+        # repeated word plays once
+        log.info("Анимации: «%s» по правилу «%s» (%s) -> /anim %s, "
+                 "срабатываний: %d", text[:60], rule.keywords[:40],
+                 ", ".join(forms), rule.name, played)
+    return result
 
 
 # ------------------------------------------------------------------ исполнитель
@@ -661,29 +808,13 @@ class Runner:
         self._quiet_off = False
         ctx = Context(equivalent=self.equivalent, text_keys=self.text_keys,
                       negation=self.negation())
-        hits: list[tuple[int, int, Rule]] = []
-        for index, rule in enumerate(self.rules()):
-            if not rule.ready():
-                continue
-            found, positions = rule.scan(text, ctx)
-            if not positions:
-                continue
-            # одно срабатывание на каждое ключевое слово правила: разные ключи
-            # играют подряд, повтор того же слова — только раз
-            # one hit per keyword of the rule: different keywords play in turn,
-            # a repeated word plays once
-            log.info("Анимации: «%s» по правилу «%s» (%s) -> /anim %s, "
-                     "срабатываний: %d",
-                     text[:60], rule.keywords[:40], ", ".join(found), rule.name,
-                     len(positions))
-            for position in positions:
-                hits.append((position, index, rule))
-        hits.sort(key=lambda item: (item[0], item[1]))     # позиция, потом таблица
+        rules = [rule for rule in self.rules() if rule.ready()]
+        hits = plan(rules, text, ctx)
         log.info("Анимации: в очередь %s", " -> ".join("/anim " + rule.name
-                                                       for _, _, rule in hits))
-        for _, _, rule in hits:
+                                                       for _, _, rule, _ in hits))
+        for _, _, rule, _ in hits:
             self._enqueue(rule)
-        return [rule for _, _, rule in hits]
+        return [rule for _, _, rule, _ in hits]
 
     def _enqueue(self, rule: Rule) -> None:
         copy = Rule.from_dict(rule.to_dict())      # снимок на момент срабатывания

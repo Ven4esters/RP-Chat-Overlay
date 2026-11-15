@@ -354,6 +354,30 @@ def selftest_anims(cfg: dict) -> None:
     print(f"  повтор ключа + второй ключ: {commands}")
     failed += 0 if commands == ["/anim rain", "/sa"] * 2 else 1
 
+    # вложенные ключи: «сел» и «сел откинувшись» — играет только длинное,
+    # иначе длинная анимация сразу же гасится короткой
+    # nested keywords: of «сел» and «сел откинувшись» only the long one plays,
+    # otherwise the long animation is put out by the short one right away
+    print("\n=== Вложенные ключи: длинное совпадение важнее короткого ===")
+    nested_cases = (
+        ("Сел откинувшись на спинку", ["sit_back"]),
+        ("Сел на стул", ["sit"]),
+        ("Сел откинувшись, а потом сел прямо", ["sit_back", "sit"]),
+        ("Сел. Потом сел откинувшись.", ["sit", "sit_back"]))
+    for phrase, expected in nested_cases:
+        commands, _ = quick([rule(keywords="сел", name="sit", duration_ms=60),
+                             rule(keywords="сел откинувшись", name="sit_back",
+                                  duration_ms=60)], phrase)
+        names = [line.split()[-1] for line in commands if line.startswith("/anim")]
+        failed += 0 if names == expected else 1
+        print(f"  {'ok    ' if names == expected else 'ПРОВАЛ'} {phrase!r} -> {names}"
+              f" (ждали {expected})")
+
+    commands, _ = quick([rule(keywords="сел, сел откинувшись", name="sit",
+                              duration_ms=60)], "Сел откинувшись")
+    print(f"  оба ключа в одном правиле, длинный первым: {commands}")
+    failed += 0 if commands == ["/anim sit", "/sa"] else 1
+
     print("\n=== Проверка неверных правил ===")
     for bad in (rule(keywords=""), rule(name=""), rule(name="my anim"),
                 rule(duration_ms=-5), rule(mode=9)):

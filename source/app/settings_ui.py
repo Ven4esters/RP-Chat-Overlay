@@ -2360,7 +2360,11 @@ class SettingsWindow(QDialog):
             "анимации играют по очереди, по одной: пока одна на экране, следующая "
             "ждёт. Порядок — как в самом сообщении: «Чёрт, я устал *кашляет*» "
             "сначала запустит анимацию на «чёрт», потом на «кашляет», даже если в "
-            "таблице эти правила стоят наоборот."))
+            "таблице эти правила стоят наоборот. Если один ключ целиком входит в "
+            "другой, играет только длинный: на «Сел откинувшись» сработает «сел "
+            "откинувшись», а «сел» промолчит — иначе короткая анимация сразу же "
+            "погасила бы длинную. Отдельные упоминания в том же сообщении "
+            "считаются: «Сел откинувшись, а потом сел прямо» запустит обе."))
         lay.addWidget(_hint(
             "Строки таблицы перетаскиваются мышью — вместе с правилом едут его "
             "режим, формы, длительность и галочки. Порядок в таблице нужен для "
@@ -2844,17 +2848,18 @@ class SettingsWindow(QDialog):
         # the same order as in real use: by the place of the word in the message,
         # every keyword of a rule fires on its own, synonyms by their key
         ctx = self._anim_context()
-        hits = []
-        for index, rule in enumerate(self._collect_anims()):
-            for position, form in rule.hits(text, ctx):
-                hits.append((position, index,
-                             rule.name.strip() or i18n.t("без названия"), form))
-        hits.sort(key=lambda item: (item[0], item[1]))
+        # тот же разбор, что и в работе: вложенные ключи («сел» внутри «сел
+        # откинувшись») показывает именно так, как они сыграют
+        # the same resolution as at run time: nested keywords («сел» inside «сел
+        # откинувшись») are shown exactly the way they will play
+        rules = [rule for rule in self._collect_anims() if rule.ready()]
+        hits = [(position, rule.name.strip() or i18n.t("без названия"), form)
+                for position, _index, rule, form in anims.plan(rules, text, ctx)]
         if hits:
             # видно не только правило, но и какая именно форма его задела
             # shows the rule and the exact form that fired it
             parts = ["/anim " + name + (f" ← «{form}»" if form else "")
-                     for _, _, name, form in hits]
+                     for _, name, form in hits]
             text_out = i18n.t("Сработают: ") + ", ".join(parts)
             # правило может сработать и при этом не дойти до игры: проверка
             # слов не равна работе модуля, о выключенных модулях говорим прямо
