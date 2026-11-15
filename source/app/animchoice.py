@@ -50,7 +50,8 @@ import threading
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel,
-                               QPushButton, QScrollArea, QVBoxLayout, QWidget)
+                               QPushButton, QScrollArea, QVBoxLayout,
+                               QWidget)
 
 from app import i18n
 from app.config import log
@@ -62,25 +63,34 @@ CHOICE_TIMEOUT_S = 30.0
 SHOW_TIMEOUT_S = 5.0
 
 STYLE = """
-#choiceBox { background: rgba(16,16,22,246); border: 1px solid #3a3a4a;
-             border-radius: 10px; }
-#choiceTitle { color: #ffffff; font-size: 16px; font-weight: 600; }
+#choiceBox { background: rgba(16,16,22,250); border: 1px solid #3a3a4a;
+             border-radius: 12px; }
+#choiceTitle { color: #ffffff; font-size: 17px; font-weight: 600; }
 #choiceKeys { color: #8a8a96; font-size: 11px; }
 #choiceEmpty { color: #8a8a96; font-size: 12px; }
-QPushButton#choiceItem {
-    text-align: left; background: #1e1e28; border: 1px solid #33333f;
-    border-radius: 8px; padding: 10px 12px; color: #f2f2f2; font-size: 14px;
+
+/* карточка варианта: рамка, номер, название, описание, команда
+   a variant card: frame, number, title, description, command */
+QFrame#choiceCard {
+    background: #1e1e28; border: 1px solid #33333f; border-radius: 9px;
 }
-QPushButton#choiceItem:hover { background: #262636; border-color: #5b8cff; }
-QPushButton#choiceItem:focus { background: #262636; border-color: #5b8cff; }
-QPushButton#choiceItem:pressed { background: #2f2f44; }
-QLabel#choiceName { color: #6f7ba8; font-size: 11px; }
-QLabel#choiceDesc { color: #a8a8b8; font-size: 12px; }
+QFrame#choiceCard:hover { background: #262636; border-color: #5b8cff; }
+QFrame#choiceCard:focus { background: #2a2a3c; border: 2px solid #5b8cff; }
+QLabel#choiceNum {
+    color: #c9d4ff; background: #2a3350; border: 1px solid #3f4d78;
+    border-radius: 6px; font-size: 13px; font-weight: 700;
+}
+QLabel#choiceLabel { color: #ffffff; font-size: 15px; font-weight: 600; }
+QLabel#choiceDesc { color: #b9b9c8; font-size: 12px; }
+QLabel#choiceNoDesc { color: #6a6a78; font-size: 12px; font-style: italic; }
+QLabel#choiceName { color: #7b88b8; font-size: 11px; }
+
 QPushButton#choiceCancel {
     background: #24242e; border: 1px solid #3a3a46; border-radius: 6px;
-    padding: 6px 14px; color: #c8c8d2; font-size: 12px;
+    padding: 7px 16px; color: #c8c8d2; font-size: 12px;
 }
-QPushButton#choiceCancel:hover { background: #2e2e3a; }
+QPushButton#choiceCancel:hover { background: #2e2e3a; border-color: #5b8cff; }
+
 /* список внутри окна: без этой строки QScrollArea рисует свой белый фон и
    окно выглядит как белая дыра в тёмной рамке
    the list inside the window: without this QScrollArea paints its own white
@@ -94,6 +104,76 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
     background: transparent; }
 """
+
+
+class _Card(QFrame):
+    """Один вариант анимации: номер, название, описание и имя команды.
+
+    One animation variant: number, title, description and command name.
+
+    Раньше вариантом была ``QPushButton`` с раскладкой внутри. Кнопка считает
+    высоту по своему тексту (а он пустой — текста у неё нет), поэтому весь
+    вариант схлопывался в тонкую полоску и строки наезжали друг на друга.
+    ``QFrame`` раскладку уважает: у карточки честная высота по содержимому.
+    The variant used to be a ``QPushButton`` with a layout inside. A button sizes
+    itself from its own text (which is empty), so the whole variant collapsed into
+    a thin strip and the lines overlapped. A ``QFrame`` honours the layout, so the
+    card gets an honest height from its content.
+    """
+
+    def __init__(self, index, choice, on_pick, parent=None):
+        super().__init__(parent)
+        self.index = index
+        self.choice = choice
+        self._on_pick = on_pick
+        self.setObjectName("choiceCard")
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
+
+        row = QHBoxLayout(self)
+        row.setContentsMargins(12, 10, 14, 10)
+        row.setSpacing(12)
+
+        # номер — то, что нажимать на клавиатуре; у 10+ вариантов номера нет
+        # the number is what the player types; variants past 9 get no number
+        badge = QLabel(str(index + 1) if index < 9 else "")
+        badge.setObjectName("choiceNum")
+        badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        badge.setFixedSize(26, 26)
+        row.addWidget(badge, 0, Qt.AlignmentFlag.AlignTop)
+
+        text = QVBoxLayout()
+        text.setContentsMargins(0, 0, 0, 0)
+        text.setSpacing(3)
+
+        title = QLabel(choice.label())
+        title.setObjectName("choiceLabel")
+        title.setWordWrap(True)
+        text.addWidget(title)
+
+        # описание пустым не оставляем: пустая строка выглядит как ошибка
+        # the description is never empty: a blank line looks like a bug
+        description = (choice.description or "").strip()
+        desc = QLabel(description or i18n.t("Без описания"))
+        desc.setObjectName("choiceDesc" if description else "choiceNoDesc")
+        desc.setWordWrap(True)
+        text.addWidget(desc)
+
+        command = QLabel(f"/anim {choice.name}")
+        command.setObjectName("choiceName")
+        command.setWordWrap(True)
+        text.addWidget(command)
+
+        row.addLayout(text, 1)
+
+    def mouseReleaseEvent(self, event):
+        """Клик по карточке = выбор варианта / a click picks the variant."""
+        if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(
+                event.position().toPoint()):
+            self._on_pick(self.index)
+            return
+        super().mouseReleaseEvent(event)
 
 
 class ChoiceWindow(QWidget):
@@ -164,8 +244,10 @@ class ChoiceWindow(QWidget):
         # остальное докручивается
         # a couple of variants must be visible even on a tight screen; the rest
         # scrolls
-        scroll.setMinimumHeight(120)
+        scroll.setMinimumHeight(150)
         lay.addWidget(scroll, 1)
+        self._scroll = scroll
+        self._holder = holder
 
         bottom = QHBoxLayout()
         hint = QLabel(i18n.t("1–9 — выбрать · Enter — первый · Esc — ничего"))
@@ -182,39 +264,10 @@ class ChoiceWindow(QWidget):
         self._fit()
 
     def _item(self, index, choice) -> QWidget:
-        """Один вариант: кнопка с названием, описанием и именем команды.
-
-        One variant: a button with its title, description and command name.
-        """
-        button = QPushButton()
-        button.setObjectName("choiceItem")
-        button.setCursor(Qt.CursorShape.PointingHandCursor)
-        button.setAutoDefault(False)
-        inner = QVBoxLayout(button)
-        inner.setContentsMargins(12, 8, 12, 8)
-        inner.setSpacing(2)
-
-        title = QLabel(choice.label())
-        title.setStyleSheet("color:#f2f2f2;font-size:14px;font-weight:600;"
-                            "background:transparent;border:none;")
-        title.setWordWrap(True)
-        inner.addWidget(title)
-
-        if (choice.description or "").strip():
-            desc = QLabel(choice.description.strip())
-            desc.setObjectName("choiceDesc")
-            desc.setWordWrap(True)
-            inner.addWidget(desc)
-
-        name = QLabel(f"/anim {choice.name}"
-                      + (f"  ·  {index + 1}" if index < 9 else ""))
-        name.setObjectName("choiceName")
-        inner.addWidget(name)
-
-        button.clicked.connect(lambda _=False, i=index: self._choose(i))
-        button.setToolTip(f"/anim {choice.name}")
-        self.buttons.append(button)
-        return button
+        """Карточка одного варианта / one variant card."""
+        card = _Card(index, choice, self._choose)
+        self.buttons.append(card)
+        return card
 
     def _choose(self, index):
         if 0 <= index < len(self._variants):
@@ -224,22 +277,62 @@ class ChoiceWindow(QWidget):
         """Размер и место окна: по центру экрана, не выше рабочей области.
 
         The window size and place: centred on screen, no taller than the work
-        area. Ширина подобрана под описания в одну-две строки.
-        The width fits descriptions of one or two lines.
+        area.
+
+        Высота считается по содержимому вручную. ``adjustSize()`` для окна
+        ограничен экраном (две трети высоты), поэтому на мониторе 1080p список
+        из пяти вариантов обрезался до двух с половиной. Считаем так: всё, кроме
+        списка, плюс настоящая высота списка, и уже это ограничиваем экраном.
+        The height is measured from the content by hand. ``adjustSize()`` on a
+        window is capped by the screen (two thirds of its height), so on a 1080p
+        monitor a list of five variants was cut to two and a half. The sum is:
+        everything but the list, plus the list's real height, and that is what
+        gets clamped to the screen.
         """
         screen = QGuiApplication.primaryScreen()
         area = screen.availableGeometry() if screen else None
-        width = 520
+        # Ширину берём по содержимому: на 420 описания уже переносятся, на 620
+        # строки становятся слишком длинными.
+        # The width follows the content: below 420 the descriptions wrap early,
+        # past 620 the lines get too long.
+        width = max(420, min(self.sizeHint().width(), 620))
         if area:
-            # на тесном экране окно сжимается, но не в нечитаемую полоску
-            # on a tight screen the window shrinks, but not into an unreadable strip
-            width = max(min(width, int(area.width() * 0.8)), 300)
-            self.setMaximumHeight(int(area.height() * 0.8))
+            width = min(width, max(int(area.width() * 0.9), 320))
         self.setFixedWidth(width)
-        self.adjustSize()
+
+        needed = self._content_height(width)
         if area:
-            self.move(area.left() + (area.width() - self.width()) // 2,
+            needed = min(needed, int(area.height() * 0.85))
+        self.resize(width, max(needed, 200))
+        if area:
+            self.move(area.left() + (area.width() - width) // 2,
                       area.top() + (area.height() - self.height()) // 2)
+
+    def _content_height(self, width: int) -> int:
+        """Сколько высоты просит содержимое при такой ширине.
+
+        How much height the content asks for at this width.
+
+        Список меряем по его содержимому: у ``QScrollArea`` собственная высота
+        всегда маленькая, а вариантов может быть и три, и десять.
+        The list is measured by its content: a ``QScrollArea`` always reports a
+        small height of its own, while there may be three variants or ten.
+        """
+        scroll = getattr(self, "_scroll", None)
+        holder = getattr(self, "_holder", None)
+        if scroll is None or holder is None:
+            return 260
+        # список должен успеть переразложиться под новую ширину
+        # the list has to re-flow for the new width first
+        holder.setFixedWidth(max(width - 60, 200))
+        holder.adjustSize()
+        list_height = holder.sizeHint().height()
+        hint = self.layout().sizeHint().height()
+        without_list = max(hint - scroll.sizeHint().height(), 90)
+        total = without_list + list_height
+        # сплошная прокрутка вместо списка из одной строки
+        # a solid scroll area instead of a list of a single line
+        return min(max(total, without_list + 150), 900)
 
     # --- ответ ---
     def _answer(self, choice):
@@ -391,8 +484,12 @@ class Chooser:
         variants = payload["variants"]
         done = payload["done"]
         self._close_window()
-        window = ChoiceWindow(i18n.tf("Ключ «%s» — какую анимацию играть?",
-                                     rule.keywords.strip()[:60]),
+        # Ключи в заголовке не перечисляем: их бывает три-четыре, и заголовок
+        # растягивался на три строки, отжимая сам список. Достаточно вопроса.
+        # The keywords are not listed in the title: there may be three or four,
+        # and the title grew to three lines and squeezed the list itself. The
+        # question alone is enough.
+        window = ChoiceWindow(i18n.t("Какую анимацию вы собираетесь использовать?"),
                               i18n.t("Выбор отправится в чат игры как /anim."),
                               variants, done)
         self._window = window

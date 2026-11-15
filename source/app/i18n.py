@@ -871,6 +871,9 @@ STRINGS = {
         "ordinary rule and plays at once.",
     "Выбор анимации": "Animation choice",
     "Какую анимацию играть?": "Which animation should play?",
+    "Какую анимацию вы собираетесь использовать?":
+        "Which animation are you going to use?",
+    "Без описания": "No description",
     "1–9 — выбрать · Enter — первый · Esc — ничего":
         "1–9 — pick · Enter — the first · Esc — nothing",
     "Ничего": "Nothing",

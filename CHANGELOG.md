@@ -32,6 +32,15 @@ English version below: [Changelog (English)](#-changelog-english).
 - Варианты хранятся в `config.json` рядом с правилом (`choices`), список можно
   писать и просто строками: `"choices": ["anim_a", "anim_b"]`.
 
+- **Окно выбора читаемое.** Раньше вариантом была кнопка с раскладкой внутри:
+  кнопка считает высоту по своему пустому тексту, поэтому все варианты
+  схлопывались в тонкие полоски и строки наезжали друг на друга. Теперь это
+  карточки: номер в рамке, название, описание (или «Без описания») и имя
+  `/anim`. Высота окна считается по содержимому — список больше не обрезается
+  до двух с половиной вариантов на обычном мониторе.
+- Заголовок окна — просто «Какую анимацию вы собираетесь использовать?»:
+  перечисление ключей растягивало его на три строки и отжимало сам список.
+
 ### Настройки
 - **Исправлено: перетаскивание строк теряло строку.** `QAbstractItemView.startDrag`
   после переноса вызывает `clearOrRemove`, и при `MoveAction` Qt удалял исходную
@@ -694,6 +703,15 @@ English version below: [Changelog (English)](#-changelog-english).
   never hangs above the game.
 - The variants live in `config.json` next to the rule (`choices`), and a plain
   list of strings works too: `"choices": ["anim_a", "anim_b"]`.
+
+- **A readable chooser window.** The variant used to be a button with a layout
+  inside it: a button sizes itself from its own empty text, so every variant
+  collapsed into a thin strip and the lines overlapped. They are cards now: a
+  framed number, the title, the description (or "No description") and the
+  `/anim` name. The window height follows the content, so the list is no longer
+  cut down to two and a half variants on an ordinary monitor.
+- The window title is simply "Which animation are you going to use?": listing
+  the keywords stretched it to three lines and squeezed the list itself.
 
 ### Settings
 - **Fixed: dragging a row lost the row.** `QAbstractItemView.startDrag` calls
