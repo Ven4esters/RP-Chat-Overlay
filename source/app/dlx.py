@@ -434,7 +434,8 @@ def _port_owner(port: int) -> str:
                                         "/FO", "CSV", "/NH"], capture_output=True,
                                        timeout=6, creationflags=0x08000000)
                 text = names.stdout.decode("cp866", "replace").strip().strip('"')
-                return f"{text.split('","')[0]} (pid {pid})"
+                owner = text.split('","')[0]
+                return f"{owner} (pid {pid})"
     except (OSError, subprocess.SubprocessError, IndexError):
         return ""
     return ""

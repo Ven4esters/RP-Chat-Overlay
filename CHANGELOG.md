@@ -5,6 +5,40 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
+## 1.11.1 — 15.11.2026
+
+**Ревизия кода: утечки, мёртвый код, производительность, PEP 8.**
+
+### Анимации
+- **Кэш разбора ключевых слов.** ``keywords_of`` звался для каждого правила на
+  каждое сообщение и каждый раз заново резал строку регуляркой. Теперь разбор
+  кэшируется (не больше 512 записей), переименование правил кэш не раздувает.
+- **Поиск по сообщению ускорен почти вдвое** (14.1 → 7.9 мс на 120 правилах и
+  сообщении в 327 символов). Основное — кэш нормализации слов: два разбора
+  Unicode на каждое слово для каждого правила были самой дорогой частью.
+- **Убраны мёртвые поля и методы:** неиспользуемые ``_swap_token``, ``_wait``,
+  ``last_pick_at``, ``_answered``; неиспользуемая переменная в расчёте высоты
+  окна выбора.
+
+### Окно выбора
+- **Утечка таймеров устранена.** На каждое нажатие варианта создавался новый
+  ``QTimer`` с родителем, живущим до закрытия программы, — за сессию их
+  накапливались сотни. Теперь на всю программу один таймер паузы и один таймер
+  повторного показа.
+
+### Стабильность и совместимость
+- **Исправлена строка, не компилировавшаяся на Python 3.11** (`dlx.py`):
+  f-строка с повторной кавычкой — синтаксис 3.12, а программа собирается и на
+  3.11. Для форумного скрипта `make_forum_tables.py` — то же самое.
+- **`zip()` с `strict=True`** там, где списки обязаны совпадать по длине: раньше
+  рассинхрон молча терял элементы.
+- Дубль ключа «Отмена» в таблице переводов убран, повтор в наборе окончаний
+  морфологии убран, имена `l`/`t`/`r`/`b` заменены на читаемые.
+
+### Документация
+- Структура проекта в README дополнена модулями «Анимации», окна выбора и
+  журнала ошибок — их там не было.
+
 ## 1.11.0 — 15.11.2026
 
 **Новое: группы с названиями в меню выбора анимации.**
@@ -779,6 +813,39 @@ English version below: [Changelog (English)](#-changelog-english).
 ---
 
 # 📌 Changelog (English)
+
+## 1.11.1 — 15 Nov 2026
+
+**Code review: leaks, dead code, performance, PEP 8.**
+
+### Animations
+- **Keyword parsing is cached.** ``keywords_of`` ran for every rule on every
+  message and re-split the string with a regexp each time. The parsing is now
+  cached (512 entries at most), and renaming rules does not grow the cache.
+- **Message search is almost twice as fast** (14.1 → 7.9 ms with 120 rules and a
+  327-character message). The main win is the normalisation cache: two Unicode
+  passes per word per rule were the most expensive part.
+- **Dead fields and methods removed:** unused ``_swap_token``, ``_wait``,
+  ``last_pick_at``, ``_answered``, and an unused variable in the chooser height
+  calculation.
+
+### Chooser
+- **Timer leak fixed.** Every variant pick created a new ``QTimer`` whose parent
+  lived until the program closed, so hundreds piled up over a session. One settle
+  timer and one re-show timer now serve the whole program.
+
+### Stability and compatibility
+- **Fixed a line that did not compile on Python 3.11** (`dlx.py`): an f-string
+  reusing its own quote character is 3.12 syntax, while the program also builds on
+  3.11. Same for the forum script `make_forum_tables.py`.
+- **`zip()` with `strict=True`** wherever the lists must be the same length: a
+  mismatch used to drop items silently.
+- A duplicate "Отмена" key in the translation table is gone, the repeated item in
+  the morphology ending set is gone, and `l`/`t`/`r`/`b` names are readable now.
+
+### Documentation
+- The README project tree now lists the Animations module, the chooser and the
+  error log — they were missing.
 
 ## 1.11.0 — 15 Nov 2026
 

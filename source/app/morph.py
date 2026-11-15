@@ -26,6 +26,7 @@ from __future__ import annotations
 import re
 import threading
 import unicodedata
+from functools import lru_cache
 
 # ------------------------------------------------------------------- уровни
 FORMS_EXACT = 0        # ровно та форма, что написана / exactly the written form
@@ -84,9 +85,14 @@ _ENDINGS: tuple[str, ...] = tuple(sorted({
     "яя", "ое", "ее", "ые", "ие", "ую", "юю", "им", "ым",
     # глаголы и деепричастия / verbs and gerunds
     "ешься", "ишься", "ется", "ится", "ются", "ятся", "ешь", "ишь", "ете",
-    "ите", "ем", "ут", "ют", "ат", "ят", "ет", "ит", "ла", "ло", "ли", "ть",
+    "ите", "ут", "ют", "ат", "ят", "ет", "ит", "ла", "ло", "ли", "ть",
     "ться", "л", "в",
 }, key=len, reverse=True))
+# «ем» встречается и у существительных («объёмом»), и у глаголов («поем») — в
+# наборе выше оно указано один раз; повтор в литерале ничего не менял, только
+# сбивал с толку при чтении.
+# "ем" belongs both to nouns and to verbs — it is listed once above; the repeated
+# literal changed nothing, it only confused the reader.
 
 # суффиксы, которые не меняют смысла: «откры-ва-ет», «мах-ну-л»
 # suffixes that carry no meaning of their own
@@ -108,14 +114,28 @@ _analyzer_lock = threading.Lock()
 _analyzer_failed = False
 
 
+@lru_cache(maxsize=8192)
+def _norm_cached(word: str) -> str:
+    """Приведение слова к сравнимому виду, с кэшем / word normalisation, cached."""
+    text = unicodedata.normalize("NFC", word).lower().replace("ё", "е")
+    return "".join(char for char in unicodedata.normalize("NFD", text)
+                   if unicodedata.category(char) != "Mn")
+
+
 def norm(word: str) -> str:
     """Нижний регистр, «ё» = «е», без диакритики.
 
     Lowercase, «ё» counts as «е», diacritics dropped.
+
+    Результат кэшируется: ``norm`` вызывается на каждое слово сообщения для
+    каждого правила, а слов в языке конечное число. Два разбора Unicode на слово
+    были самой дорогой частью поиска — кэш убирает их для всех повторов.
+    The result is cached: ``norm`` runs on every word of every message for every
+    rule, while a language has a finite set of words. Two Unicode passes per word
+    were the most expensive part of the search — the cache removes them for every
+    repeat.
     """
-    text = unicodedata.normalize("NFC", str(word or "")).lower().replace("ё", "е")
-    return "".join(char for char in unicodedata.normalize("NFD", text)
-                   if unicodedata.category(char) != "Mn")
+    return _norm_cached(str(word or ""))
 
 
 def stem(word: str) -> str:

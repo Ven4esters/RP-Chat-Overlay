@@ -414,8 +414,11 @@ def selftest_anims(cfg: dict) -> None:
     # выбор: какой вариант уйдёт в игру
     def choice_run(pick):
         commands = []
-        chooser = lambda rule: (rule.choices[pick]
-                                if isinstance(pick, int) else pick)
+
+        def chooser(rule):
+            """Заглушка выбора для самопроверки / a chooser stub for the selftest."""
+            return rule.choices[pick] if isinstance(pick, int) else pick
+
         runner_ = anims.Runner(
             {"anims_enabled": True, "anim_extra_ms": 0},
             send=lambda command: (commands.append(command) or (True, "")),

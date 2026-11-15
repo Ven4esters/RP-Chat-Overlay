@@ -113,10 +113,11 @@ def table(name, headers, rows, cols, width=720, fs=13.0, title=None,
             bold = first_col_bold and j == 0
             color = TXT if j == 0 else DIM
             ty = y + row_pad + fs
+            weight = ' font-weight="bold"' if bold else ""
             for line in lines:
                 parts.append(
                     f'<text x="{cx + cpad}" y="{ty:.1f}" font-size="{fs}"'
-                    f'{" font-weight=\"bold\"" if bold else ""} fill="{color}">{esc(line)}</text>')
+                    f'{weight} fill="{color}">{esc(line)}</text>')
                 ty += lh
             cx += w
         y += rh

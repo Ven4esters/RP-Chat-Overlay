@@ -265,12 +265,13 @@ class Overlay(QWidget):
         dpr = scr.devicePixelRatio() or 1.0
         rect = gs.window_rect(self.game_hwnd) if self.game_hwnd else None
         if rect:
-            l, t, r, b = (v / dpr for v in rect)
+            left, top, right, bottom = (v / dpr for v in rect)
         else:
             g = scr.geometry()
-            l, t, r, b = g.left(), g.top(), g.right(), g.bottom()
+            left, top, right, bottom = (g.left(), g.top(), g.right(), g.bottom())
         fx, fy = self.cfg.get("overlay_pos", [0.01, 0.28])
-        self.move(int(l + (r - l) * fx), int(t + (b - t) * fy))
+        self.move(int(left + (right - left) * fx),
+                  int(top + (bottom - top) * fy))
 
     def _reset(self):
         self.rid += 1

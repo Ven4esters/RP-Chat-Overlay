@@ -855,7 +855,6 @@ STRINGS = {
     "Описание": "Description",
     "Добавить вариант": "Add variant",
     "Удалить вариант": "Remove variant",
-    "Отмена": "Cancel",
     "Готово": "Done",
     "такая анимация уже есть в списке": "that animation is already in the list",
     "Сначала выберите вариант.": "Select a variant first.",

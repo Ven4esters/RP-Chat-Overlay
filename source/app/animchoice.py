@@ -253,7 +253,6 @@ class ChoiceWindow(QWidget):
         # who to tell when the window is closed: the player, not a timer
         self.on_closed = on_closed
         self._variants = list(variants)
-        self._answered = False
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint
                             | Qt.WindowType.WindowStaysOnTopHint
                             | Qt.WindowType.Tool)
@@ -513,7 +512,6 @@ class ChoiceWindow(QWidget):
         bottom_h = max(hint_h, button_h)
         self._cancel.setFixedHeight(button_h)
 
-        scroll = getattr(self, "_scroll", None)
         holder = getattr(self, "_holder", None)
         if holder is not None:
             holder.setFixedWidth(max(inner - 24, 200))
@@ -525,9 +523,8 @@ class ChoiceWindow(QWidget):
         # the list is at least two cards and at most half the screen
         list_h = max(min(list_h, 520), 150)
 
-        total = (margins.top() + margins.bottom() + head_h + sub_h
-                 + list_h + bottom_h + spacing * 4 + 8)
-        return total
+        return (margins.top() + margins.bottom() + head_h + sub_h
+                + list_h + bottom_h + spacing * 4 + 8)
 
     # --- ответ ---
     def _answer(self, choice):
@@ -535,14 +532,13 @@ class ChoiceWindow(QWidget):
 
         Report the pick and keep the window open.
 
-        ``_answered`` больше не «одноразовый»: вариант можно менять сколько
-        угодно раз, пока окно открыто. Повторный выбор того же варианта ничего
-        не ломает — очередь просто заменит анимацию на ту же.
-        ``_answered`` is no longer one-shot: the variant may change any number of
-        times while the window is open. Picking the same variant again breaks
-        nothing — the queue just replaces the animation with the same one.
+        Вариант можно менять сколько угодно раз, пока окно открыто: повторный
+        выбор того же варианта ничего не ломает — очередь просто заменит
+        анимацию на ту же.
+        The variant may change any number of times while the window is open:
+        picking the same variant again breaks nothing — the queue just replaces
+        the animation with the same one.
         """
-        self._answered = True
         try:
             self.done_callback(choice)
         except Exception:
@@ -611,7 +607,6 @@ class ChoiceWindow(QWidget):
         # выбирали, это отказ, а если выбирали — просто «меню закрыто».
         # Closing the window always carries "nothing further" to the menu: a refusal
         # when nothing was picked, and plain "the menu is closed" otherwise.
-        self._answered = True
         try:
             self.done_callback(None)
         except Exception:
@@ -696,7 +691,6 @@ class _Menu:
         # сейчас ли это меню на экране: по этому признаку снимаются пометки
         # whether this menu is the one on screen: that decides the marks
         self.on_screen = False
-        self.last_pick_at = 0.0             # когда последний раз выбирали
         self.settle_until = 0.0             # до какого времени ждать паузу
         # чем сыграть выбор, если правило уже доиграло (ставит Runner)
         # what to play the pick with when the rule has already finished (set by
@@ -732,7 +726,6 @@ class _Menu:
         """
         first = not self.picks
         self.picks.append(choice)
-        self.last_pick_at = time.monotonic()
         if first:
             self.first.set()
         else:
@@ -788,6 +781,10 @@ class Chooser:
         self._menus = []
         self._order = []
         self._timer_parent = None
+        # один таймер паузы и один таймер повторного показа на всю программу
+        # one settle timer and one re-show timer for the whole program
+        self._settle_q: QTimer | None = None
+        self._wake_q: QTimer | None = None
         # чем сыграть выбор заново, по правилу: очередь зовёт attach до создания
         # меню, поэтому привязка живёт здесь
         # what to replay a pick with, per rule: the queue calls attach before the
@@ -886,6 +883,55 @@ class Chooser:
                 except Exception:
                     log.exception("Выбор анимации: не удалось снять пометки")
         log.info("Выбор анимации: анимацию остановили, меню правила снято")
+
+    def _settle_timer(self) -> QTimer:
+        """Один таймер паузы перед следующим меню / the single settle timer.
+
+        Создаётся один раз в главном потоке. Раньше на каждое нажатие варианта
+        заводился новый ``QTimer``, и они копились до закрытия программы: у
+        каждого был родитель, живущий столько же, сколько приложение.
+        Created once on the main thread. A new ``QTimer`` used to be made on every
+        pick and they piled up until the program closed: each one had a parent
+        that lives as long as the application.
+        """
+        if self._settle_q is None:
+            if self._timer_parent is None:
+                self._timer_parent = QObject()
+            timer = QTimer(self._timer_parent)
+            timer.setSingleShot(True)
+            timer.timeout.connect(lambda: self._settle_fired(timer))
+            self._settle_q = timer
+        return self._settle_q
+
+    def _settle_fired(self, timer: QTimer) -> None:
+        """Пауза вышла: решить, показывать ли следующее меню / the pause is over."""
+        entry = getattr(timer, "entry", None)
+        if entry is not None:
+            self._advance(entry, timer)
+
+    def _wake_timer(self) -> QTimer:
+        """Один таймер «показать окно заново» / the single re-show timer.
+
+        После закрытия окна новый показ откладывается на ``SETTLE_S``, чтобы окно
+        не мигало на одном месте. Один таймер на все такие паузы, по той же
+        причине, что и у ``_settle_timer``.
+        After the window closes the next display waits ``SETTLE_S`` so the window
+        does not blink in place. One timer for all such pauses, for the same
+        reason as ``_settle_timer``.
+        """
+        if self._wake_q is None:
+            if self._timer_parent is None:
+                self._timer_parent = QObject()
+            timer = QTimer(self._timer_parent)
+            timer.setSingleShot(True)
+            timer.timeout.connect(self._wake_fired)
+            self._wake_q = timer
+        return self._wake_q
+
+    def _wake_fired(self) -> None:
+        """Пауза после закрытия вышла: показать, что накопилось."""
+        if self._bridge is not None:
+            self._bridge.wake.emit()
 
     def _ensure_bridge(self) -> bool:
         """Создать мост и привязать его к главному потоку; False — Qt нет.
@@ -1089,13 +1135,7 @@ class Chooser:
             # The next menu, when it comes, is not shown instantly: a pause is
             # needed between closing and showing again, otherwise the window blinks
             # in place.
-            if self._timer_parent is None:
-                self._timer_parent = QObject()
-            pause = QTimer(self._timer_parent)
-            pause.setSingleShot(True)
-            pause.timeout.connect(lambda: self._bridge is not None
-                                  and self._bridge.wake.emit())
-            pause.start(int(SETTLE_S * 1000))
+            self._wake_timer().start(int(SETTLE_S * 1000))
 
     @staticmethod
     def _tell_replay(entry, choice):
@@ -1127,20 +1167,21 @@ class Chooser:
         """
         if entry.settle_timer is not None:
             entry.settle_timer.stop()
+            entry.settle_timer = None
         # Новый выбор продлевает паузу: пока игрок нажимает, следующее меню ждёт
         # a new pick extends the pause: while the player keeps pressing, the next
         # menu waits
         entry.settle_until = time.monotonic() + SETTLE_S
         # Таймеру нужен родитель из главного потока: сам Chooser живёт и в
         # рабочем потоке, поэтому родитель — маленький объект, созданный в
-        # главном.
+        # главном. Таймер тот же самый на все меню: раньше на каждое нажатие
+        # заводился новый QTimer, и они копились до конца работы программы.
         # The timer needs a parent from the main thread: Chooser itself lives on
         # the worker thread too, so the parent is a small object made on main.
-        if self._timer_parent is None:
-            self._timer_parent = QObject()
-        timer = QTimer(self._timer_parent)
-        timer.setSingleShot(True)
-        timer.timeout.connect(lambda: self._advance(entry, timer))
+        # One timer serves every menu: a new QTimer used to be created on every
+        # pick, and they piled up until the program exited.
+        timer = self._settle_timer()
+        timer.entry = entry
         entry.settle_timer = timer
         timer.start(int(SETTLE_S * 1000))
 
@@ -1169,11 +1210,9 @@ class Chooser:
         # the queue. That is why the next menu was never shown at all.
         if entry.settle_until and time.monotonic() < entry.settle_until - 0.01:
             left = entry.settle_until - time.monotonic()
-            again = QTimer(self._timer_parent)
-            again.setSingleShot(True)
-            again.timeout.connect(lambda: self._advance(entry, again))
-            entry.settle_timer = again
-            again.start(max(int(left * 1000), 10))
+            timer.entry = entry
+            entry.settle_timer = timer
+            timer.start(max(int(left * 1000), 10))
             return
         entry.settle_until = 0.0
         with self._lock:

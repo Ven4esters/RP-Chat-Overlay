@@ -401,7 +401,6 @@ class DragTable(QTableWidget):
         self.on_move = on_move
         self._drag_row = -1
         self._drop_at = -1        # перед какой строкой встанет / the row it lands before
-        self._drop_rect = None    # та же точка, но в координатах области / in viewport coords
         self.setDragEnabled(True)
         self.setAcceptDrops(True)
         # штатный индикатор выключен: рисуем свой, заметный
@@ -414,7 +413,7 @@ class DragTable(QTableWidget):
         self.setMouseTracking(True)
 
     # --- перетаскивание ---
-    def startDrag(self, actions):
+    def startDrag(self, _actions):
         """Свой перенос: без ``clearOrRemove``, который удаляет строку.
 
         Our own drag: no ``clearOrRemove``, which is what deleted the row.
@@ -447,7 +446,6 @@ class DragTable(QTableWidget):
         # after the drag the marks are cleared so the drop line does not linger
         self._drag_row = -1
         self._drop_at = -1
-        self._drop_rect = None
         self.viewport().update()
 
     def _row_pixmap(self, row: int) -> QPixmap | None:
@@ -476,7 +474,6 @@ class DragTable(QTableWidget):
 
     def dragLeaveEvent(self, event):
         self._drop_at = -1
-        self._drop_rect = None
         self.viewport().update()
         event.accept()
 
@@ -494,7 +491,6 @@ class DragTable(QTableWidget):
         target = self._drop_row(event.position().toPoint())
         self._drag_row = -1
         self._drop_at = -1
-        self._drop_rect = None
         self.viewport().update()
         event.setDropAction(Qt.DropAction.MoveAction)
         event.accept()
@@ -509,12 +505,7 @@ class DragTable(QTableWidget):
 
         Remember where the row will land and repaint the drop line.
         """
-        row = self._drop_row(pos)
-        rect = None
-        if 0 <= row < self.rowCount():
-            rect = self.visualRect(self.model().index(row, 0))
-        self._drop_at = row
-        self._drop_rect = rect
+        self._drop_at = self._drop_row(pos)
         self.viewport().update()
 
     def _drop_row(self, pos) -> int:
@@ -1068,7 +1059,7 @@ class SettingsWindow(QDialog):
         if hasattr(self, "cb_lang"):
             current = self.cb_lang.currentData()
             self.cb_lang.blockSignals(True)
-            for index, (code, name) in enumerate(langs.choices()):
+            for index, name in enumerate(name for _, name in langs.choices()):
                 if index < self.cb_lang.count():
                     self.cb_lang.setItemText(index, name)
             self.cb_lang.blockSignals(False)
@@ -2855,7 +2846,7 @@ class SettingsWindow(QDialog):
         # mode titles are stored in Russian, so i18n.retranslate can translate
         # them either way as many times as needed
         titles = [anims.describe_mode(mode, False) for mode in anims.MODES]
-        for mode, title in zip(anims.MODES, titles):
+        for mode, title in zip(anims.MODES, titles, strict=True):
             combo.addItem(i18n.t(title), mode)
         combo.setProperty("_ru_items", titles)
         # поле не должно требовать ширины под самую длинную строку: текст
@@ -2873,7 +2864,7 @@ class SettingsWindow(QDialog):
 
         forms_combo = QComboBox()
         forms_titles = [morph.describe_forms(forms, False) for forms in morph.FORMS]
-        for forms, title in zip(morph.FORMS, forms_titles):
+        for forms, title in zip(morph.FORMS, forms_titles, strict=True):
             forms_combo.addItem(i18n.t(title), forms)
         forms_combo.setProperty("_ru_items", forms_titles)
         forms_combo.setSizeAdjustPolicy(
@@ -2953,7 +2944,12 @@ class SettingsWindow(QDialog):
             if item_on is None:
                 continue
 
-            def text(column):
+            def text(column, row=row):
+                """Текст ячейки строки; ``row`` связан по умолчанию.
+
+                The cell text of the row; ``row`` is bound by default, so the
+                closure does not read the loop variable after it moved on.
+                """
                 item = self.tbl_anims.item(row, column)
                 return item.text().strip() if item is not None else ""
 

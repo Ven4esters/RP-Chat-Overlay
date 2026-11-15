@@ -57,6 +57,7 @@ import time
 import uuid
 from collections import deque
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Any, Callable, Iterable, Mapping
 
 from app import morph
@@ -163,6 +164,9 @@ _WORD_RE = re.compile(r"[^\W\d_]+(?:[-'’][^\W\d_]+)*", re.UNICODE)   # сло�
 MAX_CHOICES = 12          # больше вариантов в оверлее не поместится / the chooser fits no more
 MAX_TITLE = 60            # длина названия варианта / the variant title length
 MAX_DESC = 300            # длина описания варианта / the variant description length
+# разделители ключевых слов правила / the rule keyword separators
+_KEYWORD_SPLIT_RE = re.compile(r"[,;\n]+")
+
 MAX_GROUP = 40            # длина названия группы / the group title length
 
 VAL_EMPTY_KEYWORD = "ключевое слово не задано"
@@ -263,12 +267,25 @@ def analysed_spans(text: str, mode: int) -> list[tuple[int, str]]:
     return []
 
 
+@lru_cache(maxsize=512)
+def _split_keywords(text: str) -> tuple[str, ...]:
+    """Разбор строки ключевых слов с кэшем / keyword parsing, cached."""
+    return tuple(part.strip() for part in _KEYWORD_SPLIT_RE.split(text) if part.strip())
+
+
 def keywords_of(text: str) -> list[str]:
     """Ключевые слова правила: запятая, точка с запятой или перевод строки.
 
     The rule keywords: comma, semicolon or a line break separates them.
+
+    Разбор кэшируется: ``candidates()`` зовёт это для каждого правила на каждое
+    сообщение, а строка ключевых слов у правила не меняется между сообщениями.
+    Кэш ограничен, поэтому переименование правил в настройках его не раздувает.
+    The parsing is cached: ``candidates()`` calls it for every rule on every
+    message, while a rule's keyword string does not change between messages. The
+    cache is bounded, so renaming rules in the settings does not grow it.
     """
-    return [part.strip() for part in re.split(r"[,;\n]+", text or "") if part.strip()]
+    return list(_split_keywords(text or ""))
 
 
 # сколько посторонних слов допускается внутри ключевой фразы: «открыл зонт»
@@ -406,6 +423,17 @@ def select_spans(candidates: Iterable[tuple[int, int, object]]
                    key=lambda item: (-(item[1] - item[0]), item[0], repr(item[2])))
     # 1: короткое внутри длинного — не отдельное срабатывание
     # 1: a short match inside a long one is not a hit of its own
+    #
+    # Каждый кандидат сравнивается с каждым: проверка «лежит ли внутри» — это
+    # двумерный запрос (начало не раньше И конец не позже), и упростить его до
+    # одного сравнения нельзя, не поменяв поведение. Кандидатов на сообщение
+    # десятки, так что квадрат здесь дешевле любой структуры данных — а главное,
+    # так поведение остаётся ровно тем же.
+    # Every candidate is compared with every other: "sits inside" is a 2-D query
+    # (starts no earlier AND ends no later) and cannot be reduced to a single
+    # comparison without changing behaviour. A message yields a few dozen
+    # candidates, so the square is cheaper than any data structure — and, more
+    # importantly, the behaviour stays exactly the same.
     outer = [(begin, end) for begin, end, _ in items]
     alive = [item for index, item in enumerate(items)
              if not any(_inside((item[0], item[1]), other)
@@ -902,7 +930,6 @@ class Runner:
         # Swapping the animation on the fly: the chooser stays open, and a new pick
         # arrives here instead of the queue.
         self._swap_choice = None                # какой вариант просят играть
-        self._swap_token = 0                    # какой заход правила это застал
         self._play_token = 0                    # номер текущего захода правила
         self._quiet_off = False                 # про выключенный модуль пишем раз
         self._stop_run = threading.Event()      # прервать текущий цикл / abort the run
@@ -1508,13 +1535,6 @@ class Runner:
                 cancel()
             except Exception:
                 log.exception("Анимации: не удалось закрыть окно выбора")
-
-    def _wait(self, seconds: float) -> bool:
-        """Пауза с возможностью прервать; True — прервали.
-
-        A pause that can be interrupted; True means it was.
-        """
-        return self._stop_run.wait(max(0.0, seconds))
 
     def _send(self, command: str, rule: Rule, quiet: bool = False) -> bool:
         """Отправить команду и запомнить причину отказа.
