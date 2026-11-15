@@ -33,7 +33,7 @@ import shutil
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from app import modules, slang
+from app import modules, morph, slang
 from app.config import GLOSSARY_DIR, GLOSSARY_PATH, log, read_json, write_json
 from app.langpacks import empty_pack, get_pack
 from app.langs import code_of, get as get_lang
@@ -66,7 +66,6 @@ def norm(text: str) -> str:
 
 PH_RE = re.compile(r"\ue000(\d+)\ue000")
 ACT_RE = re.compile(r"\*[^*]*(?:\*|$)")          # незакрытое действие — до конца строки
-CMD_RE = re.compile(r"^\s*/\S+\s*")               # /me, /do, /b ...
 CYR_RE = re.compile(r"[А-Яа-яЁё]")
 CYR_WORD_RE = re.compile(r"[А-Яа-яЁё]+(?:-[А-Яа-яЁё]+)*")
 WORD_RE = re.compile(r"[A-Za-zÀ-ÖØ-öø-ÿ’']+")
@@ -155,18 +154,6 @@ def keep_edges(orig: str, translated: str) -> str:
 def _filler_key(s):
     """Ключ сравнения паразита: без регистра, ё/й, знаков и лишних пробелов."""
     return " ".join(re.sub(r"[^\w\s]", " ", norm(s)).split())
-
-
-def is_filler_text(text: str, glossary: "Glossary | None" = None) -> bool:
-    """True, если русская фраза — слово-паразит текущего языка.
-
-    True when the Russian phrase is a filler word of the current language.
-    """
-    if glossary is None:
-        return False
-    if _filler_key(text) not in glossary.filler_keys:
-        return False
-    return glossary.find_meaning(text) is not None
 
 
 def _filler_spans(body, g):
@@ -490,12 +477,37 @@ class Glossary:
             key = self.by_meaning.get(k[:-2])
         return key
 
-    def is_filler(self, text: str) -> bool:
-        """True, если русская фраза — слово-паразит текущего языка.
+    def phrase_keys(self, text: str, limit: int = 4) -> list[tuple[int, int, str]]:
+        """Фразы словаря, найденные в тексте: (начало, конец, ключ).
 
-        True when the Russian phrase is a filler word of this language.
+        Glossary phrases found in the text: (start, end, key).
+
+        Ищутся самые длинные фразы (до ``limit`` слов), между словами
+        допускаются только пробелы и знаки внутри фразы — так же, как при
+        переводе. По этому списку модуль «Анимации» узнаёт, что «да ну» и
+        «да брось» — одна и та же фраза словаря.
+        The same longest-match scan the translation uses: up to ``limit`` words,
+        whitespace between them only. The Animations module uses it to see that
+        «да ну» and «да брось» are one and the same glossary phrase.
         """
-        return is_filler_text(text, self)
+        matches = list(morph.WORD_RE.finditer(text or ""))
+        found: list[tuple[int, int, str]] = []
+        index = 0
+        while index < len(matches):
+            taken = 0
+            for size in range(min(limit, len(matches) - index), 0, -1):
+                last = index + size - 1
+                if any(text[matches[k].end():matches[k + 1].start()].strip()
+                       for k in range(index, last)):
+                    continue
+                phrase = text[matches[index].start():matches[last].end()]
+                key = self.find_meaning(phrase)
+                if key:
+                    found.append((matches[index].start(), matches[last].end(), key))
+                    taken = size
+                    break
+            index += taken or 1
+        return found
 
     def to_ru(self, text: str, dialect: bool = False) -> str:
         """Фраза на языке перевода -> русская запись.

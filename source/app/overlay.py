@@ -25,11 +25,12 @@ from PySide6.QtWidgets import (QApplication, QFrame, QLabel, QLineEdit, QMenu,
                                QSystemTrayIcon, QVBoxLayout, QWidget)
 
 from app import APP_NAME, gamesend as gs, i18n, langs, modules
+from app import anims as anims_mod
 from app.autoplan import AutoPlan
-from app.config import log, save_config
+from app.config import log, resource_path, save_config
 from app.engine import (Engine, Result, has_fillers, has_markers, is_counted_command,
                       load_glossary, strip_markers)
-from app.hotkey import HotkeyThread
+from app.hotkey import HotkeyThread, parse_hotkey
 from app import dlx as dlx_mod
 from app.settings_ui import ask_dlx_consent, open_settings
 from app.translator import Translator
@@ -52,6 +53,7 @@ class Bridge(QObject):
     sent = Signal(bool, str)
     game_chat_opened = Signal(bool, int)    # чат игры открыт?, hwnd игры
     dlx_text = Signal(str, bool)            # сообщение сервиса DLX, ошибка? / DLX message, is it an error
+    anims_text = Signal(str, bool)          # сообщение модуля анимаций / animation module message
 
 
 class Worker(threading.Thread):
@@ -80,18 +82,62 @@ class Worker(threading.Thread):
 
 
 def make_icon():
-    pm = QPixmap(64, 64)
+    """Запасная иконка, если рядом нет icon.ico: рисуем её сами.
+
+    The fallback icon for a missing icon.ico: drawn in code. Drawn large, so Qt
+    scales it down smoothly for the title bar and the taskbar.
+    """
+    pm = QPixmap(256, 256)
     pm.fill(Qt.GlobalColor.transparent)
     p = QPainter(pm)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
     p.setPen(Qt.PenStyle.NoPen)
     p.setBrush(QColor("#2e7d32"))
-    p.drawEllipse(4, 4, 56, 56)
+    p.drawRoundedRect(0, 0, 256, 256, 56, 56)
     p.setPen(QColor("white"))
-    p.setFont(QFont("Arial", 22, QFont.Weight.Bold))
+    p.setFont(QFont("Arial", 92, QFont.Weight.Bold))
     p.drawText(pm.rect(), Qt.AlignmentFlag.AlignCenter, "RP")
     p.end()
     return QIcon(pm)
+
+
+def app_icon() -> QIcon:
+    """Иконка программы: заголовок окна, панель задач, Alt+Tab и трей.
+
+    The program icon for the window title, the taskbar, Alt+Tab and the tray.
+    Берётся из ``icon.ico`` — в сборке он лежит рядом с exe и внутри архива
+    PyInstaller; файла нет или он битый — рисуем запасную.
+    Comes from ``icon.ico``: in a build it sits next to the exe and inside the
+    PyInstaller bundle; a missing or broken file falls back to the drawn icon.
+    """
+    path = resource_path("icon.ico")
+    if path.is_file():
+        icon = QIcon(str(path))
+        if not icon.isNull():
+            return icon
+        log.warning("Иконка %s не читается — рисую запасную", path)
+    else:
+        log.warning("Файл icon.ico не найден — рисую запасную иконку")
+    return make_icon()
+
+
+def set_app_id() -> None:
+    """Своя иконка и своя группа в панели задач Windows, а не python.exe.
+
+    The program's own icon and taskbar group on Windows instead of python.exe's.
+    Без этого Windows берёт значок из файла запуска, и у exe из-под Python
+    в панели задач появляется заглушка.
+    Without this call Windows takes the icon from the launcher file, which is
+    where the placeholder in the taskbar comes from.
+    """
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            "RPChatOverlay.Overlay.1")
+    except Exception:
+        log.exception("Не удалось задать AppUserModelID для панели задач")
 
 
 class Overlay(QWidget):
@@ -109,6 +155,10 @@ class Overlay(QWidget):
         self.prev_hwnd = None
         self.shown_at = 0.0
         self.game_chat_open = False   # чат игры уже открыт клавишей T
+        self.anims = None             # очередь анимаций, создаётся при запуске
+                                      # the animation queue, created on startup
+        self._anim_text = ""          # текст, ждущий проверки правилами анимаций
+                                      # text waiting for the animation rules
         self.opening = False          # чат игры открывается (оверлей ещё не виден)
 
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
@@ -408,6 +458,15 @@ class Overlay(QWidget):
         if len(out) > mx:
             self.set_stat(f"Слишком длинно: {len(out)}/{mx}", True)
             return
+        # ключевые слова ищем в том, что игрок напечатал сам: перевод уже мог
+        # заменить слова на языке сервера, и правила перестали бы совпадать.
+        # Проверка идёт после отправки сообщения, иначе /anim и текст сообщения
+        # одновременно лезут в чат игры и мешают друг другу.
+        # keywords are looked up in what the player typed: the translation may
+        # already have replaced the words, and the rules would stop matching.
+        # The check runs after the message is sent, otherwise /anim and the
+        # message text fight over the same game chat.
+        self._anim_text = self.input.text() or out
         # в счётчик серии идут обычные сообщения и /to /lto /l /wt /s /st
         if not out.startswith("/") or is_counted_command(out):
             self.plan.advance()                    # счётчик серии автоперевода
@@ -426,6 +485,7 @@ class Overlay(QWidget):
             if chat_open and hwnd:
                 # чат был открыт, а отправка в игру выключена — закрыть чат
                 threading.Thread(target=self._close_chat_job, args=(hwnd,), daemon=True).start()
+            self._anim_text = ""           # анимациям нужен чат игры
             h = self.prev_hwnd
             if h:
                 threading.Thread(target=gs.focus, args=(h,), daemon=True).start()
@@ -440,7 +500,16 @@ class Overlay(QWidget):
         self.bridge.sent.emit(ok, msg)
 
     def on_sent(self, ok, msg):
+        """Сообщение ушло (или нет): только теперь можно запускать анимацию.
+
+        The message is out (or not): only now may an animation start, so the two
+        never type into the game chat at the same time. The short pause lets the
+        game close its chat after Enter.
+        """
         self.sending = False
+        text, self._anim_text = self._anim_text, ""
+        if ok and text and self.anims is not None:
+            QTimer.singleShot(250, lambda: self.anims.feed(text))
         if not ok:
             self.notify(msg + i18n.t(" Текст в буфере обмена — вставьте вручную (Ctrl+V)."),
                         True)
@@ -448,13 +517,6 @@ class Overlay(QWidget):
     def notify(self, msg, warn=False):
         icon = QSystemTrayIcon.MessageIcon.Warning if warn else QSystemTrayIcon.MessageIcon.Information
         self.tray.showMessage(APP_NAME, msg, icon, 6000)
-
-
-def _as_int(v, default):
-    try:
-        return int(v)
-    except (TypeError, ValueError):
-        return default
 
 
 def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
@@ -466,6 +528,11 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     app.setStyleSheet(STYLE)
+    # иконка на все окна сразу: заголовок, панель задач, Alt+Tab и трей
+    # one icon for every window at once: title bar, taskbar, Alt+Tab and the tray
+    set_app_id()
+    icon = app_icon()
+    app.setWindowIcon(icon)
     # сторож главного потока: если окно замрёт, в журнал ошибок попадёт стек всех
     # потоков, и причину будет видно / a main-thread watchdog: a frozen window
     # leaves every thread stack in the error log, so the cause is visible
@@ -501,10 +568,11 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
     engine = Engine(cfg, load_glossary(lang), translator)
     tracker = gs.GameTracker(cfg)
     bridge = Bridge()
-    tray = QSystemTrayIcon(make_icon(), app)
+    tray = QSystemTrayIcon(icon, app)
     win = Overlay(cfg, engine, tracker, bridge, tray)
+    win.setWindowIcon(icon)
     win.hwnd = int(win.winId())
-    state = {"dlg": None, "hk": None, "menu": None}
+    state = {"dlg": None, "hk": None, "menu": None, "stop": None}
 
     # ---------- локальный сервис DeepL ----------
     def dlx_event(kind, text):
@@ -533,6 +601,178 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
 
     attach_local()
 
+    # ---------- модуль «Анимации» ----------
+    # Чат игры принимает новое T не мгновенно: сразу после Enter предыдущей
+    # команды нажатие пропадает, и команда не уходит. Поэтому между командами
+    # выдерживается пауза на «отдых» чата — это не пауза между анимациями, а
+    # время на саму игру.
+    # The game chat does not take a new T instantly: right after the Enter of the
+    # previous command the press is lost and the command goes nowhere. So the
+    # commands keep a chat rest — this is not the animation pause, it is the game.
+    CHAT_REST_MS = 300
+    chat_state = {"at": 0.0}
+
+    def anims_send(command):
+        """Отправка команды анимации в чат игры / send an animation command.
+
+        Вызывается из потока модуля: чат игры открывается заново — фокус в игру,
+        клавиша чата (T), вставка, Enter, — потому что к этому моменту чат и
+        фокус уже не там, где были при отправке сообщения.
+        Called from the module thread: the game chat is opened again — focus, the
+        chat key (T), paste, Enter — because by then the chat and the focus are no
+        longer where they were when the message was sent.
+        """
+        if not modules.is_enabled(cfg, "anims") or not modules.is_enabled(cfg, "game_send"):
+            return False, i18n.t("отправка в игру выключена в настройках")
+        hwnd = win.game_hwnd or tracker.get(True)
+        if not hwnd:
+            return False, i18n.t("окно игры не найдено")
+        rest = CHAT_REST_MS / 1000.0 - (time.monotonic() - chat_state["at"])
+        if rest > 0:
+            # чат ещё «остывает» после прошлой команды
+            # the chat is still recovering from the previous command
+            log.info("Анимации: пауза чата %d мс перед %s", int(rest * 1000), command)
+            time.sleep(rest)
+        # игра вставляет текст из буфера обмена: если команду туда не положить,
+        # в чат уйдёт прошлое сообщение игрока (и оно продублируется)
+        # the game pastes from the clipboard: without putting the command there
+        # the chat receives the player's previous message and repeats it
+        if str(cfg.get("game_input_mode", "paste")) != "type":
+            if not gs.set_clipboard(command):
+                return False, i18n.t("не удалось положить команду в буфер обмена")
+        try:
+            ok, message = gs.send_chat(cfg, hwnd, command, chat_open=False)
+        except Exception as error:
+            log.exception("Анимации: сбой отправки %s", command)
+            return False, str(error)[:120]
+        finally:
+            chat_state["at"] = time.monotonic()
+        if ok:
+            return True, message
+        # один повтор: игра могла не успеть отдать фокус, а без команды
+        # пропадает вся анимация
+        # one retry: the game may have been slow with the focus, and a lost
+        # command costs the whole animation
+        log.warning("Анимации: %s не ушло (%s) — повторяю", command, message)
+        time.sleep(0.4)
+        try:
+            ok, message = gs.send_chat(cfg, hwnd, command, chat_open=False)
+        except Exception as error:
+            log.exception("Анимации: повтор не удался %s", command)
+            return False, str(error)[:120]
+        finally:
+            chat_state["at"] = time.monotonic()
+        return ok, message
+
+    def anims_press_key(spec):
+        """Симуляция нажатия клавиши в игре / simulate a key press in the game.
+
+        Нужна для остановки анимации клавишей: игра получает настоящее нажатие,
+        поэтому её собственный обработчик срабатывает как обычно.
+        Used to stop an animation with a key: the game receives a real press, so
+        its own handler works as usual.
+        """
+        hwnd = win.game_hwnd or tracker.get(True)
+        if not hwnd:
+            return False, i18n.t("окно игры не найдено")
+        try:
+            _mods, vk = parse_hotkey(str(spec or "f"))
+        except Exception:
+            log.exception("Анимации: клавиша «%s» не разобрана", spec)
+            vk = 0
+        if not vk:
+            return False, i18n.t("клавиша остановки не разобрана")
+        if not gs.focus(hwnd):
+            return False, i18n.t("не удалось переключиться в игру")
+        gs.tap(vk)
+        return True, ""
+
+    def anim_equivalent(phrase):
+        """Ключ перевода фразы: одинаковый ключ — одинаковый перевод.
+
+        The translation key of a phrase: the same key means the same translation.
+
+        «Чёрт» и «проклятье» оба дают «Mannaggia», а «да ну» и «да брось» —
+        «ma dai», поэтому правило на одну фразу срабатывает и на другую: по
+        словарю, без обращения к сети.
+        «Чёрт» and «проклятье» both give «Mannaggia», «да ну» and «да брось»
+        both give «ma dai», so a rule for one phrase fires on the other — straight
+        from the glossary, with no network call.
+        """
+        try:
+            glossary = win.engine.g
+            return glossary.find_meaning(phrase) or ""
+        except Exception:
+            return ""
+
+    def anim_text_keys(text):
+        """Какие фразы словаря есть в сообщении: [(начало, конец, ключ)].
+
+        Which glossary phrases sit in the text: [(start, end, key)]. По этому
+        списку ловятся многословные синонимы — «да ну» на правиле «да брось».
+        It is what catches multi-word synonyms — «да ну» on a «да брось» rule.
+        """
+        try:
+            glossary = win.engine.g
+            return glossary.phrase_keys(text)
+        except Exception:
+            return []
+
+    def anims_event(kind, text):
+        """Событие модуля: ошибку и остановку видит игрок, остальное — журнал.
+
+        The module reports an error or a stop to the player; the rest goes to
+        the log only, so a working animation never nags with notifications.
+        """
+        if kind == "error":
+            bridge.anims_text.emit(i18n.tf("Анимация: %s", text), True)
+        elif kind == "stopped":
+            bridge.anims_text.emit(i18n.t("Зацикленная анимация остановлена."), False)
+        else:
+            log.info("Анимации: %s — %s", kind, text)
+
+    bridge.anims_text.connect(lambda text, error: win.notify(text, error),
+                              Qt.ConnectionType.QueuedConnection)
+    runner = anims_mod.Runner(cfg, send=anims_send, on_event=anims_event,
+                              equivalent=anim_equivalent,
+                              press_key=anims_press_key,
+                              text_keys=anim_text_keys)
+    win.anims = runner
+    # окно настроек проверяет этим словарём, доходит ли команда до игры
+    # the settings window uses this mapping to check whether a command arrives
+    anims_api = {
+        "state": runner.state,
+        "stop": runner.stop_user,
+        "send": lambda name: anims_send(f"/anim {name}".strip()),
+    }
+
+    def start_stop_watcher():
+        """Клавиша остановки: перезапуск после каждой смены настроек.
+
+        The stop key watcher: restarted after every settings change, because the
+        key itself may have changed.
+        """
+        old = state["stop"]
+        if old is not None:
+            old.stop()
+            state["stop"] = None
+        if not cfg.get("anims_enabled"):
+            return
+        # клавиша остановки следит только за зацикливанием — это её прямое
+        # назначение. Иначе обычное нажатие F в игре (в GTA это вход в машину и
+        # другие действия) обрывало бы обычные анимации и снимало очередь.
+        # the stop key watches looping animations only, which is its purpose.
+        # Otherwise an ordinary F press in the game (enter a vehicle and other
+        # actions in GTA) would cut one-shot animations and drop the queue.
+        watcher = anims_mod.StopWatcher(
+            str(cfg.get("anim_stop_key", "f") or "f"),
+            runner.stop_user,
+            lambda: bool(runner.state().get("loop")))
+        state["stop"] = watcher
+        watcher.start()
+
+    start_stop_watcher()
+
     # ---------- применение настроек ----------
     def apply_settings(newcfg):
         """Пересобирает движок, горячую клавишу и меню после сохранения настроек."""
@@ -556,6 +796,8 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
                              daemon=True).start()
         win.engine = Engine(cfg, load_glossary(code), translator)
         win.plan = AutoPlan(cfg)              # новая серия под новые параметры
+        runner.reload(cfg)                    # новые правила анимаций
+        start_stop_watcher()                  # и, возможно, новая клавиша остановки
         restart_hotkey()
         build_menu()
         i18n.set_lang(cfg.get("ui_lang", "ru"))
@@ -580,7 +822,8 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
             state["dlg"].raise_()
             state["dlg"].activateWindow()
             return
-        dlg = open_settings(cfg, parent=None, first_run=first_run, dlx=dlx)
+        dlg = open_settings(cfg, parent=None, first_run=first_run, dlx=dlx,
+                            anims_api=anims_api)
         dlg.saved.connect(apply_settings)
         dlg.finished.connect(lambda *_: state.update(dlg=None))
         state["dlg"] = dlg
@@ -666,6 +909,9 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
     start_hotkey()
     app.aboutToQuit.connect(lambda: state["hk"] and state["hk"].stop())
     app.aboutToQuit.connect(dlx.shutdown)
+    app.aboutToQuit.connect(translator.flush_cache)
+    app.aboutToQuit.connect(runner.shutdown)
+    app.aboutToQuit.connect(lambda: state["stop"] and state["stop"].stop())
 
     game = i18n.t("найдена") if tracker.get(True) else i18n.t("не найдена")
     key = cfg["hotkey"] if modules.is_enabled(cfg, "hotkey") else i18n.t("не назначена")
@@ -721,8 +967,9 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
                                         "Настройки → DeepL → Обновить.", newest))
             except Exception:
                 log.exception("DLX: сбой при запуске сервиса")
-                dlx_say(i18n.tf("Сервис DeepL не запустился (%s) — работаю через "
-                                "стандартные сервисы.", "см. logs/errors.log"), True)
+                dlx_say(i18n.tf("Сервис DeepL не запустился (%s) — перевожу "
+                                "через стандартные сервисы.",
+                                i18n.t("см. logs/errors.log")), True)
         threading.Thread(target=work, name="dlx-boot", daemon=True).start()
 
     def dlx_boot():

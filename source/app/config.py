@@ -57,6 +57,29 @@ ROOT: Path = _root()
 DATA: Path = ROOT / "data"
 LOGS: Path = ROOT / "logs"
 
+def resource_path(name: str) -> Path:
+    """Файл из комплекта программы: иконка, словари, картинки.
+
+    A file shipped with the program: the icon, the glossaries, the images.
+    В сборке PyInstaller распаковывает их в ``sys._MEIPASS``, в исходниках они
+    лежат рядом с ``main.py``; папка данных (%LOCALAPPDATA%) проверяется тоже —
+    на случай, если программу распаковали только частично.
+    PyInstaller unpacks them into ``sys._MEIPASS``; in the sources they sit next
+    to ``main.py``. The data folder (%LOCALAPPDATA%) is checked too, in case the
+    program was unpacked only partly.
+    """
+    candidates = []
+    bundle = getattr(sys, "_MEIPASS", "")
+    if bundle:
+        candidates.append(Path(bundle) / name)
+    candidates.append(ROOT / name)
+    candidates.append(Path(__file__).resolve().parent.parent / name)
+    for path in candidates:
+        if path.is_file():
+            return path
+    return candidates[-1]
+
+
 CONFIG_PATH: Path = DATA / "config.json"
 CACHE_PATH: Path = DATA / "cache.json"
 SLANG_PATH: Path = DATA / "slang.json"              # свои сокращения игрока / user abbreviations
@@ -131,6 +154,16 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "game_window_class": "grcWindow",   # класс окна игры / game window class
     "game_extra_exes": [],              # дополнительные процессы игры / extra game processes
 
+    # --- анимации / animations ---
+    "slang_order": [],                    # свой порядок сокращений / the user's order
+    "anims_enabled": False,              # модуль «Анимации» / the animation module
+    "anim_rules": [],                    # правила: слово -> /anim / rules: keyword -> /anim
+    "anim_stop_key": "f",                # клавиша остановки / the stop key
+    "anim_stop_by_sa": True,             # останавливать командой /sa / stop with /sa
+    "anim_stop_by_key": False,
+    "anim_skip_negation": True,           # останавливать нажатием клавиши / stop with the key
+    "anim_extra_ms": 50,                  # добавка к длительности анимации / tail after it
+
     # --- горячая клавиша и окно / hotkey and window ---
     "hotkey": "F6",
     "overlay_pos": [0.01, 0.28],        # положение окна в долях окна игры / position as a fraction
@@ -186,14 +219,24 @@ def read_json(path: str | Path, default: Any = None) -> Any:
         return default
 
 
-def write_json(path: str | Path, data: Any) -> None:
+def write_json(path: str | Path, data: Any, compact: bool = False) -> None:
     """Атомарно записывает JSON: сначала .tmp, потом подмена файла.
 
     Writes JSON atomically: a .tmp file first, then an atomic replace.
+
+    compact=True — без отступов: файл кэша переводов переписывается на каждой
+    новой фразе, и отступы в две тысячи записей стоили лишних сотен килобайт
+    записи на диск во время игры.
+    compact=True drops indentation: the translation cache file is rewritten on
+    every new phrase, and indenting two thousand entries meant hundreds of extra
+    kilobytes written to disk while the game runs.
     """
     tmp = f"{path}.tmp"
     with open(tmp, "w", encoding="utf-8") as handle:
-        json.dump(data, handle, ensure_ascii=False, indent=2)
+        if compact:
+            json.dump(data, handle, ensure_ascii=False, separators=(",", ":"))
+        else:
+            json.dump(data, handle, ensure_ascii=False, indent=2)
     os.replace(tmp, path)
 
 

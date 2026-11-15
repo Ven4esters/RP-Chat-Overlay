@@ -13,13 +13,42 @@ language packs, interface) into a single RPChatOverlay.exe.
 Проще всего — запустить build_exe.bat: он сам создаст окружение, поставит
 PyInstaller и соберёт exe.
 """
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+
+
+def _submodules(package):
+    """Подмодули пакета; пакета нет — пусто, сборка не падает.
+
+    The submodules of a package; an absent package gives an empty list so the
+    build never fails over an optional dependency.
+    """
+    try:
+        return collect_submodules(package)
+    except Exception:
+        print(f"[spec] {package} не установлен — собираю без него")
+        return []
+
+
+def _data(package):
+    """Файлы данных пакета; пакета нет — пусто / the data files of a package."""
+    try:
+        return collect_data_files(package)
+    except Exception:
+        return []
+
 
 # динамические импорты (importlib) PyInstaller сам не видит — перечисляем явно
 hidden = []
 hidden += collect_submodules("app")
 hidden += collect_submodules("app.langpacks")
 hidden += collect_submodules("deep_translator")
+# Словарь словоформ для уровня «Леммы». Если пакет не установлен, exe соберётся
+# без словаря: уровень «Леммы» откатится к основам, программа работает.
+# The word-form dictionary for the "Lemmas" level. Without the package the exe
+# is built without it: the level falls back to stems and the program still works.
+hidden += _submodules("pymorphy3")
+hidden += _submodules("pymorphy3_dicts_ru")
+dictionary_data = _data("pymorphy3_dicts_ru") + _data("pymorphy3")
 
 excludes = [
     "tkinter", "unittest", "test", "pydoc_data", "sqlite3",
@@ -35,7 +64,7 @@ a = Analysis(
     ["main.py"],
     pathex=[],
     binaries=[],
-    datas=[("icon.ico", ".")],
+    datas=[("icon.ico", ".")] + dictionary_data,
     hiddenimports=hidden,
     hookspath=[],
     hooksconfig={},

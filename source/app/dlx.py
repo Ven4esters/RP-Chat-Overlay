@@ -128,6 +128,33 @@ def free_port(low: int = PORT_RANGE[0], high: int = PORT_RANGE[1]) -> int:
     raise DlxError("нет свободного порта для локального сервиса")
 
 
+def _mask_url(url: str) -> str:
+    """Адрес без логина и пароля — для журнала и интерфейса.
+
+    The address without its user and password, for the log and the interface.
+
+    Зачем: у прокси с авторизацией адрес выглядит как
+    `http://user:pass@host:port`, и он попадает в `app.log`, в `errors.log` и
+    в подпись состояния. Пароль от чужого прокси в журнале — это утечка.
+    Why: a proxy with authorisation looks like `http://user:pass@host:port`, and
+    that string reaches `app.log`, `errors.log` and the state line. Somebody
+    else's proxy password in a log is a leak.
+    """
+    text = (url or "").strip()
+    if not text:
+        return ""
+    try:
+        parts = urllib.parse.urlsplit(text if "://" in text else "http://" + text)
+    except ValueError:
+        return "***"
+    if not (parts.username or parts.password):
+        return text
+    host = parts.hostname or "?"
+    netloc = f"***:***@{host}" + (f":{parts.port}" if parts.port else "")
+    return urllib.parse.urlunsplit(
+        (parts.scheme, netloc, parts.path, parts.query, parts.fragment))
+
+
 def normalize_proxy(value: str) -> str:
     """Приводит адрес прокси к виду, который понимает DLX; пустая строка — «нет».
 
@@ -143,10 +170,12 @@ def normalize_proxy(value: str) -> str:
         text = "http://" + text            # «127.0.0.1:8080» тоже годится
     parsed = urllib.parse.urlparse(text)
     if parsed.scheme not in ("http", "https", "socks5", "socks5h"):
-        log.warning("DLX: прокси %s не поддержан (нужен http, https или socks5)", text)
+        log.warning("DLX: прокси %s не поддержан (нужен http, https или socks5)",
+                    _mask_url(text))
         return ""
     if not parsed.hostname or not parsed.port:
-        log.warning("DLX: в адресе прокси %s нет хоста или порта — игнорирую", text)
+        log.warning("DLX: в адресе прокси %s нет хоста или порта — игнорирую",
+                    _mask_url(text))
         return ""
     return text
 
@@ -307,7 +336,8 @@ def proxy_exit(proxy: str, timeout: float = 10.0) -> tuple[bool, str]:
     url = normalize_proxy(proxy)
     if not url:
         return False, "прокси не задан"
-    host, path = "ipinfo.io", "/json"
+    lookup = urllib.parse.urlsplit(GEO_URL)
+    host, path = lookup.hostname or "ipinfo.io", lookup.path or "/json"
     try:
         sock = _proxy_socket(url, host, 443, timeout)
     except socket.timeout:
@@ -536,14 +566,12 @@ class DlxService:
         self._note = ""                   # оговорка к состоянию / a state remark
         self._probe_logged = False        # жалоба на молчание — один раз / log once
         self._probe_error = ""            # чем именно ответил сервис / what it said
-        self._system_proxy = ""           # прокси из настроек Windows / from Windows
         self._install_lock = threading.Lock()   # одна установка за раз / one at a time
         self._reason: str = ""
         self._lock = threading.RLock()
         self._stop_watch = threading.Event()
         self._watch_thread: threading.Thread | None = None
         self._crashes: list[float] = []
-        self._last_start = 0.0
         self._last_attempt = 0.0
         atexit.register(self.shutdown)
 
@@ -696,11 +724,11 @@ class DlxService:
             if url:
                 ok, why = check_proxy(url)
                 if ok:
-                    log.info("DLX: использую системный прокси Windows %s", url)
-                    self._system_proxy = url
+                    log.info("DLX: использую системный прокси Windows %s",
+                             _mask_url(url))
                     return url
-                log.warning("DLX: системный прокси %s не отвечает (%s) — иду напрямую",
-                            url, why)
+                log.warning("DLX: системный прокси %s не отвечает (%s) — иду "
+                            "напрямую", _mask_url(url), why)
                 return ""
         if not url:
             return ""
@@ -712,7 +740,8 @@ class DlxService:
         alt = f"{alt_scheme}://{parsed.hostname}:{parsed.port}"
         ok_alt, why_alt = check_proxy(alt)
         if ok_alt:
-            log.info("DLX: прокси %s распознан как %s", url, alt)
+            log.info("DLX: прокси %s распознан как %s", _mask_url(url),
+                     _mask_url(alt))
             return alt
         self._proxy_error = why or why_alt
         log.warning("DLX: прокси не годится — %s", self._proxy_error)
@@ -837,7 +866,9 @@ class DlxService:
         """Пояснение к состоянию: откуда взялся прокси / where the proxy came from."""
         configured = normalize_proxy(str(self.cfg.get("dlx_proxy") or ""))
         if proxy and not configured:
-            return f"через системный прокси {urllib.parse.urlparse(proxy).netloc}"
+            host = urllib.parse.urlparse(proxy).hostname or ""
+            port = urllib.parse.urlparse(proxy).port
+            return f"через системный прокси {host}" + (f":{port}" if port else "")
         if proxy and proxy != configured:
             return f"прокси распознан как {proxy.split('://')[0]}"
         return ""
@@ -854,13 +885,22 @@ class DlxService:
         """
         url = self.external_url()
         parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            # иначе в поле мог бы попасть file:// или ftp:// — и программа
+            # читала бы локальные файлы вместо перевода
+            # otherwise file:// or ftp:// could land in the field and the
+            # program would read local files instead of translating
+            self._set_state("error", "адрес своего сервиса должен начинаться с "
+                                     "http:// или https://")
+            log.warning("DLX: отклонён адрес своего сервиса %s", _mask_url(url))
+            return False
         self._port = parsed.port or (443 if parsed.scheme == "https" else 80)
         self._spawn = {"url": url}
         state = self.probe()
         if state == "ready":
             self._note = f"свой сервис {parsed.netloc or url}"
             self._set_state("ready", "")
-            log.info("DLX: свой сервис %s отвечает", url)
+            log.info("DLX: свой сервис %s отвечает", _mask_url(url))
             return True
         if state == "upstream":
             self._note = f"свой сервис {parsed.netloc or url}"
@@ -870,7 +910,7 @@ class DlxService:
         self._set_state(
             "error", self._probe_error or
             f"свой сервис {url} не отвечает — проверьте адрес и что он запущен")
-        log.warning("DLX: свой сервис %s не отвечает", url)
+        log.warning("DLX: свой сервис %s не отвечает", _mask_url(url))
         return False
 
     def _try_start(self, port: int, token: str, proxy: str) -> tuple[bool, str]:
@@ -900,7 +940,6 @@ class DlxService:
         self._job = _kill_orphans_with_job(int(getattr(self._process, "_handle", 0) or 0))
         self._port = port
         self._token = token
-        self._last_start = time.time()
         self._probe_logged = False
         self._set_state("starting", "")
         started = time.time()
@@ -1093,7 +1132,8 @@ class DlxService:
         except (urllib.error.URLError, OSError, ValueError) as error:
             if not self._probe_logged:
                 self._probe_logged = True
-                log.info("DLX: %s не отвечает: %s", self._url("/"), str(error)[:90])
+                log.info("DLX: %s не отвечает: %s", _mask_url(self._url("/")),
+                         str(error)[:90])
             return "down"
         # 2. один пробный перевод: работает ли связка с DeepL
         #    one trial translation: does the DeepL link work

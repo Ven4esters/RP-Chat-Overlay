@@ -51,10 +51,6 @@ def has_pack(code):
     return code in MODULES
 
 
-def pack_codes():
-    return sorted(MODULES)
-
-
 def get_pack(code):
     """Встроенный словарь языка или None, если для языка пакета нет."""
     m = MODULES.get(code)

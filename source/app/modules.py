@@ -121,6 +121,19 @@ MODULES: Final[tuple[Module, ...]] = (
         config_key="dlx_enabled",
         default=False,
         requires=("translator",),
+        settings_page=6,
+    ),
+    Module(
+        key="anims",
+        title_ru="Анимации",
+        title_en="Animations",
+        desc_ru="Ключевое слово в вашем сообщении запускает /anim в игре; через "
+                "заданное время уходит /sa. Требует отправки в игру.",
+        desc_en="A keyword in your message starts /anim in the game, and /sa "
+                "follows after the configured delay. Requires sending into the game.",
+        config_key="anims_enabled",
+        default=False,
+        requires=("game_send",),
         settings_page=7,
     ),
     Module(
@@ -141,11 +154,6 @@ BY_KEY: Final[dict[str, Module]] = {m.key: m for m in MODULES}
 def get(key: str) -> Module | None:
     """Описание модуля по ключу или None / module by key, or None."""
     return BY_KEY.get(key)
-
-
-def config_keys() -> dict[str, bool]:
-    """Ключи конфигурации и значения по умолчанию / config keys and defaults."""
-    return {m.config_key: m.default for m in MODULES}
 
 
 def _raw_flag(cfg: Mapping[str, Any], module: Module) -> bool:

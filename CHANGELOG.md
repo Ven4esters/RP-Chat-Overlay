@@ -5,29 +5,310 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
-## 1.6 — 15.11.2026
+## 1.9.8 — 14.11.2026
 
-**Внутренняя переработка: модульность, порядок в коде, двуязычные комментарии.**
-Ничего из возможностей не убрано, интерфейс и поведение остались прежними.
+**Чат игры очищается перед каждой вставкой.**
 
-### Структура
-- Код собран в один пакет **`source/app`**: конфигурация, движок, перевод, словари,
-  интерфейс и системные модули лежат рядом, а не в общем каталоге исходников.
-- `common.py` переименован в **`app/config.py`** — имя говорит, что внутри: пути,
-  журнал, чтение и запись `config.json`, настройки по умолчанию.
-- **`app/modules.py`** — реестр модулей: у каждой части программы есть имя, описание,
-  ключ в конфигурации, зависимости и раздел настроек, где она включается.
-- Настройки по умолчанию собраны в одном месте: служебный словарь `EXTRA` из `main.py`
-  больше не дублирует ключи конфигурации.
-- В модуле словаря убран устаревший псевдоним `it_to_ru`, в `i18n.py` — лишний импорт,
-  файлы приведены к одинаковым переводам строк, у публичных функций появились
-  подсказки типов.
+### Отправка в игру
+- **Поле ввода чата полностью очищается перед вставкой:** Ctrl+A (выделить всё),
+  Backspace (стереть), и только потом вставка и Enter. Раньше остаток прошлой
+  строки — хвост команды, автодополнение, случайное нажатие — приклеивался к
+  нашему тексту, и в игру уходило, например, `привет/anim wave` вместо
+  `/anim wave`. Такая команда ломала и себя, и следующую за ней.
+- **Касается всех отправок:** обычное сообщение (чат открыт оверлеем), команды
+  `/anim` и `/sa` (чат открывается заново), а также режим ввода «печать по
+  буквам» — очистка идёт в обоих режимах.
+- В окне настроек, на странице отправки, появилась подсказка об этом (RU/EN).
 
-### Исправления
+## 1.9.7 — 14.11.2026
+
+**Строки в таблицах можно перетаскивать мышью.**
+
+### Настройки
+- **Словарь, сокращения и анимации** — строки меняются местами перетаскиванием,
+  как в обычном списке: взяли строку, потянули, отпустили. Работает и в
+  отфильтрованной таблице.
+- **Анимации:** строка переезжает вместе со всем содержимым — режим, формы,
+  длительность, галочки «Вкл» и «Зацикливать». Для этого строки собираются
+  заново из правил, а не двигаются средствами Qt (иначе выпадающие списки
+  остались бы на старых местах).
+- **Порядок сохраняется.** В словаре он записывается в сам словарь и значит
+  больше, чем кажется: если у двух фраз одинаковое русское значение, срабатывает
+  нижняя. У сокращений порядок запоминается в настройках (`slang_order`), иначе
+  таблица снова сортировалась бы по алфавиту при открытии окна. У анимаций
+  порядок — для удобства: в игре очередь идёт по словам в сообщении.
+- Под каждой таблицей появилась подсказка про перетаскивание (RU/EN).
+
+## 1.9.6 — 14.11.2026
+
+**Клавиша остановки больше не выбрасывает очередь: из двух слов играют оба.**
+
+### Анимации
+- **Причина найдена по журналу.** В строке `остановлено игроком` снималась вся
+  очередь, поэтому второе срабатывание из того же сообщения не играло вообще.
+  Теперь клавиша остановки гасит **только текущую** анимацию, а очередь остаётся:
+  `/anim`, `/sa`, `/anim`, `/sa`. Снять очередь целиком может лишь полная
+  остановка (выход, «Остановить» в настройках).
+- **Клавиша остановки следит только за зацикливанием**, как и написано в её
+  названии. Раньше она ловила любое нажатие: в GTA F — это ещё и вход в машину,
+  поэтому обычная анимация обрывалась на полуслове, а вместе с ней и очередь.
+- **В журнале видно, что снято:** `Анимации: очередь снята (/anim …)`; при
+  остановке игроком — `остановлено игроком, в очереди остаётся: N`.
+- Самотест: два новых прогона — «остановка игроком, очередь остаётся» и «полная
+  остановка снимает очередь».
+
+## 1.9.5 — 14.11.2026
+
+**Видно, почему анимация не дошла до игры, и чат больше не теряет команды.**
+
+### Анимации
+- **Проверка фразы предупреждает, если команда никуда не уйдёт.** Раньше она
+  показывала «Сработают: /anim …» и при выключенном модуле. Теперь рядом
+  появляется строка: «Но в игру ничего не уйдёт: выключен модуль «Анимации»»
+  (или «Отправка в игру») — и подсветка меняется на предупреждающую.
+- **Журнал пишет, что модуль выключен** — один раз, а не на каждое сообщение.
+- **Пауза на «отдых» чата (300 мс) между командами.** Каждая команда — это заново
+  фокус в игру, клавиша чата (T), вставка и Enter. Сразу после Enter чат игры ещё
+  не принимает новое T, и команда пропадает: теперь перед T выдерживается пауза.
+  Это не пауза между анимациями (та привязана к длительности анимации), а время
+  на саму игру.
+- **Повтор отправки.** Если команда не ушла (игра не отдала фокус), она
+  отправляется ещё раз через 400 мс — одна потерянная команда стоила всей
+  анимации.
+- В журнале видно каждую паузу: `Анимации: пауза чата 220 мс перед /anim …`.
+
+## 1.9.4 — 14.11.2026
+
+**Пауза привязана к длительности анимации, а не к фиксированному числу.**
+
+### Анимации
+- **Вместо статичных 700 мс — хвост после каждой анимации.** Время проигрывания
+  берётся из самого правила, и к нему добавляется «Пауза после анимации, мс»
+  (по умолчанию **50**): правило на 1500 мс занимает 1550 мс, и только потом
+  играет следующая из очереди. Схема: `/anim`, `/sa`, 50 мс, `/anim`, `/sa`.
+- **Длительность считается от отправки `/anim`**, а не после неё: время на фокус,
+  открытие чата и вставку входит в те же 1500 мс, поэтому паузы больше не
+  удлиняются незаметно на полсекунды каждая.
+- **Зацикливание стало ровным:** повтор идёт ровно через длительность правила.
+- **Поле в настройках переименовано** в «Пауза после анимации, мс» (шаг 10 мс,
+  0–10000). Значение из старого поля `anim_gap_ms` подхватывается, настройки не
+  теряются; в конфиге ключ теперь `anim_extra_ms`.
+- **Остановка во время хвоста** отменяет следующую анимацию.
+- Самотест: три прогона — хвост 50 мс, хвост 0 мс и «400 мс анимации + 200 мс
+  хвоста = следующая через 0,6 с».
+
+## 1.9.3 — 14.11.2026
+
+**Пауза между анимациями: из сообщения с двумя ключевыми словами играют оба.**
+
+### Анимации
+- **Исправлено: вторая анимация терялась в игре.** Очередь отправляла `/sa` от
+  предыдущей анимации и следующую `/anim` почти одновременно: чат игры не успевал
+  закрыться, сервер — принять остановку, и второе `/anim` пропадало. В сообщении
+  «Да ну, чёрт» с двумя правилами играло только «Да ну». Теперь между анимациями
+  есть пауза, по умолчанию **700 мс**, — `/anim`, `/sa`, пауза, `/anim`, `/sa`.
+- **Новое поле «Пауза между анимациями, мс»** в разделе «Анимации» (0–10000).
+  0 — запускать сразу, как раньше. Если сервер всё равно съедает вторую команду,
+  поставьте 1000–1500: у серверов бывает защита от частых команд.
+- **Журнал стал понятнее:** при каждом срабатывании в `logs/app.log` пишется вся
+  очередь — `Анимации: в очередь /anim anim_talkinggestures5 -> /anim anim_damn`.
+  По нему видно, дошло ли дело до второй анимации или её не пропустила игра.
+- Остановка во время паузы отменяет следующую анимацию, а не запускает её.
+- Самотест: новый прогон проверяет саму паузу (вторая команда не уходит вместе с
+  `/sa`).
+
+## 1.9.2 — 14.11.2026
+
+**Новая иконка: читается в мелком размере, и она же стоит у окна и в трее.**
+
+### Иконка
+- **Перерисована.** 10 размеров внутри `icon.ico` (16, 20, 24, 32, 40, 48, 64, 96,
+  128, 256). В 16 и 20 пикселей остаются только крупные белые «RP» на зелёной
+  плитке — два ряда букв в пузыре там превращались в кашу. С 24 пикселей
+  включается основной вид: белый пузырь с зелёными «RP». Хвостик пузыря толще,
+  поля меньше — значок занимает больше места и не «худеет» на панели задач.
+- **Мелкие записи — без сжатия.** До 64 пикселей в ICO лежит обычный BMP, крупные
+  размеры — PNG: так иконку одинаково читают проводник, панель задач и старые
+  программы.
+- **Перерисовать можно самому:** `python tools/make_icon.py` (нужен `pillow`),
+  он же обновляет `icon.png` для README.
+
+### Запуск
+- **Иконка у окна и в трее.** Раньше трей рисовал иконку кодом (зелёный кружок), а
+  у окон иконки не было вовсе — Windows показывала стандартную заглушку в
+  заголовке, на панели задач и в Alt+Tab. Теперь `icon.ico` ставится на приложение
+  целиком, поэтому она видна везде. Файла нет — рисуется запасная, программа
+  работает.
+- **AppUserModelID на Windows.** Панель задач группирует окно под своей иконкой, а
+  не под значком файла, из которого запущен Python.
+- Новая функция `config.resource_path()` находит файлы программы и в сборке
+  (`sys._MEIPASS`), и в исходниках, и в папке данных.
+
+## 1.9.1 — 14.11.2026
+
+**Несколько ключевых слов в одном правиле играют подряд.**
+
+### Анимации
+- **Исправлено: два ключевых слова в одном правиле давали одну анимацию.**
+  Защита от повтора срабатывала на сообщение целиком, а не на отдельное слово,
+  поэтому правило с ключами «да ну, да брось» на фразе «Да ну да брось» играло
+  один раз. Теперь **каждое своё ключевое слово правило запускает отдельным
+  выходом**: `/anim`, `/sa`, `/anim`, `/sa`. Повтор **того же** слова по-прежнему
+  даёт одно срабатывание — «чёрт, чёрт» остаётся одной анимацией.
+- **Место в тексте больше не путается.** Если два ключа правила попали в одно и
+  то же место (например, «чёрт» и «проклятье» — синонимы по словарю), это одно
+  срабатывание; если ключ есть в сообщении буквально, он срабатывает на своём
+  месте, а не на месте синонима. Порядок — по тексту сообщения.
+- **Проверка фразы** в настройках показывает все срабатывания подряд, с той
+  формой, которая задела правило: «Сработают: /anim dai ← «Да ну», /anim dai ←
+  «да брось»».
+- Самотест: 4 новых случая (два ключа, два ключа-синонима, повтор ключа вместе
+  со вторым ключом).
+
+## 1.9 — 14.11.2026
+
+**Словоформы ключевых слов: «открыл зонт» ловит и «открывает зонт».**
+
+### Анимации
+- **Столбец «Формы».** Как сравнивать ключевое слово с сообщением, теперь
+  выбирается для каждого правила отдельно: **«Точно»** — только написанная форма
+  (годится для имён и ников), **«Основы»** (по умолчанию) — любые падежи, числа и
+  спряжения, **«Леммы»** — по словарной форме слова. «Открыл», «открывает» и
+  «откроет» дают одну основу «откр», «зонта», «зонтом» и «зонты» — «зонт».
+- **Основы без словарей.** Основа получается срезанием окончаний по таблице
+  русских флексий и одного словообразовательного суффикса, плюс небольшая
+  таблица чередований («пьёт» = «пить»). Ничего не нужно ставить и скачивать,
+  интернет не нужен, проверка занимает доли миллисекунды.
+- **Леммы по словарю.** Уровень «Леммы» дополнительно спрашивает `pymorphy3`:
+  «люди» находит «человек», «зонта» — «зонт». Если пакета нет, уровень честно
+  работает как «Основы», а в настройках появляется предупреждение.
+- **Одно слово внутри фразы.** В ключевой фразе между словами допускается одно
+  постороннее слово: «открыл зонт» срабатывает и на «открыл чёрный зонт».
+- **Видно, что сработало.** В блоке «Проверить» рядом с анимацией показывается
+  найденная форма: `/anim umbrella ← «открывает зонт»`.
+- **Отрицание не запускает анимацию.** Новая галочка «Не срабатывать на
+  отрицание» (включена по умолчанию) гасит правило, если перед найденным словом
+  стоит «не», «ни», «нет», «никогда», «нечего» и подобные: «Открыл зонт»
+  срабатывает, «Не открыл зонт» — нет. Маркер ищется в пределах трёх слов и не
+  перешагивает знаки препинания, поэтому «Не открыл зонт, да ну» — два разных
+  куска. Ключ, в котором отрицание уже есть, проверку для себя выключает.
+- **Синонимы теперь и целыми фразами.** Раньше совпадение по словарю работало
+  только для отдельных слов. Теперь «да ну» срабатывает на правиле «да брось»,
+  потому что обе фразы переводятся как «ma dai». Повтор в одном сообщении
+  («Да ну да брось») по-прежнему даёт одно срабатывание.
+- **Режим «Команды и сообщения» убран.** Он целиком покрывался режимом «Всегда»
+  и только запутывал: режимов осталось четыре. Старые правила с этим режимом
+  читаются как «Всегда», ничего не ломается.
+
+### Прочее
+- Из модуля «Анимации» убран неиспользуемый код: четыре функции разбора, шаблон
+  поиска целого слова, `occurrences`/`first_offset`, описание убранного режима.
+- Из проекта убраны неиспользуемые функции `is_filler_text` и `translit_text` и
+  пять устаревших строк перевода.
+- Новая зависимость: `pymorphy3` и `pymorphy3-dicts-ru` — словарь 15,3 МБ, в exe
+  он сжимается примерно до 8 МБ. Ничего не докачивается: словарь попадает внутрь
+  exe на сборке. Если пакета нет ни при сборке, ни при запуске из исходников,
+  программа работает, а уровень «Леммы» откатывается к основам.
+- `--selftest` проверяет словоформы на всех трёх уровнях, чтение старого режима 5
+  и починку мусора в поле «Формы».
+
+---
+
+## 1.8 — 14.11.2026
+
+**Модуль «Анимации»: ключевое слово в сообщении запускает анимацию в игре.**
+
+### Правила
+- **Слово → анимация.** В настройках появился раздел **«Анимации»**: правило
+  состоит из ключевого слова (или нескольких через запятую), названия анимации,
+  режима считывания сообщения, длительности и галочек «включено» и
+  «зацикливать». Совпало слово — в чат игры уходит `/anim <название>`, через
+  заданное время — `/sa`.
+- **Пять режимов считывания.** 1 — любое сообщение; 2 — действия: `/me`, `/ame`,
+  `/melow`, `/melong` и `*звёздочки*` в любом сообщении; 3 — только текст между
+  `*звёздочками*`; 4 — обычные сообщения вместе с `*действиями*` внутри них и
+  `/to`, `/lto`, `/l`, `/s`, `/w`, `/wt`; 5 — команды `/me` и обычные сообщения
+  вместе. У `/to` и `/lto` получатель отбрасывается: ищется только текст
+  сообщения. Звёздочки считаются частью сообщения, поэтому `*машет рукой*`
+  срабатывает наравне с обычными словами.
+- **Поиск целым словом.** Без учёта регистра, «ё» и «е» считаются одной буквой,
+  «привет» не срабатывает внутри «приветствую». Ключевые слова ищутся в том, что
+  игрок напечатал сам, — перевод на язык сервера уже мог заменить слова.
+- **Несколько совпадений — по очереди.** Если в одном сообщении совпало
+  несколько правил, анимации играют по одной: пока одна на экране, следующие
+  ждут в очереди (до 20 срабатываний). Одно и то же ключевое слово правило
+  запускает один раз: повтор второго срабатывания не даёт — «чёрт, чёрт» это
+  одна анимация. Разные ключевые слова одного правила срабатывают каждое своим
+  выходом, и разные правила тоже срабатывают каждое в своём месте.
+- **Слова-синонимы.** Правило срабатывает и на слова, которые переводятся так же,
+  как ключевое: «чёрт», «проклятье» и «блин» дают одно и то же «Mannaggia», значит
+  правило на «чёрт» сработает и на «проклятье», даже если этого слова нет в списке
+  ключевых. Соответствие берётся из словаря — без сети и без перевода сообщения.
+- **Длительность 0 мс — «не останавливать».** Уходит только `/anim`, анимация
+  играет сама, `/sa` и нажатие клавиши не отправляются.
+- **Два способа остановки.** В настройках появились флажки «Останавливать анимацию
+  командой `/sa`» и «Останавливать анимацию нажатием клавиши (симуляция)»: второй
+  нажимает клавишу остановки в игре, как если бы её нажали вы. Включены оба —
+  применяются оба, выключены оба — анимация не останавливается. Клавиша остановки
+  по-прежнему прекращает и зацикливание.
+- **Зацикливание.** Между повторами анимацию никто не сбрасывает: `/anim` →
+  пауза N мс → `/anim` снова, и так до остановки. Останавливает клавиша из
+  настроек (по умолчанию **F** — та же, что прекращает анимацию в игре): она
+  читается через `GetAsyncKeyState`, поэтому нажатие получает и игра. Сама
+  остановка срабатывает так, как выбрано флажками выше.
+- **Две проверки, а не одна.** Поле «Проверить» проверяет только слова — какие
+  правила сработают на фразу. Отдельный блок **«Проверка в игре»** проверяет
+  отправку: кнопка «Отправить /anim в игру» запускает выбранное правило сразу,
+  строка состояния показывает, что ответила игра, что играет и что не отправилось
+  с причиной, а «Остановить анимацию» прекращает зацикливание из окна настроек.
+- **Проверка и хранение.** Правила проверяются до сохранения (пустое слово, пустое
+  название, название с пробелами, длительность вне 0–600000 мс), экспортируются
+  и импортируются в JSON и сохраняются между запусками.
+- **Ошибки видны.** Если команду не удалось отправить (игра не найдена, отправка
+  в игру выключена), игрок получает уведомление с причиной — молча ничего не
+  пропадает.
+
+### Исправлено
+- **Очередь играла анимации не в том порядке.** Раньше порядок задавала таблица
+  правил, и «кашляет» могло сработать раньше «чёрт». Теперь порядок берётся из
+  самого сообщения: «Чёрт, как же я устал *кашляет*» сначала запускает анимацию
+  на «чёрт», потом на «кашляет» — независимо от того, как правила стоят в списке.
+  Позиция слова считается по тексту сообщения, включая `*действия*` и текст после
+  получателя у `/to`, `/lto`.
+- **Команды уходили не тем текстом.** Игра вставляет в чат то, что лежит в буфере
+  обмена, а команда `/anim` туда не попадала: вместо неё вставлялось прошлое
+  сообщение игрока — оно же и дублировалось несколько раз, а анимация не
+  запускалась. Теперь команда кладётся в буфер перед отправкой (Win32-буфер, из
+  любого потока), и в чат уходит именно `/anim <название>`.
+- **Таблица правил не влезала в окно.** Длинные заголовки и список режимов
+  распирали столбцы, и подписи обрезались на узком экране: заголовки стали
+  короче («/anim», «Режим», «мс»), столбец режима получил фиксированную ширину,
+  названия режимов — короткие, а полное объяснение переехало в подсказку поля.
+
+### Прочее
+- Самопроверка `--selftest` теперь прогоняет критерии приёмки модуля «Анимации»:
+  все пять режимов, ключевые слова, `/anim`, `/sa` по таймеру, зацикливание,
+  порядок по словам сообщения, «одно правило — одно срабатывание на
+  сообщение», синонимы по словарю (включая многословные фразы), отрицание,
+  длительность 0 мс
+  и все четыре комбинации способов остановки.
+- Исправлена подсказка у модуля DeepL: она ссылалась не на тот раздел настроек.
+
+---
+
+## 1.7 — 15.11.2026
+
+**DeepL доведён до рабочего состояния, а код — до чистоты.**
+
+### DeepL: подключение, порты и свой сервис
 - **Свой сервис вместо файла.** В настройках появились «Свой адрес сервиса» и
   «Токен своего сервиса»: DeepL можно держать отдельно — на своём компьютере или
   на развёрнутом хосте, — и файл `dlx.exe` тогда не нужен совсем. Адрес
   принимается и целиком, вместе с `/translate`.
+- **Понятно, кому нужен DeepL.** На странице DeepL появился первый блок «Кому
+  это нужно»: без DeepL всё работает через Google, а DeepL — добровольный шаг в
+  качестве на пять минут (VPN с зарубежным выходом либо свой адрес сервиса).
+  Там же прямо сказано, почему общего адреса «на всех» быть не может.
 - **Развёртывание на Vercel.** В `source/tools/deeplx-local` появились
   `api/translate.js`, `api/index.js` и `vercel.json`, а рядом — инструкция
   `VERCEL.md`: код разворачивается на бесплатном тарифе Vercel за пару минут и
@@ -51,6 +332,67 @@ English version below: [Changelog (English)](#-changelog-english).
 - **Проверка локальных соединений.** Если VPN или файрвол перехватывает даже
   `127.0.0.1`, программа так и говорит: «локальные соединения не работают —
   проверьте VPN и файрвол», вместо восьми секунд молчания.
+
+### Безопасность
+- **Пароль прокси больше не попадает в файлы.** Адрес вида
+  `http://user:pass@host:port` писался в `app.log`, в `errors.log` и в подпись
+  состояния как есть. Теперь логин и пароль заменяются на `***:***@…`, в журнале
+  и в строке состояния остаётся только хост с портом.
+- **Адрес своего сервиса проверяется по схеме.** Принимаются только `http://` и
+  `https://` с именем хоста: адрес `file://…` раньше мог увести запрос в
+  локальный файл вместо перевода. При чужой схеме состояние сразу говорит, что
+  не так.
+- **Токен своего сервиса чистится.** Недопустимые для заголовка HTTP символы
+  (например, кириллица из буфера обмена) отбрасываются с записью в журнал,
+  вместо падения запроса на кодировке.
+
+### Быстрее и тише
+- **Кэш переводов меньше пишется на диск.** Раньше каждая новая фраза
+  перезаписывала весь `cache.json` на две тысячи записей с отступами. Теперь
+  файл пишется не чаще раза в две секунды, без отступов, а остаток
+  дописывается при выходе из программы.
+
+### Порядок в коде
+- **Убран мёртвый код:** неиспользуемые `CMD_RE` и `is_filler` в движке,
+  `lang_name` в переводах интерфейса, `config_keys` в реестре модулей,
+  `_as_int` в оверлее, `_widgets_to_cfg` в настройках, `translit_text` и `TABLES`
+  в транслите, `pack_codes` в словарях, поля `_system_proxy` и `_last_start` в
+  сервисе DeepL.
+- **Ни одного повтора в таблицах.** В словаре транслита ключ `oin` был записан
+  дважды, в переводах интерфейса дублировались пять строк — вторые копии удалены,
+  поведение не изменилось.
+- **Переводы дописаны.** Подсказки полей своего сервиса, диалог «Слова-паразиты»,
+  подпись «слов», строка «не назначена», заголовок «DeepL рядом», подписи «от» и
+  «до» и подсказка про JSON/CSV теперь есть и в английском интерфейсе.
+- **Смена языка доводится до конца.** При переключении на английский оставались
+  русскими шапка окна («Язык: … · горячая клавиша: …»), названия и пояснения
+  модулей, подписи зависимостей, строка про масштаб, состояние сервиса DeepL и
+  названия языков в списке. Теперь переводится всё, в обе стороны, без
+  перезапуска.
+- **Диалог удаления сервиса.** Вместо перевода строки в окне показывался
+  `\n`, и из-за этого же текст не переводился.
+- **Версия 1.7** в программе, в метаданных exe и в значках README — раньше код
+  оставался на 1.6.
+
+## 1.6 — 15.11.2026
+
+**Внутренняя переработка: модульность, порядок в коде, двуязычные комментарии.**
+Ничего из возможностей не убрано, интерфейс и поведение остались прежними.
+
+### Структура
+- Код собран в один пакет **`source/app`**: конфигурация, движок, перевод, словари,
+  интерфейс и системные модули лежат рядом, а не в общем каталоге исходников.
+- `common.py` переименован в **`app/config.py`** — имя говорит, что внутри: пути,
+  журнал, чтение и запись `config.json`, настройки по умолчанию.
+- **`app/modules.py`** — реестр модулей: у каждой части программы есть имя, описание,
+  ключ в конфигурации, зависимости и раздел настроек, где она включается.
+- Настройки по умолчанию собраны в одном месте: служебный словарь `EXTRA` из `main.py`
+  больше не дублирует ключи конфигурации.
+- В модуле словаря убран устаревший псевдоним `it_to_ru`, в `i18n.py` — лишний импорт,
+  файлы приведены к одинаковым переводам строк, у публичных функций появились
+  подсказки типов.
+
+### Исправления
 - **VPN больше не ломает запуск сервиса.** При включённом VPN с системным
   прокси обращения к `127.0.0.1` уходили в этот прокси, и сервис выглядел
   мёртвым: восемь секунд тишины и «не ответил за отведённое время». Теперь все
@@ -258,29 +600,306 @@ English version below: [Changelog (English)](#-changelog-english).
 
 # 📌 Changelog (English)
 
-## 1.6 — 2026-11-15
+## 1.9.8 — 14 Nov 2026
 
-**Internal rework: modularity, code hygiene, bilingual comments.**
-No feature was removed; the interface and the behaviour stay the same.
+**The game chat is cleared before every paste.**
 
-### Structure
-- The code now lives in a single package, **`source/app`**: configuration, engine,
-  translation, glossaries, interface and system modules sit side by side.
-- `common.py` was renamed to **`app/config.py`**, which says what is inside: paths,
-  logging, `config.json` reading and writing, default settings.
-- **`app/modules.py`** is the module registry: every part of the program has a name,
-  a description, a configuration key, its dependencies and the settings page where it
-  is switched on.
-- The default settings live in one place: the `EXTRA` dictionary in `main.py` no longer
-  duplicates configuration keys.
-- The obsolete `it_to_ru` alias is gone, an unused import was removed from `i18n.py`,
-  line endings are consistent and public functions carry type hints.
+### Sending into the game
+- **The chat input is cleared completely before pasting:** Ctrl+A (select all),
+  Backspace (delete) and only then the paste and Enter. Before this, a leftover
+  from the previous line — the tail of a command, an autocomplete, a stray key
+  press — stuck onto our text, and the game received `hello/anim wave` instead of
+  `/anim wave`. Such a command broke itself and the one after it.
+- **Every send is covered:** a regular message (the chat was opened by the
+  overlay), the `/anim` and `/sa` commands (the chat is opened again) and the
+  "type by character" input mode — the clearing happens in both modes.
+- The sending page in the settings now has a hint about it (RU/EN).
 
-### Fixes
+## 1.9.7 — 14 Nov 2026
+
+**Table rows can be dragged with the mouse.**
+
+### Settings
+- **Glossary, abbreviations and animations** — rows swap places by dragging, like
+  in any list: take a row, pull it, drop it. It works in a filtered table too.
+- **Animations:** a row moves with everything on it — mode, forms, duration, the
+  «On» and «Loop» checkboxes. That is why the rows are rebuilt from the rules
+  instead of being moved by Qt (combo boxes would otherwise stay behind).
+- **The order is kept.** In the glossary it goes into the glossary itself and
+  matters more than it looks: when two phrases share a Russian meaning, the lower
+  row wins. For abbreviations the order is stored in the settings
+  (`slang_order`), otherwise the table would be sorted alphabetically again when
+  the window opens. For animations the order is for convenience: in the game the
+  queue follows the words in the message.
+- Each table now has a drag hint under it (RU/EN).
+
+## 1.9.6 — 14 Nov 2026
+
+**The stop key no longer throws the queue away: two keywords play both.**
+
+### Animations
+- **Found in the log.** The line `остановлено игроком` cleared the whole queue, so
+  the second hit from the same message never played at all. The stop key now ends
+  **only the current** animation and keeps the queue: `/anim`, `/sa`, `/anim`,
+  `/sa`. Only a full stop (exit, the «Stop» button in the settings) drops the queue.
+- **The stop key watches looping animations only**, exactly as its name says. It
+  used to catch any press: in GTA F is also the enter-vehicle key, so an ordinary
+  animation was cut mid-way and the queue went with it.
+- **The log shows what was dropped:** `Анимации: очередь снята (/anim …)`; on a
+  player stop — `остановлено игроком, в очереди остаётся: N`.
+- Selftest: two new runs — "a player stop keeps the queue" and "a full stop drops
+  it".
+
+## 1.9.5 — 14 Nov 2026
+
+**You can see why an animation never reached the game, and the chat no longer
+loses commands.**
+
+### Animations
+- **The phrase check warns when the command cannot reach the game.** It used to
+  show «Will fire: /anim …» even with the module off. Now it adds: «But nothing
+  will reach the game: the «Animations» module is off» (or «Send into the game»)
+  and turns the warning colour.
+- **The log says the module is off** — once, not on every message.
+- **A chat rest (300 ms) between commands.** Every command means focusing the
+  game, pressing the chat key (T), pasting and Enter again. Right after Enter the
+  game chat does not take a new T yet and the command is lost: the T press now
+  waits. This is not the pause between animations (that one follows the animation
+  length), it is time for the game itself.
+- **A send retry.** When a command does not go out (the game did not give the
+  focus), it is sent once more 400 ms later — one lost command used to cost the
+  whole animation.
+- Every rest shows in the log: `Анимации: пауза чата 220 мс перед /anim …`.
+
+## 1.9.4 — 14 Nov 2026
+
+**The pause now follows each animation's own length instead of a fixed number.**
+
+### Animations
+- **Instead of a static 700 ms — a tail after every animation.** The play time
+  comes from the rule itself and the «Pause after an animation, ms» value
+  (**50** by default) is added to it: a 1500 ms rule takes 1550 ms, and only then
+  does the next one in the queue play. The pattern is `/anim`, `/sa`, 50 ms,
+  `/anim`, `/sa`.
+- **The length counts from the `/anim` send**, not after it: the time spent on
+  focus, opening the chat and pasting belongs to the same 1500 ms, so the pauses
+  no longer quietly grow by half a second each.
+- **Looping became even:** the repeat comes exactly one rule length later.
+- **The settings field is renamed** to «Pause after an animation, ms» (10 ms step,
+  0–10000). A value from the old `anim_gap_ms` key is picked up, so nothing is
+  lost; the config key is now `anim_extra_ms`.
+- **A stop during the tail** cancels the next animation.
+- Selftest: three runs — a 50 ms tail, a 0 ms tail, and "400 ms animation +
+  200 ms tail = the next one 0.6 s later".
+
+## 1.9.3 — 14 Nov 2026
+
+**A gap between animations: a message with two keywords now plays both.**
+
+### Animations
+- **Fixed: the second animation was lost in the game.** The queue sent the `/sa` of
+  the previous animation and the next `/anim` almost together: the game had no time
+  to close its chat, the server no time to take the stop, and the second `/anim`
+  vanished. In «Да ну, чёрт» with two rules only «Да ну» played. There is now a gap
+  between animations, **700 ms** by default — `/anim`, `/sa`, gap, `/anim`, `/sa`.
+- **New «Gap between animations, ms» field** on the Animations page (0–10000).
+  0 starts the next animation at once, as before. If the server still swallows the
+  second command, try 1000–1500: some servers rate-limit commands.
+- **Clearer log:** every hit writes the whole queue to `logs/app.log` —
+  `Анимации: в очередь /anim anim_talkinggestures5 -> /anim anim_damn`. It shows
+  whether the second animation was reached or the game refused it.
+- A stop during the gap cancels the next animation instead of playing it.
+- Selftest: a new run checks the gap itself (the second command does not leave
+  together with `/sa`).
+
+## 1.9.2 — 14 Nov 2026
+
+**A new icon that reads when small — and it now shows on the window and in the tray.**
+
+### Icon
+- **Redrawn.** Ten sizes inside `icon.ico` (16, 20, 24, 32, 40, 48, 64, 96, 128,
+  256). At 16 and 20 pixels only the big white «RP» stays on the green tile, since
+  two rows of letters in a bubble turned to mush there. From 24 pixels the main
+  look comes back: a white bubble with green «RP». The tail is thicker and the
+  margins are smaller, so the mark fills more of the tile and does not thin out
+  on the taskbar.
+- **Small entries stay uncompressed.** Up to 64 pixels the ICO keeps a plain BMP,
+  larger sizes use PNG, so Explorer, the taskbar and older programs all read it.
+- **Redraw it yourself:** `python tools/make_icon.py` (needs `pillow`); it also
+  refreshes `icon.png` for this README.
+
+### Launch
+- **Window and tray icon.** The tray used to draw its icon in code (a green
+  circle) and the windows had none at all, so Windows showed the generic
+  placeholder in the title bar, on the taskbar and in Alt+Tab. `icon.ico` is now
+  set for the whole application, so it shows everywhere. A missing file falls
+  back to a drawn icon and the program keeps working.
+- **AppUserModelID on Windows.** The taskbar groups the window under our own icon
+  instead of the launcher file's one.
+- New `config.resource_path()` finds the program files in a build
+  (`sys._MEIPASS`), in the sources and in the data folder.
+
+## 1.9.1 — 14 Nov 2026
+
+**Several keywords in one rule now play one after another.**
+
+### Animations
+- **Fixed: two keywords in one rule gave a single animation.** The repeat guard
+  worked per message instead of per keyword, so a rule with «да ну, да брось»
+  played once on «Да ну да брось». Now **every keyword of a rule fires on its
+  own**: `/anim`, `/sa`, `/anim`, `/sa`. Repeating **the same** word still gives
+  one hit — «чёрт, чёрт» stays a single animation.
+- **Places in the text no longer collide.** Two keywords landing on the same
+  place (say «чёрт» and «проклятье», synonyms by the glossary) count as one hit;
+  a keyword present literally in the message fires at its own place rather than
+  at the synonym's. The order follows the message.
+- **The phrase check** in the settings lists every hit in order, with the exact
+  form that fired the rule.
+- Selftest: 4 new cases.
+
+## 1.9 — 14 Nov 2026
+
+**Word forms of keywords: «открыл зонт» now finds «открывает зонт».**
+
+### Animations
+- **The «Forms» column.** How a keyword is compared to a message is now chosen per
+  rule: **«Exact»** is the written form only (good for names and nicknames),
+  **«Stems»** (the default) covers any case, number and conjugation, and
+  **«Lemmas»** compares by the dictionary form. «Открыл», «открывает» and
+  «откроет» share one stem «откр»; «зонта», «зонтом» and «зонты» give «зонт».
+- **Stems without dictionaries.** A stem comes from cutting Russian endings by a
+  table plus one word-building suffix, with a small alternation table («пьёт» =
+  «пить»). Nothing to install or download, no network, and a check takes a
+  fraction of a millisecond.
+- **Lemmas from the dictionary.** The «Lemmas» level also asks `pymorphy3`:
+  «люди» finds «человек», «зонта» finds «зонт». Without the package the level
+  honestly works as «Stems» and the settings say so.
+- **One word inside a phrase.** One foreign word may sit between the words of a
+  keyword phrase, so «открыл зонт» also fires on «открыл чёрный зонт».
+- **You can see what fired.** The Check block now shows the form next to the
+  animation: `/anim umbrella ← «открывает зонт»`.
+- **Negation does not start an animation.** The new «Do not fire on negation» tick
+  (on by default) silences a rule when «не», «ни», «нет», «никогда», «нечего» or
+  the like stands before the matched word: «Открыл зонт» fires, «Не открыл зонт»
+  does not. The marker is looked for within three words and does not cross
+  punctuation, so «Не открыл зонт, да ну» is two different clauses. A keyword that
+  already negates itself switches the check off.
+- **Synonyms now work for whole phrases.** The glossary match used to cover single
+  words only. Now «да ну» fires a «да брось» rule because both translate as
+  «ma dai». A repeat inside one message («Да ну да брось») still gives a single
+  animation.
+- **The «Commands and messages» mode is gone.** Mode 1 «Always» already covered it
+  and it only confused readers, so four modes are left. Old rules with that mode
+  are read as «Always», nothing breaks.
+
+### Also
+- Unused code removed from the Animations module: four parsing helpers, the
+  whole-word pattern, `occurrences`/`first_offset` and the description of the
+  dropped mode.
+- Unused `is_filler_text` and `translit_text` removed from the project, along with
+  five obsolete translation strings.
+- New dependencies: `pymorphy3` and `pymorphy3-dicts-ru` — a 15.3 MB dictionary,
+  about 8 MB once packed into the exe. Nothing is downloaded at run time: the
+  dictionary is baked into the exe at build time. Without the package the
+  program still works and the «Lemmas» level falls back to stems.
+- The `--selftest` run now checks word forms on all three levels, the reading of
+  the old mode 5 and the repair of junk in the «Forms» field.
+
+---
+
+## 1.8 — 14 Nov 2026
+
+**The Animations module: a keyword in a message starts an animation in the game.**
+
+### Rules
+- **Word → animation.** Settings gained an **Animations** section: a rule holds a
+  keyword (or several, comma-separated), an animation name, the read mode of the
+  message, a duration and the "on" and "loop" ticks. A keyword match sends
+  `/anim <name>` into the game chat and, after the configured time, `/sa`.
+- **Five read modes.** 1 — any message; 2 — actions: `/me`, `/ame`, `/melow`,
+  `/melong` and `*asterisks*` in any message; 3 — only the text between
+  `*asterisks*`; 4 — plain messages with the `*actions*` inside them and `/to`,
+  `/lto`, `/l`, `/s`, `/w`, `/wt`; 5 — `/me` commands and plain messages
+  together. With `/to` and `/lto` the recipient is dropped, so only the message
+  text is searched. Asterisks are part of the message, so `*waves*` fires just
+  like plain words.
+- **Whole-word search.** Case-insensitive, «ё» counts as «е», and «привет» does
+  not fire inside «приветствую». Keywords are looked up in what the player typed,
+  because the translation into the server language may already have replaced the
+  words.
+- **Several matches queue up.** When one message matches several rules, the
+  animations play one at a time: while one is on screen the rest wait (up to 20
+  triggers). One keyword fires a rule once: a repeated keyword adds no second
+  animation — «чёрт, чёрт» is one. Different keywords of one rule fire on their
+  own, and different rules still fire, each at its own place.
+- **Synonyms.** A rule also fires on words that translate the same way as its
+  keyword: «чёрт», «проклятье» and «блин» all give «Mannaggia», so a rule for one
+  fires on the others even when they are not listed as keywords. The mapping comes
+  from the glossary — no network, no translated message.
+- **A duration of 0 ms means "never stop":** only `/anim` is sent and the
+  animation plays on its own; no `/sa` and no key press follow.
+- **Two ways to stop an animation.** The settings gained the "Stop the animation
+  with the /sa command" and "Stop the animation by pressing the key (simulated)"
+  ticks: the second presses the stop key in the game as if you did it. Both on
+  means both are used, both off means nothing stops. The stop key still ends a
+  loop as well.
+- **Looping.** Nothing resets the animation between the repeats: `/anim` → N ms
+  wait → `/anim` again, until stopped. The stop key is set in the settings (F by
+  default — the same key the game uses): it is read through
+  `GetAsyncKeyState`, so the game receives the press too. The stop itself works
+  the way the ticks above say.
+- **Two checks, not one.** The Check field tests only the words — which rules
+  fire on a phrase. A separate **Check in the game** block tests the sending:
+  Send /anim into the game runs the selected rule at once, the status line
+  reports what the game answered, what is playing and what failed with the
+  reason, and Stop the animation ends a loop from the settings window.
+- **Checking and storage.** Rules are validated before saving (empty keyword, empty name, a name
+  with spaces, a duration outside 0–600000 ms), are exported to and imported
+  from JSON, and survive a restart.
+- **Failures are visible.** When a command cannot be sent (game not found,
+  sending into the game switched off) the player gets a notification with the
+  reason instead of silence.
+
+### Fixed
+- **The queue played the animations in the wrong order.** The rule table used to
+  set the order, so «кашляет» could fire before «чёрт». The order now comes from
+  the message itself: «Чёрт, как же я устал *кашляет*» starts the «чёрт»
+  animation first and the «кашляет» one second, whatever the order of the rules
+  in the list. The position of a word is taken from the message text, including
+  `*actions*` and the text after the recipient of `/to`, `/lto`.
+- **Commands were sent as the wrong text.** The game pastes whatever is in the
+  clipboard, and the `/anim` command never got there: the player's previous
+  message was pasted instead — and repeated several times — while no animation
+  started. The command is now put into the clipboard before sending (the Win32
+  clipboard, from any thread), so exactly `/anim <name>` reaches the chat.
+- **The rule table did not fit the window.** Long headers and the mode list
+  inflated the columns and clipped the labels on a narrow screen: headers are
+  shorter now (/anim, Mode, ms), the mode column has a fixed width, the mode
+  names are short, and the full explanation moved into the field tooltip.
+
+### Also
+- The `--selftest` run now covers the acceptance criteria of the Animations
+  module: all five modes, keywords, `/anim`, the timed `/sa`, looping, the
+  word order of the message, one hit per rule per message, glossary synonyms
+  (whole phrases included), negation, a 0 ms duration and all
+  four combinations of the stop methods.
+- The DeepL module hint pointed at the wrong settings section; fixed.
+
+---
+
+## 1.7 — 15 Nov 2026
+
+**DeepL brought to a working state, and the code brought to order.**
+
+### DeepL: connection, ports and a service of your own
 - **A service of your own instead of the file.** Settings now have "Your own
   service address" and "Your own service token": DeepL can live elsewhere — on
   your machine or on a deployed host — and `dlx.exe` is not needed at all. The
   address is accepted whole, `/translate` included.
+- **Clear about who needs DeepL.** The DeepL page now opens with a "Who needs
+  it" block: without DeepL everything works through Google, and DeepL is a
+  voluntary five-minute upgrade (a VPN with a foreign exit, or a service address
+  of your own). It also says why a single shared address cannot exist.
 - **Vercel deployment.** `source/tools/deeplx-local` gained `api/translate.js`,
   `api/index.js` and `vercel.json`, plus a `VERCEL.md` guide: the code deploys to
   the free Vercel plan in a couple of minutes and translates from a foreign
@@ -304,6 +923,67 @@ No feature was removed; the interface and the behaviour stay the same.
 - **A local connection check.** When a VPN or a firewall intercepts even
   `127.0.0.1`, the program says so — "local connections do not work, check the VPN
   and the firewall" — instead of eight seconds of silence.
+
+### Security
+- **A proxy password no longer reaches the files.** An address like
+  `http://user:pass@host:port` used to be written verbatim into `app.log`, into
+  `errors.log` and into the state line. The user and password are now replaced
+  with `***:***@…`, and only the host and port remain in the log and the state.
+- **Your own service address is validated by scheme.** Only `http://` and
+  `https://` with a host name are accepted: a `file://…` address could send the
+  request into a local file instead of a translation. A wrong scheme is reported
+  as the state reason straight away.
+- **Your own service token is cleaned.** Characters an HTTP header cannot carry
+  (Cyrillic pasted from the clipboard, for instance) are dropped with a log line
+  instead of crashing the request on encoding.
+
+### Faster and quieter
+- **The translation cache writes to disk far less.** Every new phrase used to
+  rewrite the whole `cache.json` of two thousand entries with indentation. The
+  file is now written at most every two seconds, without indentation, and the
+  rest is flushed when the program exits.
+
+### Code order
+- **Dead code removed:** unused `CMD_RE` and `is_filler` in the engine,
+  `lang_name` in the UI translations, `config_keys` in the module registry,
+  `_as_int` in the overlay, `_widgets_to_cfg` in settings, `translit_text` and
+  `TABLES` in the transliteration module, `pack_codes` in the language packs,
+  `_system_proxy` and `_last_start` in the DeepL service.
+- **No repeats in the tables.** The transliteration table had `oin` twice and the
+  UI translations had five duplicated lines; the second copies are gone and
+  behaviour is unchanged.
+- **Translations completed.** The hints on the own-service fields, the filler-word
+  dialogue, the "words" suffix, "not set", the "DeepL alongside" title, the "from"
+  and "to" labels and the JSON/CSV hint now exist in the English interface too.
+- **The language switch now finishes the job.** Switching to English used to leave
+  the window header ("Language: … · hotkey: …"), the module titles and
+  descriptions, the dependency lines, the scale line, the DeepL service state and
+  the language names in the list in Russian. Everything is translated now, both
+  ways, without a restart.
+- **The service removal dialogue.** It showed a literal `\n` instead of a line
+  break, and because of that the text was never translated either.
+- **Version 1.7** in the program, in the exe metadata and in the README badges;
+  the code had stayed at 1.6.
+
+## 1.6 — 2026-11-15
+
+**Internal rework: modularity, code hygiene, bilingual comments.**
+No feature was removed; the interface and the behaviour stay the same.
+
+### Structure
+- The code now lives in a single package, **`source/app`**: configuration, engine,
+  translation, glossaries, interface and system modules sit side by side.
+- `common.py` was renamed to **`app/config.py`**, which says what is inside: paths,
+  logging, `config.json` reading and writing, default settings.
+- **`app/modules.py`** is the module registry: every part of the program has a name,
+  a description, a configuration key, its dependencies and the settings page where it
+  is switched on.
+- The default settings live in one place: the `EXTRA` dictionary in `main.py` no longer
+  duplicates configuration keys.
+- The obsolete `it_to_ru` alias is gone, an unused import was removed from `i18n.py`,
+  line endings are consistent and public functions carry type hints.
+
+### Fixes
 - **A VPN no longer breaks the service start.** With a VPN in system-proxy mode,
   calls to `127.0.0.1` went to that proxy and the service looked dead: eight
   seconds of silence and "did not answer in time". Local requests now bypass every

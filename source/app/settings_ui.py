@@ -21,6 +21,7 @@ import csv
 import io
 import json
 import threading
+import time
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
@@ -36,7 +37,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox,
                                QVBoxLayout, QWidget)
 
 from app import dlx as dlx_mod
-from app import i18n, langs, modules, slang
+from app import anims, i18n, langs, modules, morph, slang
 from app.config import DATA, DEFAULT_CONFIG, log, save_config
 from app.engine import (Engine, Glossary, glossary_path, load_glossary_data,
                         reset_glossary, save_glossary_data)
@@ -349,6 +350,101 @@ def _sep():
     return s
 
 
+class DragTable(QTableWidget):
+    """Таблица, в которой строки меняются местами перетаскиванием мышью.
+
+    A table whose rows can be reordered by dragging them with the mouse.
+
+    Qt умеет «внутренний перенос» строк, но переставляет только ячейки: галочки
+    и выпадающие списки остаются на старых местах. Поэтому строку двигает не Qt,
+    а сама таблица через ``on_move(откуда, куда)`` — она заново собирает строки
+    из данных, и всё содержимое переезжает вместе с ними.
+    Qt has an "internal move", but it moves the cells only: checkboxes and combo
+    boxes stay behind. So the row is moved by the table itself through
+    ``on_move(from_row, to_row)``, which rebuilds the rows from the data, and
+    everything moves along.
+    """
+
+    def __init__(self, on_move=None, rows=0, columns=0, parent=None):
+        super().__init__(rows, columns, parent)
+        self.on_move = on_move
+        self._drag_row = -1
+        self.setDragEnabled(True)
+        self.setAcceptDrops(True)
+        self.setDropIndicatorShown(True)
+        self.setDragDropOverwriteMode(False)
+        self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.setDefaultDropAction(Qt.DropAction.MoveAction)
+        self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+
+    # --- перетаскивание ---
+    def startDrag(self, actions):
+        """Запоминаем, какую строку тащат / remember the row being dragged."""
+        self._drag_row = self.currentRow()
+        super().startDrag(actions)
+
+    def dragEnterEvent(self, event):
+        event.setDropAction(Qt.DropAction.MoveAction)
+        event.accept()
+
+    def dragMoveEvent(self, event):
+        event.setDropAction(Qt.DropAction.MoveAction)
+        event.accept()
+
+    def dropEvent(self, event):
+        """Отдать перенос в on_move: Qt сам строки не двигает.
+
+        Hand the move over to on_move: Qt does not move the rows itself.
+        """
+        source = self._drag_row
+        target = self._drop_row(event.position().toPoint())
+        self._drag_row = -1
+        event.setDropAction(Qt.DropAction.MoveAction)
+        event.accept()
+        if source < 0 or self.on_move is None:
+            return
+        if target in (source, source + 1):        # на то же место / same place
+            return
+        self.on_move(source, target)
+
+    def _drop_row(self, pos) -> int:
+        """Перед какой строкой встанет перетаскиваемая / the row it lands before."""
+        index = self.indexAt(pos)
+        if not index.isValid():
+            return self.rowCount()
+        row = index.row()
+        rect = self.visualRect(index)
+        return row + 1 if pos.y() > rect.center().y() else row
+
+    # --- общий перенос готовых ячеек ---
+    @staticmethod
+    def move_cells(table, source: int, target: int) -> None:
+        """Переставить строку с её ячейками / move a row together with its cells.
+
+        Годится для таблиц без встроенных виджетов: ячейки берутся как есть, со
+        всеми флажками и подсказками.
+        Good for tables without cell widgets: the cells are taken as they are,
+        with their check states and tooltips.
+        """
+        if source < 0 or source >= table.rowCount():
+            return
+        rows = [[table.takeItem(row, col) for col in range(table.columnCount())]
+                for row in range(table.rowCount())]
+        moved = rows.pop(source)
+        if target > source:
+            target -= 1
+        rows.insert(max(0, min(target, len(rows))), moved)
+        table.blockSignals(True)
+        table.setRowCount(0)
+        table.setRowCount(len(rows))
+        for row, cells in enumerate(rows):
+            for col, cell in enumerate(cells):
+                if cell is not None:
+                    table.setItem(row, col, cell)
+        table.blockSignals(False)
+        table.selectRow(max(0, min(target, len(rows) - 1)))
+
+
 class DlxJob(QObject):
     """Фоновое действие над сервисом DLX / a background action on the DLX service.
 
@@ -381,17 +477,30 @@ class SettingsWindow(QDialog):
     """Окно настроек. signal saved(cfg) — после сохранения."""
 
     saved = Signal(dict)
+    anim_test_done = Signal(bool, str)     # ручная отправка /anim: успех и ответ игры
+                                          # manual /anim send: success and reply
 
-    def __init__(self, cfg, parent=None, first_run=False, dlx=None):
+    def __init__(self, cfg, parent=None, first_run=False, dlx=None, anims_api=None):
         """Окно настроек; dlx — сервис DeepL, если он уже создан программой.
 
         The settings window; dlx is the DeepL service when the program created one.
+
+        anims_api — работающий модуль «Анимации»: состояние, ручная отправка и
+        остановка. Без него страница «Анимации» только настраивает правила.
+        anims_api is the running Animations module: its state, a manual send and
+        a stop. Without it the Animations page only edits the rules.
         """
         super().__init__(parent)
         self.dlx = dlx
+        self.anims_api = anims_api
         self.cfg = dict(cfg)
         self.docs = {}            # код языка -> данные словаря
         self.dirty = set()        # языки с несохранёнными правками словаря
+        # свой порядок строк в таблице сокращений: встроенные идут
+        # по алфавиту, а перетаскивание мышью его меняет
+        # the user's row order in the slang table: built-ins come
+        # alphabetically and dragging changes that
+        self._slang_order = list(cfg.get("slang_order") or [])
         self.glang = langs.code_of(self.cfg.get("target_lang", "it"))
         self.glossary_changed = False
         self.first_run = first_run
@@ -416,20 +525,27 @@ class SettingsWindow(QDialog):
         self.stack = QStackedWidget()
         self.stack.setObjectName("page")
         self._views = []                 # страницы в прокрутке, по порядку
-        for name, attr, maker in (("Основные", "page_main", self._page_main),
-                                  ("Автоперевод", "page_auto", self._page_auto),
-                                  ("Чат игры", "page_game", self._page_game),
-                                  ("Словарь", "page_glossary", self._page_glossary),
-                                  ("Сокращения", "page_slang", self._page_slang),
-                                  ("Проверка", "page_test", self._page_test),
-                                  ("DeepL", "page_dlx", self._page_dlx),
-                                  ("Модули", "page_modules", self._page_modules)):
+        self._anims_row = 0               # номер строки «Анимации» в списке разделов
+        pages = (("Основные", "page_main", self._page_main),
+                 ("Автоперевод", "page_auto", self._page_auto),
+                 ("Чат игры", "page_game", self._page_game),
+                 ("Словарь", "page_glossary", self._page_glossary),
+                 ("Сокращения", "page_slang", self._page_slang),
+                 ("Проверка", "page_test", self._page_test),
+                 ("DeepL", "page_dlx", self._page_dlx),
+                 ("Анимации", "page_anims", self._page_anims),
+                 ("Модули", "page_modules", self._page_modules))
+        for page_index, (name, attr, maker) in enumerate(pages):
             item = QListWidgetItem(name)
             item.setSizeHint(item.sizeHint().expandedTo(item.sizeHint() + _sz(0, 10)))
             self.nav.addItem(item)
+            if attr == "page_anims":
+                self._anims_row = page_index
             page = maker()
             setattr(self, attr, page)
             view = _scroll_page(page)
+            if attr == "page_anims":
+                self._anim_view = view
             self._views.append(view)
             self.stack.addWidget(view)
         self.nav.currentRowChanged.connect(self._nav_changed)
@@ -447,6 +563,13 @@ class SettingsWindow(QDialog):
         self._preview_timer = QTimer(self)
         self._preview_timer.setSingleShot(True)
         self._preview_timer.timeout.connect(self._do_preview)
+        # живое состояние модуля «Анимации»: что играет и что не отправилось
+        # live state of the Animations module: what plays and what failed
+        self._anim_note = ("", 0.0)
+        self._anim_timer = QTimer(self)
+        self._anim_timer.setInterval(1000)
+        self._anim_timer.timeout.connect(self._anim_live_tick)
+        self._anim_timer.start()
         self._apply_adaptive_size(center=True)
         # фокус — на список разделов: кнопка «Сохранить» не должна встречать
         # игрока подсветкой / focus goes to the section list, so the Save button
@@ -756,6 +879,29 @@ class SettingsWindow(QDialog):
         """Переключение языка интерфейса прямо в окне настроек."""
         i18n.set_lang(self.cb_ui_lang.currentData() or "ru")
         i18n.retranslate(self)
+        # названия и пояснения модулей берутся из реестра, а не из таблицы
+        # переводов, поэтому обновляем их отдельно
+        # module titles and descriptions come from the registry rather than the
+        # translation table, so they are updated separately
+        if hasattr(self, "cb_lang"):
+            current = self.cb_lang.currentData()
+            self.cb_lang.blockSignals(True)
+            for index, (code, name) in enumerate(langs.choices()):
+                if index < self.cb_lang.count():
+                    self.cb_lang.setItemText(index, name)
+            self.cb_lang.blockSignals(False)
+            if current is not None:
+                self.cb_lang.setCurrentIndex(max(0, self.cb_lang.findData(current)))
+        for box, desc, module in getattr(self, "_module_rows", []):
+            box.setText(module.title_en if i18n.is_en() else module.title_ru)
+            desc.setText(module.desc_en if i18n.is_en() else module.desc_ru)
+        for label, module in getattr(self, "_module_deps", []):
+            if not module.requires:
+                continue
+            names = ", ".join(
+                (modules.get(dep).title_en if i18n.is_en() else modules.get(dep).title_ru)
+                for dep in module.requires if modules.get(dep))
+            label.setText(i18n.t("Зависит от модуля: ") + names)
         self._refresh_dynamic()
 
     def _refresh_dynamic(self):
@@ -766,7 +912,18 @@ class SettingsWindow(QDialog):
             self._load_language(self.glang, reload_table=False)
             self._update_glossary_ui()
             self._update_slang_ui()
+            if hasattr(self, "chk_anims"):
+                self._anim_stop_changed()
+                self._update_anims_ui()
+                if self.lb_anims_test.text():
+                    self._anims_test()
             self._test_dir_changed(silent=True)
+            if hasattr(self, "lb_ui_scale"):
+                self.lb_ui_scale.setText(i18n.tf(
+                    "Шрифт и отступы окна: %d %%. На маленьком экране "
+                    "поставьте меньше.", int(self.sp_ui_scale.value())))
+            if hasattr(self, "_dlx_refresh"):
+                self._dlx_refresh()
         except Exception:
             log.exception("Не удалось обновить подписи после смены языка")
 
@@ -797,11 +954,11 @@ class SettingsWindow(QDialog):
         self._do_preview()
 
     def _update_header(self):
-        self.header_sub.setText(
-            "Язык: %s · горячая клавиша: %s · частота автоперевода: каждое %d-е"
-            % (langs.label(langs.code_of(self.cb_lang.currentData() or "it")),
-               _pretty_hotkey(self.ed_hotkey.text()),
-               int(self.sp_every.value())))
+        self.header_sub.setText(i18n.tf(
+            "Язык: %s · горячая клавиша: %s · частота автоперевода: каждое %d-е",
+            langs.label(langs.code_of(self.cb_lang.currentData() or "it")),
+            _pretty_hotkey(self.ed_hotkey.text()),
+            int(self.sp_every.value())))
 
     def _load_language(self, code, reload_table=False):
         """Показывает описание языка и (при необходимости) словарь этого языка."""
@@ -818,9 +975,14 @@ class SettingsWindow(QDialog):
         self.lb_lang_note.setText(note)
         self.lb_lang_note.setVisible(bool(note))
         self.glang = code
+        if hasattr(self, "lb_glang"):
+            # название языка зависит от языка интерфейса, поэтому обновляется
+            # и без перезагрузки таблицы
+            # the language name depends on the interface language, so it is
+            # refreshed even when the table is not reloaded
+            self.lb_glang.setText(i18n.tf("Язык: %s", langs.label(code, native=True)))
         if reload_table and hasattr(self, "tbl"):
             self._fill_table(self._doc(code))
-            self.lb_glang.setText(i18n.tf("Язык: %s", langs.label(code, native=True)))
             self._update_glossary_ui()
 
     def _doc(self, code):
@@ -866,11 +1028,11 @@ class SettingsWindow(QDialog):
         row = QHBoxLayout()
         self.sp_min = _small_spin(QSpinBox(), 1, 6, "", 62)
         self.sp_maxw = _small_spin(QSpinBox(), 1, 8, "", 62)
-        row.addWidget(QLabel("от"))
+        row.addWidget(QLabel(i18n.t("от")))
         row.addWidget(_num_row(self.sp_min, 56))
-        row.addWidget(QLabel("до"))
+        row.addWidget(QLabel(i18n.t("до")))
         row.addWidget(_num_row(self.sp_maxw, 56))
-        row.addWidget(QLabel("слов"))
+        row.addWidget(QLabel(i18n.t("слов")))
         row.addStretch(1)
         w = QWidget()
         w.setLayout(row)
@@ -915,6 +1077,8 @@ class SettingsWindow(QDialog):
         cl.addWidget(_title("Клавиша чата и задержки", "sec"))
         cl.addWidget(_hint("Задержки нужны, чтобы игра успевала открыть чат и вставить текст. "
                            "Если сообщения пропадают — увеличьте «после чата»."))
+        cl.addWidget(_hint("Перед вставкой поле ввода чата полностью очищается (Ctrl+A, "
+                           "Backspace): остаток прошлой строки не приклеится к команде."))
         form = QFormLayout()
         form.setHorizontalSpacing(18)
         form.setVerticalSpacing(10)
@@ -959,7 +1123,7 @@ class SettingsWindow(QDialog):
         self.lb_gcount.setProperty("no_i18n", True)
         head.insertWidget(1, self.lb_gcount)
 
-        self.tbl = QTableWidget(0, 4)
+        self.tbl = DragTable(self._move_glossary_row, 0, 4)
         self.tbl.setHorizontalHeaderLabels(["Паразит", "Фраза", "Русская запись",
                                             "Русские значения (через ;)"])
         head = self.tbl.horizontalHeader()
@@ -972,6 +1136,10 @@ class SettingsWindow(QDialog):
         self.tbl.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.tbl.itemChanged.connect(self._table_edited)
         lay.addWidget(self.tbl, 1)
+        lay.addWidget(_hint(
+            "Строки перетаскиваются мышью — порядок сохраняется вместе со "
+            "словарём. Он важен: если у двух фраз одинаковое русское значение, "
+            "срабатывает та, что ниже в таблице."))
 
         btns = QHBoxLayout()
         b_add = QPushButton("Добавить фразу")
@@ -1088,6 +1256,20 @@ class SettingsWindow(QDialog):
         self.docs[self.glang] = data
         self.dirty.add(self.glang)
         self.glossary_changed = False
+
+    def _move_glossary_row(self, source, target):
+        """Перетащили строку словаря / a glossary row was dragged.
+
+        Порядок фраз сохраняется вместе со словарём и значит больше, чем кажется:
+        если у двух фраз одинаковое русское значение, побеждает та, что ниже.
+        The phrase order is saved with the glossary and matters more than it
+        looks: when two phrases share a Russian meaning, the lower one wins.
+        """
+        DragTable.move_cells(self.tbl, source, target)
+        self.glossary_changed = True
+        self._collect_glossary()
+        self._filter_table()
+        log.info("Словарь: фраза переставлена (%d -> %d)", source, target)
 
     def _sync_glossary(self):
         self._collect_glossary()
@@ -1257,7 +1439,7 @@ class SettingsWindow(QDialog):
         head.addWidget(self.ed_slang_search)
         lay.addLayout(head)
 
-        self.tbl_slang = QTableWidget(0, 3)
+        self.tbl_slang = DragTable(self._move_slang_row, 0, 3)
         self.tbl_slang.setHorizontalHeaderLabels(
             ["Сокращение", "Разворот (полная фраза)", "Русский вариант"])
         for c in range(3):
@@ -1267,6 +1449,9 @@ class SettingsWindow(QDialog):
         self.tbl_slang.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.tbl_slang.itemChanged.connect(self._slang_edited)
         lay.addWidget(self.tbl_slang, 1)
+        lay.addWidget(_hint(
+            "Строки перетаскиваются мышью — порядок запоминается в настройках "
+            "и остаётся таким при следующем открытии окна."))
 
         btns = QHBoxLayout()
         b_add = QPushButton("Добавить сокращение")
@@ -1301,7 +1486,12 @@ class SettingsWindow(QDialog):
             return
         self.tbl_slang.blockSignals(True)
         self.tbl_slang.setRowCount(0)
-        for token, expand, ru, own in slang.entries():
+        # порядок из настроек: перетащенные строки остаются на своих местах,
+        # новые и незнакомые идут в конце / the saved order comes first
+        order = {token: index for index, token in enumerate(self._slang_order)}
+        rows = sorted(slang.entries(),
+                      key=lambda row: order.get(row[0], len(order)))
+        for token, expand, ru, own in rows:
             r = self.tbl_slang.rowCount()
             self.tbl_slang.insertRow(r)
             items = [QTableWidgetItem(("★ " if own else "") + token),
@@ -1372,6 +1562,23 @@ class SettingsWindow(QDialog):
         slang.set_user(rows)
         self._slang_pending = True
         return rows
+
+    def _move_slang_row(self, source, target):
+        """Перетащили строку сокращений / a slang row was dragged.
+
+        Порядок запоминается в настройках (``slang_order``): без этого таблица
+        снова сортировалась бы по алфавиту при следующем открытии окна.
+        The order is kept in the settings (``slang_order``): without it the table
+        would be sorted alphabetically again the next time the window opens.
+        """
+        DragTable.move_cells(self.tbl_slang, source, target)
+        self._slang_order = [
+            (self.tbl_slang.item(row, 0).text().lstrip("★ ").strip()
+             if self.tbl_slang.item(row, 0) else "")
+            for row in range(self.tbl_slang.rowCount())]
+        self._slang_pending = True
+        self._collect_slang()
+        self._filter_slang()
 
     def _slang_row_exists(self, token):
         for r in range(self.tbl_slang.rowCount()):
@@ -1506,6 +1713,21 @@ class SettingsWindow(QDialog):
         lay.setContentsMargins(20, 18, 20, 18)
         lay.setSpacing(14)
 
+        # первый вопрос любого игрока: «а мне это надо?» — отвечаем до настроек
+        # the first question any player has: "do I need this?" — answered first
+        card, cl = _card()
+        cl.addWidget(_title("Кому это нужно", "sec"))
+        cl.addWidget(_hint(
+            "Никому не обязательно. Без DeepL программа переводит через Google и "
+            "остальные сервисы — так она работает сразу после установки, и "
+            "большинству игроков этого достаточно. DeepL — это шаг в качестве для "
+            "тех, кто готов потратить пять минут: либо включите VPN с зарубежным "
+            "выходом, либо разверните свой сервис и впишите его адрес ниже (как "
+            "это сделать — VERCEL.md в папке source/tools/deeplx-local). Общий "
+            "адрес у всех быть не может: DeepL быстро упирается в лимиты частоты, "
+            "и один перегруженный сервис отказывает всем сразу."))
+        lay.addWidget(card)
+
         card, cl = _card()
         cl.addWidget(_title("DeepL рядом (DLX)", "sec"))
         cl.addWidget(_hint(
@@ -1594,7 +1816,6 @@ class SettingsWindow(QDialog):
             "говорит на том же языке, что и DLX. Адрес можно вставить целиком, "
             "вместе с /translate — лишний хвост программа отрежет сама.")
         self.lb_dlx_url_note.setWordWrap(True)
-        self.lb_dlx_url_note.setProperty("no_i18n", True)
         self.lb_dlx_url_note.setStyleSheet("color:#8a8fa3;font-size:11px;")
         cl.addWidget(self.lb_dlx_url_note)
         row = QHBoxLayout()
@@ -1891,7 +2112,7 @@ class SettingsWindow(QDialog):
             return
         answer = QMessageBox.question(
             self, i18n.t("Удаление сервиса"),
-            i18n.t("Удалить сервис DeepL с диска?\\nПрограмма вернётся к обычным "
+            i18n.t("Удалить сервис DeepL с диска?\nПрограмма вернётся к обычным "
                    "сервисам перевода, настройки останутся."))
         if answer != QMessageBox.StandardButton.Yes:
             return
@@ -1910,6 +2131,804 @@ class SettingsWindow(QDialog):
             return
         self._dlx_refresh()
 
+    # ------------------------------------------------------------ Анимации
+    def _page_anims(self):
+        """Раздел «Анимации»: правила «слово → /anim» и клавиша остановки.
+
+        The Animations page: keyword → /anim rules and the stop key.
+
+        Таблица — единственный источник правил, пока окно открыто: строки
+        собираются в объекты anims.Rule и попадают в config.json только по
+        кнопке «Сохранить».
+        The table is the only source of rules while the window is open: rows are
+        collected into anims.Rule objects and reach config.json only on Save.
+        """
+        page = QWidget()
+        page.setObjectName("page")
+        lay = QVBoxLayout(page)
+        lay.setContentsMargins(20, 18, 20, 18)
+        lay.setSpacing(10)
+
+        card, cl = _card()
+        self.chk_anims = QCheckBox("Включить модуль «Анимации»")
+        self.chk_anims.setChecked(bool(self.cfg.get("anims_enabled", False)))
+        self.chk_anims.toggled.connect(self._anims_toggled)
+        cl.addWidget(self.chk_anims)
+        cl.addWidget(_hint(
+            "Ключевое слово в вашем сообщении запускает анимацию: в чат игры уходит "
+            "/anim «название», а через заданное время она останавливается — командой "
+            "/sa, нажатием клавиши или обоими способами, как выбрано ниже. При "
+            "зацикливании остановки нет: по истечении того же времени анимация "
+            "просто запускается снова, пока не нажать клавишу остановки. "
+            "Длительность 0 мс означает «не останавливать вовсе». Работает только "
+            "вместе с модулем «Отправка в игру»."))
+
+        key_row = QHBoxLayout()
+        key_label = _title("Клавиша остановки зацикливания", "sec")
+        key_row.addWidget(key_label)
+        self.ed_anim_stop = KeyCapture()
+        self.ed_anim_stop.setMaximumWidth(180)
+        self.ed_anim_stop.setMinimumWidth(120)
+        self.ed_anim_stop.setText(str(self.cfg.get("anim_stop_key", "f") or "f"))
+        self.ed_anim_stop.setToolTip(
+            "Клавиша, которая прекращает зацикленную анимацию. Нажатие получает и "
+            "игра, поэтому подойдёт обычная игровая клавиша вроде F.")
+        self.ed_anim_stop.changed.connect(self._anim_stop_changed)
+        key_row.addWidget(self.ed_anim_stop)
+        key_row.addStretch(1)
+        cl.addLayout(key_row)
+        self.lb_anim_stop = QLabel("")
+        self.lb_anim_stop.setProperty("no_i18n", True)
+        self.lb_anim_stop.setWordWrap(True)
+        cl.addWidget(self.lb_anim_stop)
+
+        # чем именно гасить анимацию по истечении времени
+        # what exactly puts the animation out when the time is up
+        self.chk_anim_stop_sa = QCheckBox("Останавливать анимацию командой /sa")
+        self.chk_anim_stop_sa.setChecked(bool(self.cfg.get("anim_stop_by_sa", True)))
+        self.chk_anim_stop_sa.setToolTip(
+            "В чат игры уходит /sa — так анимацию гасит сама игра.")
+        self.chk_anim_stop_sa.toggled.connect(self._anim_stop_changed)
+        cl.addWidget(self.chk_anim_stop_sa)
+
+        self.chk_anim_stop_key = QCheckBox(
+            "Останавливать анимацию нажатием клавиши F (симуляция)")
+        self.chk_anim_stop_key.setProperty("no_i18n", True)
+        self.chk_anim_stop_key.setChecked(bool(self.cfg.get("anim_stop_by_key", False)))
+        self.chk_anim_stop_key.setToolTip(
+            "Программа нажимает клавишу остановки в игре, как если бы её нажали вы. "
+            "Клавиша берётся из поля выше.")
+        self.chk_anim_stop_key.toggled.connect(self._anim_stop_changed)
+        cl.addWidget(self.chk_anim_stop_key)
+
+        # отрицание: «открыл зонт» срабатывает, «не открыл зонт» — нет
+        # negation: «открыл зонт» fires, «не открыл зонт» stays silent
+        self.chk_anim_negation = QCheckBox("Не срабатывать на отрицание")
+        self.chk_anim_negation.setChecked(bool(self.cfg.get("anim_skip_negation", True)))
+        self.chk_anim_negation.setToolTip(
+            "Правило молчит, если перед найденным словом стоит «не», «ни», "
+            "«никогда» и подобное: «открыл зонт» сработает, «не открыл зонт» — "
+            "нет. Если отрицание есть в самом ключе, проверка для него "
+            "выключается.")
+        self.chk_anim_negation.toggled.connect(self._anims_changed)
+        cl.addWidget(self.chk_anim_negation)
+
+        # хвост после анимации: к её длительности добавляется столько, и только
+        # потом запускается следующая — игра успевает закрыть чат, сервер
+        # принять остановку, и вторая анимация из того же сообщения не теряется
+        # the tail after an animation: it is added to the animation's own length
+        # and only then does the next one start, so the game closes its chat and
+        # the server takes the stop — the second animation is not lost
+        gap_row = QHBoxLayout()
+        gap_row.addWidget(_title("Пауза после анимации, мс", "sec"))
+        self.sp_anim_gap = QSpinBox()
+        self.sp_anim_gap.setRange(0, 10000)
+        self.sp_anim_gap.setSingleStep(10)
+        self.sp_anim_gap.setValue(self._anim_extra())
+        self.sp_anim_gap.setMaximumWidth(120)
+        self.sp_anim_gap.setToolTip(
+            "Добавляется к длительности самой анимации, и только потом "
+            "запускается следующая из того же сообщения: 1500 мс + 50 мс. "
+            "Если из двух ключевых слов играет только первое, увеличьте — "
+            "серверу нужно время принять /sa и следующую /anim. "
+            "0 — запускать сразу после анимации.")
+        self.sp_anim_gap.valueChanged.connect(self._anims_changed)
+        gap_row.addWidget(self.sp_anim_gap)
+        gap_row.addStretch(1)
+        cl.addLayout(gap_row)
+        lay.addWidget(card)
+
+        self.lb_anims_count = _hint("")
+        self.lb_anims_count.setProperty("no_i18n", True)
+        lay.addWidget(self.lb_anims_count)
+
+        self.tbl_anims = DragTable(self._move_anims_row, 0, 7)
+        # короткие заголовки: длинные подписи не влезали в столбцы на узком окне
+        # short headers: the long ones did not fit the columns in a narrow window
+        self.tbl_anims.setHorizontalHeaderLabels(
+            ["Вкл", "Ключевые слова", "/anim", "Режим", "Формы", "мс",
+             "Зацикливать"])
+        head = self.tbl_anims.horizontalHeader()
+        head.setMinimumSectionSize(38)
+        for column, policy in ((0, QHeaderView.ResizeMode.ResizeToContents),
+                               (1, QHeaderView.ResizeMode.Stretch),
+                               (2, QHeaderView.ResizeMode.Stretch),
+                               (3, QHeaderView.ResizeMode.Fixed),
+                               (4, QHeaderView.ResizeMode.Fixed),
+                               (5, QHeaderView.ResizeMode.ResizeToContents),
+                               (6, QHeaderView.ResizeMode.ResizeToContents)):
+            head.setSectionResizeMode(column, policy)
+        # «Режим» и «Формы» — фиксированной ширины: иначе длинный список режимов
+        # распирал столбец и сжимал соседние до нечитаемых
+        # the mode and forms columns keep a fixed width: otherwise the long list
+        # of modes inflated it and squeezed its neighbours into slivers
+        self.tbl_anims.setColumnWidth(3, 124)
+        self.tbl_anims.setColumnWidth(4, 92)
+        self.tbl_anims.setMinimumWidth(600)
+        self.tbl_anims.verticalHeader().setVisible(False)
+        self.tbl_anims.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.tbl_anims.setWordWrap(False)
+        self.tbl_anims.itemChanged.connect(self._anims_edited)
+        self.tbl_anims.itemSelectionChanged.connect(self._update_anims_ui)
+        lay.addWidget(self.tbl_anims, 1)
+
+        btns = QHBoxLayout()
+        self.bt_anim_add = QPushButton("Добавить правило")
+        self.bt_anim_add.clicked.connect(self._add_anim)
+        self.bt_anim_del = QPushButton("Удалить")
+        self.bt_anim_del.setObjectName("danger")
+        self.bt_anim_del.clicked.connect(self._del_anim)
+        self.bt_anim_up = QPushButton("Выше")
+        self.bt_anim_up.clicked.connect(lambda: self._move_anim(-1))
+        self.bt_anim_down = QPushButton("Ниже")
+        self.bt_anim_down.clicked.connect(lambda: self._move_anim(1))
+        b_imp = QPushButton("Импорт…")
+        b_imp.setToolTip("Загрузить правила из JSON, созданного кнопкой «Экспорт…»")
+        b_imp.clicked.connect(self._import_anims)
+        b_exp = QPushButton("Экспорт…")
+        b_exp.clicked.connect(self._export_anims)
+        for button in (self.bt_anim_add, self.bt_anim_del, self.bt_anim_up,
+                       self.bt_anim_down, b_imp, b_exp):
+            btns.addWidget(button)
+        btns.addStretch(1)
+        lay.addLayout(btns)
+
+        self.lb_anims_problem = QLabel("")
+        self.lb_anims_problem.setProperty("no_i18n", True)
+        self.lb_anims_problem.setWordWrap(True)
+        self.lb_anims_problem.setStyleSheet("color:#ffb45b;")
+        lay.addWidget(self.lb_anims_problem)
+
+        live_card, ll = _card()
+        ll.addWidget(_title("Проверка в игре", "sec"))
+        ll.addWidget(_hint(
+            "Слова проверяются в окне настроек, а отправку видит только игра. "
+            "Кнопка «Отправить /anim в игру» запускает выбранное правило прямо "
+            "сейчас — так видно, доходит ли команда: если игра не ответила, "
+            "причина появится здесь же."))
+        live_row = QHBoxLayout()
+        self.bt_anim_send = QPushButton("Отправить /anim в игру")
+        self.bt_anim_send.clicked.connect(self._anim_send_now)
+        self.bt_anim_halt = QPushButton("Остановить анимацию")
+        self.bt_anim_halt.clicked.connect(self._anim_halt_now)
+        if getattr(self, "anims_api", None) is None:
+            for button in (self.bt_anim_send, self.bt_anim_halt):
+                button.setEnabled(False)
+                button.setToolTip("Доступно, когда настройки открыты из программы")
+        live_row.addWidget(self.bt_anim_send)
+        live_row.addWidget(self.bt_anim_halt)
+        live_row.addStretch(1)
+        ll.addLayout(live_row)
+        self.lb_anim_live = QLabel("")
+        self.lb_anim_live.setProperty("no_i18n", True)
+        self.lb_anim_live.setWordWrap(True)
+        ll.addWidget(self.lb_anim_live)
+        lay.addWidget(live_card)
+        self.anim_test_done.connect(self._anim_send_result)
+
+        test_card, tl = _card()
+        tl.addWidget(_title("Проверка правила", "sec"))
+        tl.addWidget(_hint(
+            "Напишите фразу так, как отправили бы её в игру, и посмотрите, какие "
+            "правила на неё сработают. Здесь проверяются только слова: отправку "
+            "команд проверяет блок «Проверка в игре» выше."))
+        test_row = QHBoxLayout()
+        self.ed_anims_test = QLineEdit()
+        self.ed_anims_test.setPlaceholderText("Например: /me привет")
+        self.ed_anims_test.returnPressed.connect(self._anims_test)
+        test_row.addWidget(self.ed_anims_test, 1)
+        b_test = QPushButton("Проверить")
+        b_test.clicked.connect(self._anims_test)
+        test_row.addWidget(b_test)
+        tl.addLayout(test_row)
+        self.lb_anims_test = QLabel("")
+        self.lb_anims_test.setProperty("no_i18n", True)
+        self.lb_anims_test.setWordWrap(True)
+        tl.addWidget(self.lb_anims_test)
+        lay.addWidget(test_card)
+
+        lay.addWidget(_hint(
+            "Несколько ключевых слов в одном правиле разделяются запятой: «привет, "
+            "здравствуй». Совпадение ищется целым словом и без учёта регистра, «ё» "
+            "и «е» считаются одной буквой. Столбец «Формы» решает, как сравнивать "
+            "слово: «Точно» — ровно написанное, «Основы» — любые падежи и "
+            "спряжения («открыл» = «открывает»), «Леммы» — по словарю pymorphy3. "
+            "Одно и то же слово правило запускает один раз, сколько бы раз оно "
+            "ни повторилось, а каждое своё ключевое слово — отдельным выходом: "
+            "«да ну, да брось» на «Да ну да брось» сыграет анимацию дважды. "
+            "Если в одном сообщении совпало несколько правил, "
+            "анимации играют по очереди, по одной: пока одна на экране, следующая "
+            "ждёт. Порядок — как в самом сообщении: «Чёрт, я устал *кашляет*» "
+            "сначала запустит анимацию на «чёрт», потом на «кашляет», даже если в "
+            "таблице эти правила стоят наоборот."))
+        lay.addWidget(_hint(
+            "Строки таблицы перетаскиваются мышью — вместе с правилом едут его "
+            "режим, формы, длительность и галочки. Порядок в таблице нужен для "
+            "удобства: в игре анимации играют по порядку слов в сообщении."))
+        self._fill_anims()
+        self._update_anims_ui()
+        return page
+
+    # ------------------------------------------------ состояние и проверка
+    def _anim_combo_hint(self, combo):
+        """Подсказка поля «Режим»: полное объяснение выбранного режима."""
+        mode = combo.currentData()
+        if mode is None:
+            return
+        combo.setToolTip(i18n.t(anims.describe_mode_hint(int(mode), False)))
+
+    def _anim_forms_hint(self, combo):
+        """Подсказка поля «Формы»: что именно сравнивается со словом."""
+        forms = combo.currentData()
+        if forms is None:
+            return
+        combo.setToolTip(i18n.t(morph.describe_forms_hint(int(forms), False)))
+
+    def _anim_say(self, text, seconds=8.0):
+        """Заметка под кнопками проверки: живёт несколько секунд."""
+        self._anim_note = (text, time.monotonic() + seconds)
+        self.lb_anim_live.setText(text)
+
+    def _anim_live_tick(self):
+        """Раз в секунду: что играет и что не отправилось / live module state."""
+        api = getattr(self, "anims_api", None)
+        if api is None or getattr(self, "_anim_view", None) is None:
+            return
+        if self.stack.currentWidget() is not self._anim_view:
+            return
+        note, until = getattr(self, "_anim_note", ("", 0.0))
+        if time.monotonic() < until:
+            self.lb_anim_live.setText(note)
+            return
+        try:
+            state = api["state"]()
+        except Exception:
+            log.exception("Не удалось прочитать состояние анимаций")
+            return
+        parts = []
+        if state.get("current"):
+            playing = i18n.tf("Сейчас играет: %s", state["current"])
+            if state.get("loop"):
+                playing += i18n.t(", зациклено")
+            parts.append(playing)
+        else:
+            parts.append(i18n.t("Сейчас ничего не играет"))
+        if state.get("queued"):
+            parts.append(i18n.tf("в очереди: %d", int(state["queued"])))
+        if state.get("error"):
+            parts.append(i18n.tf("последняя ошибка: %s", state["error"]))
+        if not state.get("enabled"):
+            parts.append(i18n.t("модуль выключен"))
+        self.lb_anim_live.setText(" · ".join(parts))
+
+    def _anim_send_now(self):
+        """Отправить /anim выбранного правила в игру — проверить весь путь."""
+        api = getattr(self, "anims_api", None)
+        if api is None:
+            self._anim_say(i18n.t(
+                "Проверка в игре работает, когда настройки открыты из программы."))
+            return
+        rows = self.tbl_anims.selectionModel().selectedRows()
+        name = ""
+        if rows:
+            item = self.tbl_anims.item(rows[0].row(), 2)
+            name = item.text().strip() if item is not None else ""
+        if not name:
+            self._anim_say(i18n.t(
+                "Сначала выберите правило с названием анимации."))
+            return
+        problem = anims.Rule(keywords="слово", name=name).problem()
+        if problem:
+            self._anim_say(i18n.t("Название не подойдёт: ") + i18n.t(problem))
+            return
+        self._anim_say(i18n.tf("Отправляю /anim %s в игру…", name), seconds=25.0)
+        threading.Thread(
+            target=lambda: self.anim_test_done.emit(*api["send"](name)),
+            name="anim-test", daemon=True).start()
+
+    def _anim_send_result(self, ok, message):
+        """Ответ игры на ручную отправку /anim."""
+        if ok:
+            self._anim_say(i18n.t("Игра приняла /anim — анимация должна играть."))
+            self.lb_anim_live.setStyleSheet("color:#66d18b;")
+        else:
+            self._anim_say(i18n.tf("Не получилось: %s", message))
+            self.lb_anim_live.setStyleSheet("color:#ff6b6b;")
+
+    def _anim_halt_now(self):
+        """Остановить текущую зацикленную анимацию из настроек."""
+        api = getattr(self, "anims_api", None)
+        if api is None:
+            self._anim_say(i18n.t(
+                "Остановка доступна, когда настройки открыты из программы."))
+            return
+        api["stop"]()
+        self._anim_say(i18n.t("Остановил: отправлен /sa."))
+        self.lb_anim_live.setStyleSheet("color:#8a8a96;")
+
+    # заполнение и сбор таблицы анимаций
+    def _fill_anims(self, rules=None):
+        """Переносит правила в таблицу / rules into the table.
+
+        ``rules`` — готовый список (после перетаскивания); без него правила
+        берутся из настроек.
+        ``rules`` is a ready list (after a drag); without it the rules come from
+        the settings.
+        """
+        if not hasattr(self, "tbl_anims"):
+            return
+        if rules is None:
+            rules = anims.rules_from_cfg(self.cfg)
+        self.tbl_anims.blockSignals(True)
+        self.tbl_anims.setRowCount(0)
+        for rule in rules:
+            self._add_anim_row(rule)
+        self.tbl_anims.blockSignals(False)
+        self._update_anims_ui()
+
+    def _move_anims_row(self, source, target):
+        """Перетащили строку правил: собираем правила, меняем порядок, рисуем.
+
+        A rule row was dragged: collect the rules, reorder them, draw again.
+        Строку двигает не таблица, а пересборка: вместе с правилом переезжают
+        выпадающие списки режима и форм, галочки и поле длительности.
+        The table does not move the row, the rebuild does: the mode and forms
+        combos, the checkboxes and the duration field move with the rule.
+        """
+        rules = self._collect_anims()
+        if source < 0 or source >= len(rules):
+            return
+        rule = rules.pop(source)
+        if target > source:
+            target -= 1
+        rules.insert(max(0, min(target, len(rules))), rule)
+        self._fill_anims(rules)
+        if hasattr(self, "tbl_anims"):
+            self.tbl_anims.selectRow(max(0, min(target, len(rules) - 1)))
+        self._anims_changed()
+        log.info("Анимации: правило «%s» переставлено (%d -> %d)",
+                 rule.keywords[:30], source, target)
+
+    def _add_anim_row(self, rule):
+        """Одна строка таблицы по правилу / one table row for a rule."""
+        row = self.tbl_anims.rowCount()
+        self.tbl_anims.insertRow(row)
+
+        def checkable(checked):
+            item = QTableWidgetItem("")
+            item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
+                          | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Checked if checked
+                               else Qt.CheckState.Unchecked)
+            return item
+
+        item_on = checkable(rule.enabled)
+        item_on.setData(Qt.ItemDataRole.UserRole, rule.id)
+        item_loop = checkable(rule.loop)
+        cells = [item_on,
+                 QTableWidgetItem(rule.keywords),
+                 QTableWidgetItem(rule.name),
+                 None,                       # режим — выпадающий список,
+                 None,                       # формы — тоже список,
+                 QTableWidgetItem(str(rule.duration_ms)),
+                 item_loop]
+        for column, item in enumerate(cells):
+            if item is None:
+                continue
+            item.setToolTip(item.text())
+            self.tbl_anims.setItem(row, column, item)
+        combo = QComboBox()
+        # названия режимов хранятся по-русски: так i18n.retranslate может
+        # переводить их в любую сторону сколько угодно раз
+        # mode titles are stored in Russian, so i18n.retranslate can translate
+        # them either way as many times as needed
+        titles = [anims.describe_mode(mode, False) for mode in anims.MODES]
+        for mode, title in zip(anims.MODES, titles):
+            combo.addItem(i18n.t(title), mode)
+        combo.setProperty("_ru_items", titles)
+        # поле не должно требовать ширины под самую длинную строку: текст
+        # обрезается, а полное объяснение висит подсказкой
+        # the field must not demand the width of its longest item: the text is
+        # elided and the full explanation sits in the tooltip
+        combo.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        combo.setMinimumContentsLength(6)
+        combo.setMinimumWidth(110)
+        combo.setCurrentIndex(max(0, int(combo.findData(int(rule.mode)))))
+        combo.currentIndexChanged.connect(self._anims_combo_changed)
+        self._anim_combo_hint(combo)
+        self.tbl_anims.setCellWidget(row, 3, combo)
+
+        forms_combo = QComboBox()
+        forms_titles = [morph.describe_forms(forms, False) for forms in morph.FORMS]
+        for forms, title in zip(morph.FORMS, forms_titles):
+            forms_combo.addItem(i18n.t(title), forms)
+        forms_combo.setProperty("_ru_items", forms_titles)
+        forms_combo.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        forms_combo.setMinimumContentsLength(6)
+        forms_combo.setMinimumWidth(88)
+        forms_combo.setCurrentIndex(
+            max(0, int(forms_combo.findData(int(rule.forms)))))
+        forms_combo.currentIndexChanged.connect(self._anims_combo_changed)
+        self._anim_forms_hint(forms_combo)
+        self.tbl_anims.setCellWidget(row, 4, forms_combo)
+        return row
+
+    def _anims_combo_changed(self, *_):
+        """Сменили режим чтения в строке / the read mode of a row changed."""
+        self._anims_changed()
+
+    def _anims_edited(self, item=None):
+        """Правка ячейки: проверяем длительность и обновляем подсказки."""
+        if item is not None and item.column() == 5:
+            text = (item.text() or "").strip()
+            if text and not text.lstrip("-").isdigit():
+                # в поле длительности ждём число; буквы не чиним молча, а
+                # подсвечиваем строку и говорим об этом подсказкой
+                # the duration field wants a number; letters are not fixed
+                # silently, the row is highlighted and the hint explains why
+                self._anims_changed()
+                return
+        self._anims_changed()
+
+    def _anims_changed(self):
+        self._update_anims_ui()
+
+    def _collect_anims(self):
+        """Собирает правила из таблицы (в памяти) / rules from the table."""
+        if not hasattr(self, "tbl_anims"):
+            return []
+        rules = []
+        for row in range(self.tbl_anims.rowCount()):
+            item_on = self.tbl_anims.item(row, 0)
+            if item_on is None:
+                continue
+
+            def text(column):
+                item = self.tbl_anims.item(row, column)
+                return item.text().strip() if item is not None else ""
+
+            combo = self.tbl_anims.cellWidget(row, 3)
+            mode = anims.MODE_ALWAYS
+            if isinstance(combo, QComboBox) and combo.currentData() is not None:
+                mode = int(combo.currentData())
+            forms_combo = self.tbl_anims.cellWidget(row, 4)
+            forms = morph.FORMS_DEFAULT
+            if (isinstance(forms_combo, QComboBox)
+                    and forms_combo.currentData() is not None):
+                forms = int(forms_combo.currentData())
+            raw_ms = text(5).replace(" ", "")
+            try:
+                duration = int(raw_ms)
+            except ValueError:
+                duration = -1        # problem() скажет «длительность должна быть…»
+            item_loop = self.tbl_anims.item(row, 6)
+            rule = anims.Rule(
+                keywords=text(1),
+                name=text(2),
+                mode=mode,
+                forms=forms,
+                duration_ms=duration,
+                loop=bool(item_loop and item_loop.checkState() == Qt.CheckState.Checked),
+                enabled=bool(item_on.checkState() == Qt.CheckState.Checked),
+            )
+            ident = str(item_on.data(Qt.ItemDataRole.UserRole) or "").strip()
+            if ident:
+                rule.id = ident
+            rules.append(rule)
+        self._anim_rules = rules
+        return rules
+
+    def _anims_problems(self):
+        """Список «строка — что не так» для всех правил / problems per row."""
+        out = []
+        for index, rule in enumerate(self._collect_anims()):
+            problem = rule.problem()
+            if problem:
+                out.append((index, problem))
+        return out
+
+    def _update_anims_ui(self):
+        """Счётчик, подсказки и доступность кнопок / counters and button state."""
+        if not hasattr(self, "tbl_anims"):
+            return
+        total = self.tbl_anims.rowCount()
+        rules = getattr(self, "_anim_rules", []) or []
+        active = sum(1 for rule in rules if rule.ready())
+        loops = sum(1 for rule in rules if rule.ready() and rule.loop)
+        self.lb_anims_count.setText(i18n.tf(
+            "Правил: %d, готовы к работе: %d, с зацикливанием: %d", total, active, loops))
+        for row in range(total):
+            combo = self.tbl_anims.cellWidget(row, 3)
+            if isinstance(combo, QComboBox):
+                self._anim_combo_hint(combo)
+            forms_combo = self.tbl_anims.cellWidget(row, 4)
+            if isinstance(forms_combo, QComboBox):
+                self._anim_forms_hint(forms_combo)
+        problems = self._anims_problems()
+        notes = []
+        if problems:
+            lines = [i18n.tf("Строка %d: ", index + 1) + i18n.t(problem)
+                     for index, problem in problems]
+            notes.append(i18n.t("Проверьте правила: ") + "; ".join(lines))
+        if not morph.lemmas_available() and any(
+                rule.forms == morph.FORMS_LEMMA for rule in rules):
+            # честно: без пакета pymorphy3 уровень «Леммы» работает как «Основы»
+            # honest: without pymorphy3 the "Lemmas" level behaves like "Stems"
+            notes.append(i18n.t("Пакет pymorphy3 не найден: уровень «Леммы» "
+                                "сравнивает по основе."))
+        self.lb_anims_problem.setText(" ".join(notes))
+        enabled = bool(self.chk_anims.isChecked()) if hasattr(self, "chk_anims") else True
+        self.tbl_anims.setEnabled(True)
+        self.bt_anim_add.setEnabled(True)
+        rows = self.tbl_anims.selectionModel().selectedRows() if total else []
+        has_row = bool(rows)
+        self.bt_anim_del.setEnabled(has_row)
+        current = rows[0].row() if has_row else -1
+        self.bt_anim_up.setEnabled(has_row and current > 0)
+        self.bt_anim_down.setEnabled(has_row and 0 <= current < total - 1)
+        if not enabled:
+            self.lb_anims_count.setText(
+                self.lb_anims_count.text() + i18n.t(" · модуль выключен"))
+
+    def _anims_toggled(self, *_):
+        """Галочка модуля: сразу видно, будет ли что-то работать."""
+        self._update_anims_ui()
+
+    def _anim_stop_changed(self, *_):
+        """Проверка клавиши остановки и сводка способов остановки.
+
+        Check the stop key and summarise how the animation is stopped.
+        """
+        problem = anims.stop_key_problem(self.ed_anim_stop.text())
+        pretty = _pretty_hotkey(self.ed_anim_stop.text() or "f")
+        if hasattr(self, "chk_anim_stop_key"):
+            self.chk_anim_stop_key.setText(i18n.tf(
+                "Останавливать анимацию нажатием клавиши %s (симуляция)", pretty))
+        by_sa = bool(self.chk_anim_stop_sa.isChecked()) if hasattr(
+            self, "chk_anim_stop_sa") else True
+        by_key = bool(self.chk_anim_stop_key.isChecked()) if hasattr(
+            self, "chk_anim_stop_key") else False
+        if problem:
+            self.lb_anim_stop.setText(i18n.t(problem))
+            self.lb_anim_stop.setStyleSheet("color:#ff6b6b;")
+            return False
+        if by_sa and by_key:
+            note = i18n.tf("Анимация останавливается командой /sa и нажатием «%s».",
+                           pretty)
+        elif by_sa:
+            note = i18n.t("Анимация останавливается командой /sa.")
+        elif by_key:
+            note = i18n.tf("Анимация останавливается нажатием «%s» (симуляция).",
+                           pretty)
+        else:
+            note = i18n.t("Остановка выключена: анимация играет, пока её не сменит "
+                          "другая или пока её не остановит игра.")
+        self.lb_anim_stop.setText(
+            note + " " + i18n.t("Клавишу остановки получает и игра, поэтому "
+                                "подойдёт обычная игровая клавиша."))
+        self.lb_anim_stop.setStyleSheet("color:#8a8a96;")
+        return True
+
+    def _add_anim(self):
+        """Новое правило с разумными значениями по умолчанию."""
+        rule = anims.Rule(keywords="", name="", mode=anims.MODE_ALWAYS,
+                          duration_ms=anims.DEFAULT_MS)
+        self.tbl_anims.blockSignals(True)
+        row = self._add_anim_row(rule)
+        self.tbl_anims.blockSignals(False)
+        self.tbl_anims.selectRow(row)
+        item = self.tbl_anims.item(row, 1)
+        if item is not None:
+            self.tbl_anims.setCurrentCell(row, 1)
+            self.tbl_anims.editItem(item)
+        self._anims_changed()
+
+    def _del_anim(self):
+        """Удаляет выбранные правила / remove the selected rules."""
+        rows = sorted({index.row() for index in
+                       self.tbl_anims.selectionModel().selectedRows()}, reverse=True)
+        if not rows:
+            return
+        for row in rows:
+            self.tbl_anims.removeRow(row)
+        self._anims_changed()
+
+    def _move_anim(self, delta):
+        """Правило выше или ниже: порядок = порядок срабатывания."""
+        rows = self.tbl_anims.selectionModel().selectedRows()
+        if not rows:
+            return
+        row = rows[0].row()
+        target = row + delta
+        if not 0 <= target < self.tbl_anims.rowCount():
+            return
+        rules = self._collect_anims()
+        rules[row], rules[target] = rules[target], rules[row]
+        self.tbl_anims.blockSignals(True)
+        self.tbl_anims.setRowCount(0)
+        for rule in rules:
+            self._add_anim_row(rule)
+        self.tbl_anims.blockSignals(False)
+        self.tbl_anims.selectRow(target)
+        self._anims_changed()
+
+    def _anim_context(self):
+        """Контекст проверки: словарь и порядок слов — те же, что в работе.
+
+        The check context: the same glossary and negation flag the running module
+        uses, so the check shows exactly what the game will really do.
+        """
+        code = langs.code_of(self.cb_lang.currentData()
+                             if hasattr(self, "cb_lang") and self.cb_lang.currentData()
+                             else self.cfg.get("target_lang", "it"))
+        cached = getattr(self, "_anim_glossary", (None, None))
+        if cached[0] != code:
+            try:
+                cached = (code, Glossary(self._doc(code), code))
+            except Exception:
+                log.exception("Не удалось прочитать словарь для проверки анимаций")
+                cached = (code, None)
+            self._anim_glossary = cached
+        glossary = cached[1]
+        negation = (bool(self.chk_anim_negation.isChecked())
+                    if hasattr(self, "chk_anim_negation") else True)
+        if glossary is None:
+            return anims.Context(negation=negation)
+        return anims.Context(equivalent=lambda phrase: glossary.find_meaning(phrase) or "",
+                             text_keys=glossary.phrase_keys,
+                             negation=negation)
+
+    def _anim_blockers(self):
+        """Почему правила не дойдут до игры / why the rules never reach the game.
+
+        Проверка слов работает и при выключенных модулях, поэтому список
+        выключенного показывается рядом с результатом.
+        The word check works even with the modules off, so the disabled ones are
+        listed right next to the result.
+        """
+        why = []
+        if hasattr(self, "chk_anims") and not self.chk_anims.isChecked():
+            why.append(i18n.t("выключен модуль «Анимации»"))
+        if not bool(self.cfg.get("game_send", True)):
+            why.append(i18n.t("выключен модуль «Отправка в игру»"))
+        return why
+
+    def _anim_extra(self, cfg=None):
+        """Пауза после анимации из настроек, мс / the tail from the settings.
+
+        Новое поле — ``anim_extra_ms``, старое ``anim_gap_ms`` читается как оно
+        же, чтобы значение из прошлой версии не потерялось.
+        The new key is ``anim_extra_ms``; the old ``anim_gap_ms`` is read as the
+        same, so a value from a previous version is not lost.
+        """
+        source = self.cfg if cfg is None else cfg
+        raw = source.get("anim_extra_ms")
+        if raw is None:
+            raw = source.get("anim_gap_ms", 50)
+        try:
+            return max(0, min(10000, int(raw)))
+        except (TypeError, ValueError):
+            return 50
+
+    def _anims_test(self):
+        """Проверка фразы: какие правила на неё сработают / a dry run of a phrase."""
+        text = self.ed_anims_test.text()
+        if not text.strip():
+            self.lb_anims_test.setText(i18n.t("Напишите фразу для проверки."))
+            self.lb_anims_test.setStyleSheet("color:#8a8a96;")
+            return
+        # тот же порядок, что и в работе: по месту слова в сообщении, каждое
+        # ключевое слово правила — своим выходом, слова-синонимы — по ключу
+        # the same order as in real use: by the place of the word in the message,
+        # every keyword of a rule fires on its own, synonyms by their key
+        ctx = self._anim_context()
+        hits = []
+        for index, rule in enumerate(self._collect_anims()):
+            for position, form in rule.hits(text, ctx):
+                hits.append((position, index,
+                             rule.name.strip() or i18n.t("без названия"), form))
+        hits.sort(key=lambda item: (item[0], item[1]))
+        if hits:
+            # видно не только правило, но и какая именно форма его задела
+            # shows the rule and the exact form that fired it
+            parts = ["/anim " + name + (f" ← «{form}»" if form else "")
+                     for _, _, name, form in hits]
+            text_out = i18n.t("Сработают: ") + ", ".join(parts)
+            # правило может сработать и при этом не дойти до игры: проверка
+            # слов не равна работе модуля, о выключенных модулях говорим прямо
+            # a rule may fire and still never reach the game: this check is about
+            # the words, so the disabled modules are called out
+            why = self._anim_blockers()
+            if why:
+                text_out += " " + i18n.t("Но в игру ничего не уйдёт: ") + ", ".join(why) + "."
+            self.lb_anims_test.setText(text_out)
+            self.lb_anims_test.setStyleSheet(
+                "color:#ffb45b;" if why else "color:#66d18b;")
+        else:
+            self.lb_anims_test.setText(i18n.t(
+                "Ни одно правило не сработает: в этом режиме ключевого слова в "
+                "сообщении нет."))
+            self.lb_anims_test.setStyleSheet("color:#ffb45b;")
+
+    def _export_anims(self):
+        """Правила в JSON — их можно перенести на другой компьютер."""
+        path, _ = QFileDialog.getSaveFileName(
+            self, i18n.t("Экспорт правил анимаций"), str(DATA / "animations.json"),
+            i18n.t("Правила анимаций (*.json);;Все файлы (*)"))
+        if not path:
+            return
+        payload = {"format": "rpchatoverlay-animations", "version": 1,
+                   "rules": anims.rules_to_cfg(self._collect_anims()),
+                   "stop_key": self.ed_anim_stop.text().strip().lower()}
+        try:
+            Path(path).write_text(json.dumps(payload, ensure_ascii=False, indent=2),
+                                  encoding="utf-8")
+        except OSError as e:
+            QMessageBox.warning(self, i18n.t("Экспорт"),
+                                i18n.t("Не удалось записать файл:\n") + str(e))
+            return
+        QMessageBox.information(self, i18n.t("Экспорт"),
+                                i18n.t("Правила сохранены в файл ") + str(path))
+
+    def _import_anims(self):
+        """Правила из JSON, созданного кнопкой «Экспорт…»."""
+        path, _ = QFileDialog.getOpenFileName(
+            self, i18n.t("Импорт правил анимаций"), str(DATA),
+            i18n.t("Правила анимаций (*.json);;Все файлы (*)"))
+        if not path:
+            return
+        try:
+            text = Path(path).read_text(encoding="utf-8-sig")
+            data = json.loads(text)
+        except (OSError, ValueError) as e:
+            QMessageBox.warning(self, i18n.t("Импорт"),
+                                i18n.t("Файл не подошёл:\n") + str(e))
+            return
+        raw = data.get("rules") if isinstance(data, dict) and "rules" in data else data
+        if not isinstance(raw, list):
+            QMessageBox.warning(self, i18n.t("Импорт"), i18n.t(
+                "В файле нужен список правил: {\"rules\": [ … ]}."))
+            return
+        imported = 0
+        self.tbl_anims.blockSignals(True)
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            rule = anims.Rule.from_dict(item)
+            self._add_anim_row(rule)
+            imported += 1
+        self.tbl_anims.blockSignals(False)
+        if isinstance(data, dict) and str(data.get("stop_key") or "").strip():
+            stop_key = str(data["stop_key"]).strip().lower()
+            if not anims.stop_key_problem(stop_key):
+                self.ed_anim_stop.setText(stop_key)
+                self._anim_stop_changed()
+        if not imported:
+            QMessageBox.information(self, i18n.t("Импорт"),
+                                    i18n.t("В файле не нашлось правил."))
+        self._anims_changed()
     # ------------------------------------------------------------ Модули
     def _page_modules(self):
         """Страница «Модули»: что можно выключить и что от чего зависит.
@@ -1932,6 +2951,12 @@ class SettingsWindow(QDialog):
                            "в любой момент."))
 
         self.chk_modules = {}
+        # подписи модулей собираются из реестра, а не из таблицы переводов:
+        # при смене языка их нужно обновить вручную
+        # module titles come from the registry, not from the translation table, so
+        # they are refreshed by hand when the language changes
+        self._module_rows = []
+        self._module_deps = []
         for module in modules.MODULES:
             row = QWidget()
             rl = QVBoxLayout(row)
@@ -1957,12 +2982,15 @@ class SettingsWindow(QDialog):
             desc.setProperty("no_i18n", True)
             desc.setStyleSheet("color:#9aa0b4;font-size:12px;")
             rl.addWidget(desc)
+            self._module_rows.append((box, desc, module))
             if module.requires:
                 names = ", ".join(
                     (modules.get(dep).title_en if i18n.is_en() else modules.get(dep).title_ru)
                     for dep in module.requires if modules.get(dep)
                 )
                 dep_label = QLabel(i18n.t("Зависит от модуля: ") + names)
+                dep_label.setProperty("no_i18n", True)
+                self._module_deps.append((dep_label, module))
                 dep_label.setWordWrap(True)
                 dep_label.setStyleSheet("color:#8a8fa3;font-size:11px;")
                 rl.addWidget(dep_label)
@@ -2162,10 +3190,6 @@ class SettingsWindow(QDialog):
         self.lb_test_mode.setText(payload.get("note") or "")
 
     # ------------------------------------------------------------ данные
-    def _widgets_to_cfg(self, cfg):
-        self._write_widgets(cfg)
-        return cfg
-
     def _write_widgets(self, cfg):
         cfg["target_lang"] = self.cb_lang.currentData() or "it"
         cfg["send_mode"] = self.cb_send_mode.currentData() or "reading"
@@ -2214,6 +3238,15 @@ class SettingsWindow(QDialog):
         cfg["game_paste_delay_ms"] = int(self.sp_paste.value())
         for key, box in getattr(self, "chk_modules", {}).items():
             cfg[key] = bool(box.isChecked())
+        if hasattr(self, "chk_anims"):
+            cfg["anims_enabled"] = bool(self.chk_anims.isChecked())
+            cfg["anim_rules"] = anims.rules_to_cfg(self._collect_anims())
+            cfg["anim_stop_key"] = self.ed_anim_stop.text().strip().lower() or "f"
+            cfg["anim_stop_by_sa"] = bool(self.chk_anim_stop_sa.isChecked())
+            cfg["anim_stop_by_key"] = bool(self.chk_anim_stop_key.isChecked())
+            cfg["anim_extra_ms"] = int(self.sp_anim_gap.value())
+            cfg["anim_skip_negation"] = bool(self.chk_anim_negation.isChecked())
+        cfg["slang_order"] = list(self._slang_order)
         return modules.apply_defaults(cfg)
 
     def _load_widgets(self):
@@ -2284,6 +3317,26 @@ class SettingsWindow(QDialog):
             "Язык: %s · горячая клавиша: %s · частота автоперевода: каждое %d-е",
             langs.label(langs.code_of(cfg.get("target_lang", "it"))),
             _pretty_hotkey(cfg.get("hotkey", "F6")), int(cfg.get("auto_every", 4))))
+        if hasattr(self, "chk_anims"):
+            self.chk_anims.blockSignals(True)
+            self.chk_anims.setChecked(bool(cfg.get("anims_enabled", False)))
+            self.chk_anims.blockSignals(False)
+            self.ed_anim_stop.setText(str(cfg.get("anim_stop_key", "f") or "f"))
+            self.chk_anim_stop_sa.blockSignals(True)
+            self.chk_anim_stop_sa.setChecked(bool(cfg.get("anim_stop_by_sa", True)))
+            self.chk_anim_stop_sa.blockSignals(False)
+            self.chk_anim_stop_key.blockSignals(True)
+            self.chk_anim_stop_key.setChecked(bool(cfg.get("anim_stop_by_key", False)))
+            self.chk_anim_stop_key.blockSignals(False)
+        if hasattr(self, "sp_anim_gap"):
+            self.sp_anim_gap.blockSignals(True)
+            self.sp_anim_gap.setValue(self._anim_extra(cfg))
+            self.sp_anim_gap.blockSignals(False)
+            self.chk_anim_negation.blockSignals(True)
+            self.chk_anim_negation.setChecked(bool(cfg.get("anim_skip_negation", True)))
+            self.chk_anim_negation.blockSignals(False)
+            self._anim_stop_changed()
+            self._fill_anims()
         self._hotkey_changed()
 
     def _reset_all(self):
@@ -2366,6 +3419,23 @@ class SettingsWindow(QDialog):
     def _save(self):
         self._sync_glossary()
         self._sync_slang()
+        if hasattr(self, "chk_anims"):
+            stop_ok = self._anim_stop_changed()
+            problems = self._anims_problems()
+            if problems:
+                index, problem = problems[0]
+                self.nav.setCurrentRow(self._anims_row)
+                QMessageBox.warning(
+                    self, i18n.t("Анимации"),
+                    i18n.tf("Правило в строке %d: %s. Исправьте его или удалите — "
+                            "без этого настройки не сохранятся.",
+                            index + 1, i18n.t(problem)))
+                return
+            if not stop_ok:
+                self.nav.setCurrentRow(self._anims_row)
+                QMessageBox.warning(self, i18n.t("Анимации"),
+                                    self.lb_anim_stop.text())
+                return
         if not self._hotkey_changed():
             self.nav.setCurrentRow(0)
             self.lb_hotkey.setObjectName("err")
@@ -2491,9 +3561,10 @@ def ask_dlx_consent(cfg, parent=None):
     return accepted, (accepted and dialog.wants_download())
 
 
-def open_settings(cfg, parent=None, first_run=False, dlx=None):
+def open_settings(cfg, parent=None, first_run=False, dlx=None, anims_api=None):
     """Создаёт окно, загружает значения и возвращает его (без exec)."""
-    win = SettingsWindow(cfg, parent=parent, first_run=first_run, dlx=dlx)
+    win = SettingsWindow(cfg, parent=parent, first_run=first_run, dlx=dlx,
+                         anims_api=anims_api)
     win._load_widgets()
     win._load_language(langs.code_of(cfg.get("target_lang", "it")), reload_table=True)
     return win

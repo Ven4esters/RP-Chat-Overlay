@@ -4,8 +4,8 @@
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Языков](https://img.shields.io/badge/языков-13-2e7d32)
 ![Сокращений](https://img.shields.io/badge/сокращений-180-8e6bd8)
-![EXE](https://img.shields.io/badge/exe%20в%20dist-37%2C4%20МиБ%20готов-66d18b)
-![Changelog](https://img.shields.io/badge/changelog-1.6-3d6fd8)
+![EXE](https://img.shields.io/badge/exe%20в%20dist-~45%20МиБ%20со%20словарём-66d18b)
+![Changelog](https://img.shields.io/badge/changelog-1.9-3d6fd8)
 ![VirusTotal](https://img.shields.io/badge/VirusTotal-отчёт-394eff)
 
 Печатаете по-русски — в чат игры уходит фраза на выбранном языке.
@@ -25,14 +25,14 @@
 
 # ✅ ГОТОВЫЙ EXE УЖЕ ЛЕЖИТ В ПАПКЕ `dist`
 
-> ### 📦 `dist/RPChatOverlay.exe` — 37,4 МиБ, запускайте двойным кликом
+> ### 📦 `dist/RPChatOverlay.exe` — около 45 МиБ (со словарём словоформ), запускайте двойным кликом
 >
 > | | |
 > |---|--|
 > | **Что сделать** | Скачать папку `dist` и запустить `RPChatOverlay.exe` |
 > | **Что устанавливать** | **Ничего** — Python, PySide6 и все библиотеки внутри exe |
 > | **Первый запуск** | Рядом появятся `data\` (настройки и словари) и `logs\` (журнал) |
-> | **Сборка** | версия **1.6** · Python 3.12.8 · PySide6 6.8.1 · PyInstaller 6.22 · onefile |
+> | **Сборка** | версия **1.7** · Python 3.12.8 · PySide6 6.8.1 · PyInstaller 6.22 · onefile |
 > | **MD5** | `99648a90c173504c9b95ce6794748319` |
 > | **VirusTotal** | [отчёт по SHA-256](https://www.virustotal.com/gui/file/47d81b8109ff9a926571508b7437e1b8765dd66e6504f6500584bad92ac2e3fb) |
 >
@@ -63,13 +63,14 @@
 | **Маркеры `+…+`** | принудительный перевод фрагмента, даже когда автоперевод выключен |
 | **Действия `*…*`** | переводятся целиком, служебные команды `/me`, `/do`, `/to` и ники — нет |
 | **Слова-паразиты** | `Senti`, `Ma dai`, `Oye`, `那个` — в **каждом** сообщении, независимо от счётчика; включаются галочкой у фразы в словаре |
-| **Отправка в игру** | чат открывается сам (`T`), текст вставляется и отправляется по Enter; три настраиваемые задержки |
+| **Отправка в игру** | чат открывается сам (`T`), поле ввода очищается, текст вставляется и отправляется по Enter; три настраиваемые задержки |
 | **Язык интерфейса** | при первом запуске выбор **Русский / English**, меняется в настройках сразу, без перезапуска |
 | **Адаптивное окно** | размер подгоняется под экран (не больше 94 % рабочей области), разделы прокручиваются, масштаб 80–180 % |
 | **Проверка перевода** | оба направления, «Русский → выбранный язык перевода» и «Ваш язык → русский»: видно, что именно уйдёт в чат |
 | **DeepL рядом (DLX)** | по желанию: локальный сервис DeepL (~15 МБ, MIT) как первый переводчик; при сбое — автоматический откат на Google и остальные |
 | **Несколько сервисов перевода** | Google gtx → Google clients5 → Google web → MyMemory → Lingva → LibreTranslate: если один ответил «429», берётся следующий |
 | **Трей** | четыре строки: статус, направление перевода, «Настройки…», «Выход»; двойной клик — оверлей |
+| **Анимации** | ключевое слово в вашем сообщении запускает `/anim name`, через заданное время — `/sa`; пять режимов считывания, очередь и зацикливание с клавишей остановки |
 | **Модули** | каждую часть программы можно выключить в разделе «Модули» — см. ниже |
 
 ---
@@ -89,6 +90,7 @@
 | **Сленг и сокращения** | `brb`, `afk`, `gg`, `спс` раскрываются до перевода | сокращения уходят как есть |
 | **Автоперевод** | каждое N-е сообщение переводится само | перевод только по `+маркерам+` и вручную |
 | **Отправка в игру** | оверлей открывает чат игры и нажимает Enter | текст только копируется в буфер обмена |
+| **Анимации** | ключевое слово → `/anim` → `/sa`, очередь и зацикливание | ничего не отправляется в чат игры, остальное работает |
 | **Глобальная клавиша** | вызов оверлея из игры одной клавишей | оверлей открывается двойным щелчком по значку в трее |
 
 Зависимости соблюдаются автоматически: если выключить перевод по сети,
@@ -100,12 +102,12 @@
 
 ```
 RP Chat Overhaul/
-├─ dist/                          ← ГОТОВАЯ ПРОГРАММА (последняя сборка — 1.5)
-│  ├─ RPChatOverlay.exe           ← запускать это (37,4 МиБ)
+├─ dist/                          ← ГОТОВАЯ ПРОГРАММА (сборка build_exe.bat — 1.7)
+│  ├─ RPChatOverlay.exe           ← запускать это (~45 МиБ)
 │  ├─ ЧИТАЙ_МЕНЯ.txt              ← инфо о файле: размер, MD5, сборка
 │  └─ READ_ME.txt                 ← тот же текст, имя латиницей (для старых архиваторов)
 │
-├─ source/                        ← исходники и сборка (версия 1.6)
+├─ source/                        ← исходники и сборка (версия 1.7)
 │  ├─ main.py                     ← точка входа (--settings, --selftest, --find-game, --langs, --version)
 │  ├─ app/                        ← весь код программы одним пакетом
 │  │  ├─ config.py                ← пути, журнал, config.json и настройки по умолчанию
@@ -126,6 +128,7 @@ RP Chat Overhaul/
 │  ├─ build_exe.bat               ← сборка exe → ../dist/RPChatOverlay.exe
 │  ├─ RPChatOverlay.spec          ← пресет PyInstaller
 │  ├─ requirements.txt · icon.ico · icon.png · version_info.txt
+│  ├─ tools/make_icon.py         ← перерисовывает icon.ico во всех размерах
 │  └─ images/                     ← картинки для этого README и для темы на форуме
 │
 ├─ .github/workflows/build-windows.yml   ← сборка exe в облаке GitHub
@@ -216,6 +219,28 @@ RP Chat Overhaul/
 Оба поля необязательные. Пока они пусты и DeepL отказывает, перевод идёт через
 Google и остальные сервисы, как раньше; чтобы не тратить запросы впустую, снимите
 галочку «Переводить через DeepL в первую очередь».
+
+### Что делать другим игрокам
+
+**Ничего.** Программа работает сразу после запуска: переводит через Google и
+остальные сервисы, и большинству игроков DeepL не нужен вовсе. DeepL — это
+шаг в качестве, а не условие работы, и он выключен по умолчанию.
+
+Если игрок всё-таки хочет DeepL, у него три пути:
+
+1. **Ничего не настраивать** — переводить через Google, как есть.
+2. **VPN с зарубежным выходом** (TUN-режим или локальный порт клиента) — вписать
+   порт в «Настройки → DeepL → HTTP-прокси», нажать «Проверить выход» и
+   убедиться, что страна не Россия.
+3. **Свой адрес сервиса** — развернуть `source/tools/deeplx-local` (Vercel или
+   свой компьютер, инструкция в `VERCEL.md`) и вписать адрес в настройках.
+   Пять минут один раз, дальше ничего делать не нужно.
+
+**Общего адреса «на всех» быть не может.** DeepL ограничивает частоту запросов с
+одного адреса: один сервис на сотню игроков упрётся в лимит за пару минут и
+начнёт отказывать всем сразу. Поэтому каждый, кому нужен DeepL, делает свой
+экземпляр (бесплатно) либо пользуется своим VPN. Это же и приватность: текст
+переписки идёт только через тот адрес, который игрок выбрал сам.
 
 ### Свой сервис по адресу — вместо файла
 
@@ -320,10 +345,153 @@ DeepL закрыт для российских адресов, локальны�
 | 🎮 **Чат игры** | вставлять в чат · **сначала открывать чат (T)** · отправлять сразу (Enter) · клавиша чата · три задержки |
 | 📚 **Словарь** | таблица «фраза · русская запись · русские значения» с поиском · добавить/удалить · **Импорт JSON/CSV** · **Экспорт** · вернуть встроенный словарь |
 | ★ **Сокращения** | свои сокращения по образцу словаря: сокращение · разворот · русский вариант · поиск · импорт/экспорт · вернуть встроенные |
+| 🎬 **Анимации** | правила «ключевое слово → `/anim`»: режим считывания, словоформы (точно / основы / леммы), длительность до остановки, зацикливание, клавиша остановки, «не срабатывать на отрицание», импорт/экспорт JSON, проверка фразы |
 | 🔍 **Проверка** | живой предпросмотр в обе стороны: «Русский → выбранный язык перевода» и «Ваш язык → русский» — видно, что именно уйдёт в чат игры |
 
 Окно подстраивается под экран: на 1366×768 оно занимает не больше 94 % рабочей области,
 разделы прокручиваются, а масштаб шрифта и отступов задаётся ползунком **Масштаб интерфейса**.
+
+---
+
+## 🎬 Анимации
+
+Модуль для тех, кто играет с анимациями: ключевое слово в вашем сообщении само
+запускает `/anim` в чате игры, а через заданное время отправляет `/sa`.
+
+**Как настроить.** Настройки → **Анимации** → галочка «Включить модуль» → таблица
+правил. Правило — это:
+
+| Поле | Что значит |
+|---|---|
+| **Вкл** | правило работает или временно выключено |
+| **Ключевые слова** | одно слово или несколько через запятую: «привет, здравствуй» |
+| **/anim** | название без пробелов: `wave` → в чат уйдёт `/anim wave` |
+| **Режим** | где искать ключевое слово — см. таблицу режимов ниже |
+| **Формы** | как сравнивать слово: «Точно» — ровно написанное, «Основы» — любые падежи и спряжения, «Леммы» — по словарю `pymorphy3` |
+| **мс** | сколько анимация играет до остановки (0–600000); **0 — не останавливать вовсе** |
+| **Зацикливать** | по истечении того же времени запускать `/anim` снова, без `/sa`, пока не остановят |
+
+**Режимы чтения** (полное объяснение — в подсказке поля «Режим»).
+
+| Режим | Сообщение | Сработает? |
+|---|---|---|
+| **1. Всегда** | любое сообщение целиком | да |
+| **2. Действия** | `/me привет`, `/ame`, `/melow`, `/melong`, а также `*привет*` в любом сообщении | да; на `привет` без команды и без звёздочек — нет |
+| **3. Только `*…*`** | `текст *привет* текст` | да; на `привет` без звёздочек — нет |
+| **4. Сообщения** | `привет`, а также `*привет*` внутри сообщения и `/to`, `/lto`, `/l`, `/s`, `/w`, `/wt` | да; на `/me привет` — нет |
+
+Звёздочки считаются частью сообщения: в режимах «Действия» и «Сообщения» ключевое
+слово находится и внутри `*…*`, поэтому `*машет рукой*` срабатывает наравне с
+обычными словами.
+
+У `/to` и `/lto` первым словом идёт получатель — он отбрасывается, ищется только
+текст сообщения. Ключевые слова ищутся целым словом, без учёта регистра, «ё» и «е»
+считаются одной буквой: «привет» не сработает внутри «приветствую». Ищутся они в
+том, что вы напечатали сами: перевод на язык сервера уже мог заменить слова.
+
+**Что происходит при совпадении.** В чат игры уходит `/anim <название>`, а через
+`длительность` миллисекунд анимация останавливается тем способом, который выбран
+ниже. С зацикливанием остановки нет: по истечении того же времени анимация просто
+запускается снова (`/anim`), и так до нажатия клавиши остановки. **Длительность
+0 мс** означает «не останавливать»: уходит только `/anim`.
+
+**Порядок срабатываний.** Если в одном сообщении совпало несколько правил, анимации
+играют по очереди, по одной (до 20 срабатываний в очереди), и **порядок берётся
+из самого сообщения**: `Чёрт, как же я устал *кашляет*` сначала запустит анимацию
+на «чёрт» и только потом на «кашляет» — даже если в таблице эти правила стоят
+наоборот. **Одно и то же ключевое слово правило запускает один раз**: `чёрт, чёрт` —
+это одна анимация, а место в очереди берётся по первому совпадению. **Разные
+ключевые слова одного правила играют каждое своим выходом**: правило с ключами
+«да ну, да брось» на сообщении `Да ну да брось` сыграет анимацию дважды —
+`/anim`, `/sa`, `/anim`, `/sa`.
+
+**Словоформы.** Столбец «Формы» решает, как сравнивать ключевое слово с текстом,
+и выбирается для каждого правила отдельно:
+
+| Формы | Что совпадёт | Когда нужно |
+|---|---|---|
+| **Точно** | только написанная форма: «открыл зонт» найдёт «открыл зонт» | имена, ники, названия |
+| **Основы** (по умолчанию) | любые падежи, числа и спряжения: «открыл», «открывает», «откроет», «зонта» | обычные ключевые слова |
+| **Леммы** | то же плюс словарная форма слова (`pymorphy3`): «люди» = «человек» | когда нужно самое точное сравнение |
+
+Основа получается срезанием окончаний по таблице русских флексий и одного
+словообразовательного суффикса (`откры-ва-ет` → `откр`), поэтому «Основы»
+работают всегда и без интернета. «Леммы» дополнительно спрашивают словарь
+`pymorphy3`; если пакета нет, уровень честно работает как «Основы», а в
+настройках появляется предупреждение.
+
+Словарь ничего не докачивает во время работы программы — он ставится
+библиотекой (`pip install -r requirements.txt`) при первом запуске `start.bat`
+или на сборке exe и целиком лежит внутри `RPChatOverlay.exe` (15,3 МБ, в
+сжатом виде около 8 МБ). Запуск из исходников без установки библиотек тоже
+работает: остаются уровни «Точно» и «Основы». Внутри ключевой фразы между её словами
+допускается одно постороннее слово: «открыл зонт» сработает и на «открыл чёрный
+зонт».
+
+**Слова-синонимы.** Правило срабатывает не только на своё ключевое слово, но и на
+слова и фразы, которые переводятся так же. «Чёрт», «проклятье» и «блин» дают в
+итальянском одно и то же «Mannaggia», а «да ну» и «да брось» — «ma dai»: значит,
+правило на «да брось» сработает и на «да ну», хотя этого слова нет в ключевых.
+Синонимами считаются и целые фразы словаря, а не только отдельные слова.
+Соответствие берётся из словаря (раздел «Словарь»), поэтому работает без сети и
+без перевода сообщения.
+
+**Отрицание.** Галочка «Не срабатывать на отрицание» (включена по умолчанию)
+гасит правило, если перед найденным словом стоит «не», «ни», «нет», «никогда»,
+«нечего» и подобные: `Открыл зонт` сработает, а `Не открыл зонт` — нет. Отрицание
+ищется в пределах трёх слов и **не перешагивает знаки препинания**, поэтому
+`Не открыл зонт, да ну` — это уже два разных куска, и на «да ну» правило
+отработает. Если отрицание есть в самом ключе (`не открыл зонт`), проверка для
+этого ключа выключается: иначе он не смог бы сработать никогда.
+
+Каждая команда отправляется так же, как обычное сообщение (фокус в игру, открытие
+чата, очистка поля ввода, вставка, Enter), поэтому в зацикливании реальный шаг — «длительность + время на отправку», примерно на
+полсекунды больше указанного.
+
+**Как останавливается анимация.** В настройках два независимых флажка:
+
+| Флажок | Что делает |
+|---|---|
+| **Останавливать анимацию командой `/sa`** | в чат игры уходит `/sa` — так анимацию гасит сама игра |
+| **Останавливать анимацию нажатием клавиши F (симуляция)** | программа нажимает клавишу остановки в игре, как если бы её нажали вы; клавиша берётся из поля выше (по умолчанию **F**) |
+
+Строки таблицы правил перетаскиваются мышью: вместе с правилом едут режим, формы,
+длительность и галочки. Порядок в таблице — для удобства (в игре анимации идут по
+порядку слов в сообщении). Так же перетаскиваются строки в словаре и в списке
+сокращений, и там порядок сохраняется вместе с данными.
+
+**Пауза после анимации.** Поле «Пауза после анимации, мс» (по умолчанию **50**) —
+это добавка к длительности самой анимации, после которой запускается следующая из
+того же сообщения. Отсчёт идёт от отправки `/anim`: анимация на 1500 мс с паузой
+50 мс занимает 1550 мс, и только потом играет следующая — `/anim`, `/sa`, 50 мс,
+`/anim`, `/sa`. Длительность у каждого правила своя, поэтому общая пауза выходит
+ровной, без «статичного» числа на все случаи.
+
+Ноль — запускать сразу после анимации. Если из двух ключевых слов играет только
+первое, увеличьте до 200–500: серверу нужно время принять `/sa` и следующую
+`/anim` (у многих RP-серверов есть защита от частых команд).
+
+Включены оба способа — применяются оба. Выключены оба — анимация не останавливается (как
+при 0 мс). Клавиша остановки, кроме того, **прекращает зацикливание** — и только его:
+остальные анимации из того же сообщения при этом не снимаются и играют дальше. Она читается
+через `GetAsyncKeyState`, поэтому нажатие получает и игра, а модуль узнаёт о нём со
+стороны и не отбирает клавишу.
+
+**Проверка.** В разделе два разных блока, и это важно: поле «Проверить»
+проверяет **только слова** — какие правила сработают на написанную фразу. Доходит
+ли команда до игры, видно в блоке **«Проверка в игре»**: кнопка «Отправить /anim в
+игру» запускает выбранное правило прямо сейчас, а строка состояния под ней
+показывает, что игра ответила, что играет сейчас и что не отправилось (с причиной).
+Рядом — «Остановить анимацию», чтобы прекратить зацикливание, не сворачивая игру.
+
+**Перенос.** Правила проверяются до сохранения: пустое ключевое слово,
+пустое название, название с пробелами, длительность вне 0–600000 мс — окно
+скажет, какую строку исправить. Кнопки **Импорт…** и **Экспорт…** переносят
+правила в JSON на другой компьютер. Всё сохраняется между запусками.
+
+> Модуль работает только вместе с **«Отправка в игру»**: команды уходят в чат игры
+> так же, как обычный текст. Если игру найти не удалось, появится уведомление с
+> причиной.
 
 ---
 
@@ -520,11 +688,20 @@ source\build_exe.bat
 <summary><b>Что учтено в сборке</b></summary>
 
 - `console=False` — окно консоли не появляется, журнал пишется в `logs\app.log`;
-- иконка `icon.ico` в exe и в трее;
+- иконка `icon.ico` — в exe, в заголовке окна, на панели задач и в трее. Файл
+  содержит 10 размеров (16, 20, 24, 32, 40, 48, 64, 96, 128, 256): в 16 и 20
+  пикселей рисуются только крупные «RP», с 24 — пузырь с буквами, иначе в мелком
+  размере ничего не разобрать. Перерисовать: `python tools/make_icon.py`
+  (нужен `pillow`), он же обновляет `icon.png` для README;
+- на Windows программа объявляет свой AppUserModelID — панель задач берёт иконку
+  из `icon.ico`, а не подставляет заглушку из файла запуска;
 - `langpacks/*` импортируются статически (иначе PyInstaller не включает модули и exe падает
   с «No module named langpacks.it»);
 - `deep_translator` и его зависимости включены;
-- лишние модули Qt (QML, WebEngine, Multimedia, Charts, 3D, OpenGL) исключены — поэтому exe «всего» 37 МиБ;
+- лишние модули Qt (QML, WebEngine, Multimedia, Charts, 3D, OpenGL) исключены — поэтому exe
+  «всего» ~37 МиБ;
+- словарь словоформ `pymorphy3-dicts-ru` кладётся внутрь exe через `collect_data_files`
+  (+15,3 МБ, в сжатом виде ~8 МБ) — иначе уровень «Леммы» откатился бы к основам;
 - `data\` и `logs\` создаются рядом с exe; если там нет прав записи (например, `Program Files`) —
   данные уходят в `%LOCALAPPDATA%\RPChatOverlay`.
 </details>
@@ -632,7 +809,7 @@ abbreviations, settings) is lost.
 | **Glossary** | ready phrases, Russian reading, filler words | phrases are translated by the services, with no reading hint |
 | **Slang and abbreviations** | `brb`, `afk`, `gg` are expanded before translation | abbreviations go out as they are |
 | **Auto-translation** | every N-th message is translated automatically | translation only by `+markers+` and by hand |
-| **Sending into the game** | the overlay opens the chat and presses Enter | the text is only copied to the clipboard |
+| **Sending into the game** | the overlay opens the chat, clears the input, pastes and presses Enter | the text is only copied to the clipboard |
 | **Global hotkey** | opens the overlay from the game with one key | the overlay opens by double clicking the tray icon |
 
 Dependencies are honoured automatically: with online translation off,
@@ -675,6 +852,28 @@ translation goes through Google as before; untick "Translate through DeepL first
 to stop spending requests for nothing. While both are empty and DeepL refuses,
 translation goes through Google and the rest as before. The service listens on
 `127.0.0.1` only.
+
+### What other players have to do
+
+**Nothing.** The program works right after launch: it translates through Google
+and the other services, and most players do not need DeepL at all. DeepL is a
+step up in quality, not a requirement, and it is off by default.
+
+A player who does want DeepL has three options:
+
+1. **Change nothing** and translate through Google as it is.
+2. **A VPN with a foreign exit** (TUN mode or the client's local port) — put the
+   port into "Settings → DeepL → HTTP proxy", press "Check the exit" and make
+   sure the country is not Russia.
+3. **A service address of their own** — deploy `source/tools/deeplx-local` (on
+   Vercel or on their own machine, see `VERCEL.md`) and paste the address into
+   settings. Five minutes once, nothing afterwards.
+
+**There can be no shared address for everybody.** DeepL rate-limits a single
+address: one service for a hundred players hits the limit within minutes and then
+refuses them all at once. So everyone who wants DeepL deploys their own instance
+(free) or uses their own VPN. It is also a privacy matter: the chat text only
+travels through the address the player chose.
 
 ### A service of your own instead of the file
 
@@ -745,10 +944,95 @@ thread land in the log.
 |---|---|
 | **General** | target language · what goes to the chat (Russian reading or the foreign text) · interface language · hotkey capture · open this window on start · interface scale · translation brackets · character limit · translation delay · slang and abbreviation expansion |
 | **Auto-translation** | on/off · "every N-th" · which message in the series · number and length of fragments · glossary priority · filler words "always" and their list |
-| **Game chat** | paste into chat · open the chat first (T) · submit immediately (Enter) · chat key · three delays |
+| **Game chat** | paste into chat · open the chat first (T) · submit immediately (Enter) · chat key · three delays; the input is cleared before every paste |
 | **Glossary** | phrase · Russian reading · Russian meanings with search, add/remove, JSON/CSV import, export, restore the built-in dictionary |
 | **Abbreviations** | own abbreviations with expansion and short Russian variant, search, import/export, restore built-ins |
+| **Animations** | keyword → `/anim` rules: read mode, word forms (exact / stems / lemmas), delay before the stop, pause after an animation, looping, stop key, "do not fire on negation", JSON import/export, phrase check |
 | **Test** | live preview in both directions — exactly what the game chat will receive |
+
+## Animations
+
+A module for players who use animations: a keyword in your message starts
+`/anim` in the game chat by itself and sends `/sa` after the configured time.
+
+- **Settings → Animations** holds the module switch, the stop key and the rule
+  table. A rule is: on/off, keywords (comma-separated), the animation name
+  (`wave` sends `/anim wave`), the read mode, the word forms, the duration in ms
+  before the stop, and a loop tick.
+- **Read modes:** 1 — any message; 2 — actions: `/me`, `/ame`, `/melow`, `/melong`
+  and `*asterisks*` in any message; 3 — only the text between `*asterisks*`;
+  4 — plain messages, the `*actions*` inside them, and `/to`, `/lto`, `/l`, `/s`,
+  `/w`, `/wt` (the recipient is dropped). Asterisks are part of the message, so
+  `*waves*` fires just like plain words.
+- **Matching** is whole-word and case-insensitive, «ё» equals «е», and the
+  keywords are looked up in what you typed, before translation.
+- **Word forms** are a per-rule choice in the «Forms» column: «Exact» matches the
+  written form only (names, nicknames); «Stems» (the default) matches any case,
+  number and conjugation — «открыл», «открывает» and «откроет» share one stem;
+  «Lemmas» also asks the `pymorphy3` dictionary, so «люди» equals «человек».
+  Stems come from cutting Russian endings, so they work always and offline; if
+  the package is missing, «Lemmas» honestly works as «Stems» and the settings say
+  so. Nothing is downloaded while the program runs: the dictionary is installed as
+  a library (`pip install -r requirements.txt`) on the first `start.bat` run or at
+  exe build time, and then lives inside `RPChatOverlay.exe` (15.3 MB, about 8 MB
+  packed). Running from source without the library still works — the «Exact» and
+  «Stems» levels are always there. One foreign word may sit inside a keyword phrase: «открыл зонт» also fires
+  on «открыл чёрный зонт».
+- **One at a time, in word order:** several matches queue up and play one after
+  another, and **the order comes from the message itself**:
+  `Чёрт, как же я устал *кашляет*` plays the «чёрт» animation first and the
+  «кашляет» one second, even when the rules are listed the other way round.
+  **Once per keyword:** a repeated keyword does not add a second animation —
+  `чёрт, чёрт` gives one, and the queue place comes from the first match.
+  **Different keywords of one rule fire on their own:** a rule with the keywords
+  «да ну, да брось» plays the animation twice on `Да ну да брось` —
+  `/anim`, `/sa`, `/anim`, `/sa`.
+- **Synonyms fire too:** a rule also matches words and phrases that translate the
+  same way. «Чёрт», «проклятье» and «блин» all give Italian «Mannaggia», and
+  «да ну» and «да брось» both give «ma dai», so a rule for one fires on the other
+  even when it is not listed as a keyword. Whole glossary phrases count as
+  synonyms, not just single words. The mapping comes from the glossary, so it
+  needs neither the network nor a translated message.
+- **Negation.** The «Do not fire on negation» tick (on by default) silences a rule
+  when «не», «ни», «нет», «никогда», «нечего» or the like stands before the
+  matched word: `Открыл зонт` fires while `Не открыл зонт` does not. The marker is
+  looked for within three words and **does not cross punctuation**, so
+  `Не открыл зонт, да ну` is two different clauses and the «да ну» rule still
+  fires. A keyword that already carries a negation (`не открыл зонт`) switches
+  the check off for itself, otherwise it could never fire.
+- **A duration of 0 ms means "never stop":** only `/anim` is sent.
+- **Two ways to stop an animation**, both switchable in the settings: the `/sa`
+  command and a simulated press of the stop key (F by default). Both on means both
+  are used, both off means nothing stops. The stop key also ends a loop.
+- **Rows are draggable.** In the rules table a row moves with its mode, forms,
+  duration and checkboxes; the table order is for convenience, since in the game
+  the animations follow the words in the message. Rows drag the same way in the
+  glossary and in the abbreviation list, where the order is saved with the data.
+- **Pause after an animation (`50` ms by default).** It is added to the
+  animation's own length, and only then does the next animation from the same
+  message start. The count starts at the `/anim` send: a 1500 ms animation with a
+  50 ms pause takes 1550 ms, then the next one plays — `/anim`, `/sa`, 50 ms,
+  `/anim`, `/sa`. Each rule keeps its own length, so the total stays even instead
+  of using one fixed number for everything.
+
+  Zero starts the next animation right after the current one. If only the first of
+  two keywords plays, raise it to 200–500: the server needs time to take `/sa` and
+  the next `/anim` (many RP servers rate-limit commands).
+- Every command is sent like a normal message (focus the game, open the chat,
+  paste, Enter), so a loop's real step is "duration + the sending time", about
+  half a second longer than the value you set.
+- **Looping** needs no `/sa`: after the same delay the animation simply starts
+  again (`/anim`), and so on until the stop key (F by default) is pressed — the
+  key is read through `GetAsyncKeyState`, so the game receives it too, and that
+  stop sends the single `/sa`.
+- **Two different checks:** the Check field tests only the words — which rules
+  fire on a typed phrase. Whether the command reaches the game is shown by the
+  **Check in the game** block: Send /anim into the game runs the selected rule
+  right now, the status line below reports what the game answered, what is
+  playing and what failed (with the reason), and Stop the animation ends a loop
+  without leaving the game.
+- **Import and export:** rules are validated before saving, and JSON import and
+  export move them between machines. Everything survives a restart.
 
 ## The rest in one paragraph
 
@@ -759,6 +1043,9 @@ own abbreviations in `data/slang.json`, settings in `data/config.json`, the log 
 — all next to the exe. Interface is fully bilingual (Russian/English) and switches without a
 restart. The window adapts to the screen and scrolls instead of squeezing widgets. Everything
 can be rebuilt from `source/` with `build_exe.bat`; the ready exe is always placed in `dist/`.
+The icon (`source/icon.ico`, ten sizes from 16 to 256) is set on the window title, the taskbar
+and the tray at run time, so no blank Windows placeholder shows up; `tools/make_icon.py`
+redraws it.
 
 ## Verification
 

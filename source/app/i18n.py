@@ -60,11 +60,6 @@ def tf(text, *args):
         return out
 
 
-def lang_name(code):
-    """Название языка интерфейса для списка в настройках."""
-    return {"ru": "Русский", "en": "English"}[normalize(code)]
-
-
 def _remember(obj, attr, value):
     """Запоминает исходный русский текст в свойстве виджета."""
     key = "_ru_" + attr
@@ -445,7 +440,6 @@ STRINGS = {
 
     # ---------- сообщения о сохранении и импорте ----------
     "Сохранение": "Saving",
-    "Горячая клавиша": "Hotkey",
     "Проверьте горячую клавишу.": "Check the hotkey.",
     "Укажите клавишу.": "Set a key.",
     "Нужна ровно одна клавиша (например, F6 или Ctrl+Alt+T).":
@@ -454,8 +448,6 @@ STRINGS = {
     "F-клавишу.":
         "A single letter or digit would interfere with typing — add Ctrl/Alt or "
         "choose an F-key.",
-    "Клавиша «%s» уже занята в игре или в системе.":
-        "The key «%s» is already taken by the game or the system.",
     "Импорт": "Import",
     "Экспорт": "Export",
     # ---------------- DeepL рядом (DLX) ----------------
@@ -530,6 +522,36 @@ STRINGS = {
     "Скачиваю…": "Downloading…",
     "Проверяю…": "Checking…",
     "Проверить выход": "Check the exit",
+    "Свой адрес нужен, когда dlx.exe не скачивается или не запускается: сервер из source/tools/deeplx-local (npm start) слушает 1188 и говорит на том же языке, что и DLX. Адрес можно вставить целиком, вместе с /translate — лишний хвост программа отрежет сама.":
+        "Your own address is for the case when dlx.exe will not download or "
+        "start: the server in source/tools/deeplx-local (npm start) listens on "
+        "1188 and speaks the same language as DLX. The address can be pasted "
+        "whole, /translate included — the extra tail is trimmed.",
+    "не назначена": "not set",
+    "см. logs/errors.log": "see logs/errors.log",
+    "DeepL рядом": "DeepL alongside",
+    "от": "from",
+    "до": "to",
+    "слов": "words",
+    "Русский": "Russian",
+    "Слова-паразиты — %s": "Filler words — %s",
+    "JSON или CSV: фраза ; русская запись ; значения через ;":
+        "JSON or CSV: phrase ; Russian reading ; meanings separated by ;",
+    "Пусто — работать через dlx.exe. Адрес своего сервиса — и файл скачивать не нужно":
+        "Empty — work through dlx.exe. With your own service address no file is "
+        "needed at all",
+    "Токен, с которым запущен ваш сервис (TOKEN=…); если он не задан — пусто":
+        "The token your service runs with (TOKEN=…); leave empty when it has none",
+    "Кому это нужно": "Who needs it",
+    "Никому не обязательно. Без DeepL программа переводит через Google и остальные сервисы — так она работает сразу после установки, и большинству игроков этого достаточно. DeepL — это шаг в качестве для тех, кто готов потратить пять минут: либо включите VPN с зарубежным выходом, либо разверните свой сервис и впишите его адрес ниже (как это сделать — VERCEL.md в папке source/tools/deeplx-local). Общий адрес у всех быть не может: DeepL быстро упирается в лимиты частоты, и один перегруженный сервис отказывает всем сразу.":
+        "Nobody has to. Without DeepL the program translates through Google and "
+        "the other services — that is how it works right after installation, and "
+        "for most players that is enough. DeepL is a step up in quality for those "
+        "willing to spend five minutes: either switch on a VPN with a foreign exit, "
+        "or deploy your own service and put its address below (how to do it — "
+        "VERCEL.md in the source/tools/deeplx-local folder). A single shared "
+        "address cannot work for everyone: DeepL hits rate limits quickly, and one "
+        "overloaded service refuses everybody at once.",
     "Свой адрес сервиса": "Your own service address",
     "Токен своего сервиса": "Your own service token",
     "Своя служба DeepL отвечает — перевожу через неё.":
@@ -704,7 +726,6 @@ STRINGS = {
 
     "Статус: ваш язык → русский": "Status: your language → Russian",
     "Статус: русский → %s": "Status: Russian → %s",
-    "Ваш язык → русский": "Your language → Russian",
     "Русский → %s": "Russian → %s",
     "Режим: ваш язык → русский": "Mode: your language → Russian",
     "Режим: русский → выбранный язык перевода":
@@ -712,7 +733,6 @@ STRINGS = {
     "Настройки сохранены. Язык: %s, клавиша: %s.":
         "Settings saved. Language: %s, key: %s.",
     "Клавиша: %s. Язык: %s. Игра: %s.": "Key: %s. Language: %s. Game: %s.",
-    "найдена": "found",
     "не найдена": "not found",
     "Оверлей уже запущен (иконка «IT» в трее).":
         "The overlay is already running (the «IT» icon in the tray).",
@@ -723,9 +743,6 @@ STRINGS = {
         "Your phrase — the translation goes to the chat on Enter",
     "Текст, +фраза для перевода+, *действие*":
         "Text, +phrase to translate+, *action*",
-    "Enter — отправить · Esc — отмена": "Enter — send · Esc — cancel",
-    "Enter — отправить без перевода · Esc — отмена":
-        "Enter — send without translation · Esc — cancel",
     "Перевожу… отправлю сразу после перевода":
         "Translating… it will be sent right after that",
     "В чат уйдёт ": "The chat gets ",
@@ -743,4 +760,235 @@ STRINGS = {
     "Готово к отправке: %r": "Ready to send: %r",
     "Оверлей": "Overlay",
     "перевод входящего → русский": "incoming translation → Russian",
+    # ---------- модуль «Анимации» / animations module ----------
+    "Включить модуль «Анимации»":
+        "Enable the Animations module",
+    "Клавиша остановки зацикливания":
+        "Stop key for a loop",
+    "Клавиша, которая прекращает зацикленную анимацию. Нажатие получает и игра, поэтому подойдёт обычная игровая клавиша вроде F.":
+        "The key that stops a looped animation. The game receives the press as well, so an ordinary in-game key such as F will do.",
+    "Вкл":
+        "On",
+    "Ключевые слова":
+        "Keywords",
+    "Зацикливать":
+        "Loop",
+    "Формы":
+        "Forms",
+    "Перед вставкой поле ввода чата полностью очищается (Ctrl+A, "
+    "Backspace): остаток прошлой строки не приклеится к команде.":
+        "Before pasting, the chat input is cleared completely (Ctrl+A, "
+        "Backspace), so a leftover from the previous line never sticks to the "
+        "command.",
+    "Но в игру ничего не уйдёт: ":
+        "But nothing will reach the game: ",
+    "выключен модуль «Анимации»":
+        "the «Animations» module is off",
+    "выключен модуль «Отправка в игру»":
+        "the «Send into the game» module is off",
+    "Строки перетаскиваются мышью — порядок сохраняется вместе со "
+    "словарём. Он важен: если у двух фраз одинаковое русское значение, "
+    "срабатывает та, что ниже в таблице.":
+        "Rows can be dragged with the mouse, and the order is saved with the "
+        "glossary. It matters: when two phrases share a Russian meaning, the "
+        "lower row wins.",
+    "Строки перетаскиваются мышью — порядок запоминается в настройках "
+    "и остаётся таким при следующем открытии окна.":
+        "Rows can be dragged with the mouse; the order is kept in the settings "
+        "and stays that way the next time the window opens.",
+    "Строки таблицы перетаскиваются мышью — вместе с правилом едут его "
+    "режим, формы, длительность и галочки. Порядок в таблице нужен для "
+    "удобства: в игре анимации играют по порядку слов в сообщении.":
+        "Rows can be dragged with the mouse, and the rule's mode, forms, "
+        "duration and checkboxes travel with it. The table order is for "
+        "convenience: in the game animations play in the order of the words in "
+        "the message.",
+    "Пауза после анимации, мс":
+        "Pause after an animation, ms",
+    "Добавляется к длительности самой анимации, и только потом "
+    "запускается следующая из того же сообщения: 1500 мс + 50 мс. "
+    "Если из двух ключевых слов играет только первое, увеличьте — "
+    "серверу нужно время принять /sa и следующую /anim. "
+    "0 — запускать сразу после анимации.":
+        "Added to the animation's own length, and only then does the next one "
+        "from the same message start: 1500 ms + 50 ms. If only the first of two "
+        "keywords plays, raise it — the server needs time to take /sa and the "
+        "next /anim. 0 starts it right after the animation.",
+    "Не срабатывать на отрицание":
+        "Do not fire on negation",
+    "Правило молчит, если перед найденным словом стоит «не», «ни», «никогда» и подобное: «открыл зонт» сработает, «не открыл зонт» — нет. Если отрицание есть в самом ключе, проверка для него выключается.":
+        "The rule stays silent when «не», «ни», «никогда» or the like stands before the matched word: «открыл зонт» fires, «не открыл зонт» does not. A keyword that already carries a negation switches the check off for itself.",
+    "Точно":
+        "Exact",
+    "Основы":
+        "Stems",
+    "Леммы":
+        "Lemmas",
+    "Только та форма, что написана в ключе: «открыл зонт» найдёт «открыл зонт», но не «открывает зонт». Годится для имён и ников.":
+        "Only the written form: «открыл зонт» finds «открыл зонт» but not «открывает зонт». Good for names and nicknames.",
+    "Любые падежи, числа и спряжения: «открыл», «открывает», «откроет» — одна основа. Без словарей, работает всегда.":
+        "Any case, number and conjugation: «открыл», «открывает», «откроет» share one stem. No dictionaries, always available.",
+    "Сравнение по словарной форме слова (пакет pymorphy3) и по основе: «люди/человек», «зонта/зонт», «открыл/открывает». Без пакета pymorphy3 работает как «Основы».":
+        "Comparison by the dictionary form (the pymorphy3 package) and by the stem: «люди/человек», «зонта/зонт», «открыл/открывает». Without pymorphy3 it works like «Stems».",
+    "Пакет pymorphy3 не найден: уровень «Леммы» сравнивает по основе.":
+        "The pymorphy3 package is missing: the «Lemmas» level compares by stem.",
+    "Добавить правило":
+        "Add rule",
+    "Выше":
+        "Up",
+    "Ниже":
+        "Down",
+    "Загрузить правила из JSON, созданного кнопкой «Экспорт…»":
+        "Load rules from a JSON file made by the Export… button",
+    "Проверка правила":
+        "Rule check",
+    "Например: /me привет":
+        "For example: /me hello",
+    "Несколько ключевых слов в одном правиле разделяются запятой: «привет, здравствуй». Совпадение ищется целым словом и без учёта регистра, «ё» и «е» считаются одной буквой. Столбец «Формы» решает, как сравнивать слово: «Точно» — ровно написанное, «Основы» — любые падежи и спряжения («открыл» = «открывает»), «Леммы» — по словарю pymorphy3. Одно и то же слово правило запускает один раз, сколько бы раз оно ни повторилось, а каждое своё ключевое слово — отдельным выходом: «да ну, да брось» на «Да ну да брось» сыграет анимацию дважды. Если в одном сообщении совпало несколько правил, анимации играют по очереди, по одной: пока одна на экране, следующая ждёт. Порядок — как в самом сообщении: «Чёрт, я устал *кашляет*» сначала запустит анимацию на «чёрт», потом на «кашляет», даже если в таблице эти правила стоят наоборот.":
+        "Several keywords in one rule are separated by commas: «привет, здравствуй». A match is a whole word, case-insensitive, and «ё» counts as «е». The «Forms» column decides how a word is compared: «Exact» is the written form, «Stems» covers any case and conjugation («открыл» = «открывает»), «Lemmas» uses the pymorphy3 dictionary. The same word fires a rule once however often it repeats, while every keyword of the rule fires on its own: «да ну, да брось» plays the animation twice on «Да ну да брось». When several rules match one message, the animations play one after another: while one is on screen, the next waits. The order follows the message itself: «Чёрт, я устал *кашляет*» plays the «чёрт» animation first and the «кашляет» one second, even when the rules are listed the other way round.",
+    "Правил: %d, готовы к работе: %d, с зацикливанием: %d":
+        "Rules: %d, ready to run: %d, looping: %d",
+    " · модуль выключен":
+        " · module is off",
+    "Строка %d: ":
+        "Row %d: ",
+    "Проверьте правила: ":
+        "Check the rules: ",
+    "ключевое слово не задано":
+        "the keyword is not set",
+    "название анимации не задано":
+        "the animation name is not set",
+    "в названии анимации не должно быть пробелов и косых черт":
+        "the animation name cannot contain spaces or slashes",
+    "клавиша остановки не задана":
+        "the stop key is not set",
+    "нужна ровно одна клавиша: буква, цифра, F1–F24 или Space":
+        "exactly one key is needed: a letter, a digit, F1–F24 or Space",
+    "такая клавиша не поддерживается":
+        "that key is not supported",
+    "Напишите фразу для проверки.":
+        "Type a phrase to check.",
+    "без названия":
+        "no name",
+    "Сработают: ":
+        "Will fire: ",
+    "Ни одно правило не сработает: в этом режиме ключевого слова в сообщении нет.":
+        "No rule will fire: this mode finds no keyword in the message.",
+    "Экспорт правил анимаций":
+        "Export animation rules",
+    "Импорт правил анимаций":
+        "Import animation rules",
+    "Правила анимаций (*.json);;Все файлы (*)":
+        "Animation rules (*.json);;All files (*)",
+    'В файле нужен список правил: {"rules": [ … ]}.':
+        'The file needs a list of rules: {"rules": [ … ]}.',
+    "В файле не нашлось правил.":
+        "No rules were found in the file.",
+    "Анимации":
+        "Animations",
+    "Правило в строке %d: %s. Исправьте его или удалите — без этого настройки не сохранятся.":
+        "Rule in row %d: %s. Fix or delete it — otherwise nothing is saved.",
+    "Правила сохранены в файл ":
+        "Rules saved to ",
+    "Всегда":
+        "Always",
+    # ---------- модуль «Анимации»: сообщения / animation module messages ----------
+    "Анимация: %s": "Animation: %s",
+    "Зацикленная анимация остановлена.": "The looped animation is stopped.",
+    "окно игры не найдено": "the game window was not found",
+    "отправка в игру выключена в настройках": "sending into the game is switched off",
+    "Не удалось отправить команду анимации": "The animation command could not be sent",
+    # ---------- модуль «Анимации»: режимы, проверка и состояние / animations ----------
+    "/anim":
+        "/anim",
+    "Режим":
+        "Mode",
+    "Проверка в игре":
+        "Check in the game",
+    "Слова проверяются в окне настроек, а отправку видит только игра. Кнопка «Отправить /anim в игру» запускает выбранное правило прямо сейчас — так видно, доходит ли команда: если игра не ответила, причина появится здесь же.":
+        "Words are checked in the settings window, but only the game sees the actual sending. The Send /anim into the game button runs the selected rule right now, so you can see whether the command arrives; if the game did not answer, the reason shows up right here.",
+    "Отправить /anim в игру":
+        "Send /anim into the game",
+    "Остановить анимацию":
+        "Stop the animation",
+    "Доступно, когда настройки открыты из программы":
+        "Available when the settings are opened from the running program",
+    "Напишите фразу так, как отправили бы её в игру, и посмотрите, какие правила на неё сработают. Здесь проверяются только слова: отправку команд проверяет блок «Проверка в игре» выше.":
+        "Type a phrase the way you would send it to the game and see which rules fire. Only the words are checked here: the Check in the game block above tests the sending itself.",
+    "Проверка в игре работает, когда настройки открыты из программы.":
+        "The in-game check works when the settings are opened from the running program.",
+    "Сначала выберите правило с названием анимации.":
+        "First select a rule with an animation name.",
+    "Название не подойдёт: ":
+        "That name will not do: ",
+    "Отправляю /anim %s в игру…":
+        "Sending /anim %s into the game…",
+    "Игра приняла /anim — анимация должна играть.":
+        "The game accepted /anim — the animation should be playing.",
+    "Не получилось: %s":
+        "It did not work: %s",
+    "Остановка доступна, когда настройки открыты из программы.":
+        "Stopping works when the settings are opened from the running program.",
+    "Остановил: отправлен /sa.":
+        "Stopped: /sa was sent.",
+    "Сейчас играет: %s":
+        "Now playing: %s",
+    ", зациклено":
+        ", looping",
+    "Сейчас ничего не играет":
+        "Nothing is playing right now",
+    "в очереди: %d":
+        "in the queue: %d",
+    "последняя ошибка: %s":
+        "last error: %s",
+    "модуль выключен":
+        "the module is off",
+    "мс": "ms",
+    "Действия: /me и *…*":
+        "Actions: /me and *…*",
+    "Только *…*":
+        "Only *…*",
+    "Сообщения и /to, /l":
+        "Messages and /to, /l",
+    "Любое сообщение целиком: и обычное, и команда, и *действия*.":
+        "The whole message: plain text, a command and *actions* alike.",
+    "Действия: команды /me, /ame, /melow, /melong и текст между *звёздочками* в любом сообщении.":
+        "Actions: the /me, /ame, /melow, /melong commands and any text *between asterisks*.",
+    "Только текст между *звёздочками*; обычные слова не считаются.":
+        "Only the text between *asterisks*; plain words do not count.",
+    "Обычные сообщения (вместе с *действиями* внутри них) и команды /to, /lto, /l, /s, /w, /wt. Команды /me не считаются.":
+        "Plain messages (with the *actions* inside them) and the /to, /lto, /l, /s, /w, /wt commands. /me commands do not count.",
+    "не удалось положить команду в буфер обмена":
+        "the command could not be put into the clipboard",
+    # ---------- модуль «Анимации»: остановка и слова-синонимы / stopping and synonyms ----------
+    "Ключевое слово в вашем сообщении запускает анимацию: в чат игры уходит /anim «название», а через заданное время она останавливается — командой /sa, нажатием клавиши или обоими способами, как выбрано ниже. При зацикливании остановки нет: по истечении того же времени анимация просто запускается снова, пока не нажать клавишу остановки. Длительность 0 мс означает «не останавливать вовсе». Работает только вместе с модулем «Отправка в игру».":
+        "A keyword in your message starts an animation: /anim «name» goes into the game chat and the animation is stopped after the configured time — with the /sa command, with a simulated key press or both, as chosen below. With looping on nothing stops it: after the same delay the animation simply starts again until the stop key is pressed. A duration of 0 ms means “never stop”. Works only together with the Sending into the game module.",
+    "длительность должна быть от 0 до 600000 мс":
+        "the duration must be 0 to 600000 ms",
+    "такой режим считывания не поддерживается":
+        "that read mode is not supported",
+    "Останавливать анимацию командой /sa":
+        "Stop the animation with the /sa command",
+    "В чат игры уходит /sa — так анимацию гасит сама игра.":
+        "The /sa command goes into the game chat, which is how the game itself puts the animation out.",
+    "Останавливать анимацию нажатием клавиши F (симуляция)":
+        "Stop the animation by pressing the F key (simulated)",
+    "Программа нажимает клавишу остановки в игре, как если бы её нажали вы. Клавиша берётся из поля выше.":
+        "The program presses the stop key in the game as if you did it. The key comes from the field above.",
+    "Останавливать анимацию нажатием клавиши %s (симуляция)":
+        "Stop the animation by pressing the %s key (simulated)",
+    "Анимация останавливается командой /sa и нажатием «%s».":
+        "The animation is stopped with the /sa command and by pressing «%s».",
+    "Анимация останавливается командой /sa.":
+        "The animation is stopped with the /sa command.",
+    "Анимация останавливается нажатием «%s» (симуляция).":
+        "The animation is stopped by pressing «%s» (simulated).",
+    "Остановка выключена: анимация играет, пока её не сменит другая или пока её не остановит игра.":
+        "Stopping is off: the animation plays until another one replaces it or the game stops it.",
+    "Клавишу остановки получает и игра, поэтому подойдёт обычная игровая клавиша.":
+        "The game receives the stop key as well, so an ordinary in-game key will do.",
+    "клавиша остановки не разобрана":
+        "the stop key could not be parsed",
+    "не удалось переключиться в игру":
+        "the game window could not be focused",
 }

@@ -117,7 +117,7 @@ DE.update({
 FR = dict(LETTERS)
 FR.update({
     "eaux": "о", "eau": "о", "oin": "уэн", "tion": "сьон", "sion": "сьон",
-    "ain": "эн", "ein": "эн", "oin": "уэн", "an": "ан", "am": "ам", "en": "ан",
+    "ain": "эн", "ein": "эн", "an": "ан", "am": "ам", "en": "ан",
     "em": "ам", "in": "эн", "im": "эн", "on": "он", "om": "ом", "un": "эн", "um": "ом",
     "ou": "у", "oi": "уа", "au": "о", "ai": "э", "ei": "э", "eu": "ё", "œu": "ё",
     "ch": "ш", "gn": "нь", "qu": "к", "ph": "ф", "th": "т", "ç": "с",
@@ -150,8 +150,6 @@ EN.update({
     "y": "и", "j": "дж", "a": "а", "e": "е", "i": "и", "o": "о", "u": "у",
 })
 
-TABLES = {"es": ES, "es-MX": ES, "pt-BR": PT, "de": DE, "fr": FR, "pl": PL,
-          "tr": TR, "en": EN}
 
 
 # ---------------------------------------------------------------- итальянский
@@ -334,11 +332,3 @@ def translit_word(word, lang="it"):
         return fn(s)
     except Exception:
         return ""
-
-
-def translit_text(text, lang="it"):
-    """Русская запись целой строки (слова через пробел, остальное как есть)."""
-    if not has_reading(lang):
-        return text
-    return re.sub(r"[^\W\d_]+", lambda m: apply_case(m.group(), translit_word(m.group(), lang))
-                  or m.group(), text, flags=re.UNICODE)

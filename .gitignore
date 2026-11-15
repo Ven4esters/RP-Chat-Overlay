@@ -7,6 +7,7 @@ source/.build-venv/
 source/runtime/
 source/__pycache__/
 source/**/__pycache__/
+alt
 *.pyc
 dist/data/
 dist/logs/

@@ -46,6 +46,7 @@ TIMEOUT = 4             # секунд на один запрос / seconds per 
 DEADLINE = 16           # секунд на всю цепочку / seconds for the whole chain
 COOL = 120              # секунд «отдыха» занятого сервиса / cooldown for a busy service
 CACHE_MAX = 2000        # сколько переводов помнить / cached translations kept
+CACHE_SAVE_EVERY = 2.0  # как часто писать кэш на диск / how often to persist
 RU = "ru"
 IN_ALIASES = ("in", "reverse", "to_ru", "tо_ru", "ru")
 
@@ -260,6 +261,8 @@ class Translator:
         self.target = "it"
         self.source = "ru"
         self.last_service = ""        # чем перевели в последний раз / last service used
+        self._saved_at = 0.0          # когда кэш писался на диск / last flush
+        self._dirty = False           # есть несохранённое / unsaved changes
         # локальный сервис DeepL: подключается, только если модуль включён
         # the local DeepL service: attached only while the module is enabled
         self.local: Any = None
@@ -386,11 +389,31 @@ class Translator:
         raise TranslateError(f"{_short(errors)} ({'; '.join(errors)[:160]})")
 
     def _store(self, key: str, value: str) -> None:
-        """Положить перевод в кэш и записать его на диск / cache and persist."""
+        """Положить перевод в кэш; на диск — не чаще раза в две секунды.
+
+        Cache the translation; the file is written at most every two seconds.
+
+        Зачем не сразу: строка чата переводится по несколько раз за минуту, и
+        каждая запись — это перезапись всего файла на две тысячи записей. Раз в
+        пару секунд хватает: при выходе кэш дописывается отдельно.
+        Why not immediately: a chat line is translated several times a minute and
+        every save rewrites the whole file with two thousand entries. Twice a
+        second is enough, and the cache is flushed on exit as well.
+        """
         self.cache[key] = value
         while len(self.cache) > CACHE_MAX:
             self.cache.pop(next(iter(self.cache)))
+        self._dirty = True
+        if time.time() - self._saved_at >= CACHE_SAVE_EVERY:
+            self.flush_cache()
+
+    def flush_cache(self) -> None:
+        """Дописать кэш на диск, если есть что / persist the cache when needed."""
+        if not self._dirty:
+            return
         try:
-            write_json(CACHE_PATH, self.cache)
+            write_json(CACHE_PATH, self.cache, compact=True)
+            self._saved_at = time.time()
+            self._dirty = False
         except OSError:
             log.exception("Не удалось сохранить кэш")
