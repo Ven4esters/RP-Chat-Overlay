@@ -314,7 +314,13 @@ class ChoiceWindow(QWidget):
         cancel = QPushButton(i18n.t("Закрыть"))
         cancel.setObjectName("choiceCancel")
         cancel.setAutoDefault(False)
-        cancel.clicked.connect(lambda: self._answer(None))
+        # Кнопка ЗАКРЫВАЕТ окно. Раньше она звала `_answer(None)`, а тот только
+        # сообщал «ничего не выбрано» и окно не трогал: нажатие выглядело так,
+        # будто ничего не произошло, и выйти можно было только по Esc.
+        # The button CLOSES the window. It used to call `_answer(None)`, which only
+        # reported "nothing picked" and left the window alone: the click looked
+        # like nothing happened, and Esc was the only way out.
+        cancel.clicked.connect(self._close_clicked)
         bottom.addWidget(cancel)
         lay.addLayout(bottom)
         # Нижнюю строку держим отдельно: её высота резервируется при расчёте
@@ -497,6 +503,19 @@ class ChoiceWindow(QWidget):
             except Exception:
                 log.exception("Выбор анимации: очередь меню не обновилась")
 
+    def _close_clicked(self):
+        """Нажата «Закрыть»: сообщить отказ и убрать окно.
+
+        "Закрыть" was clicked: report the refusal and take the window down.
+
+        Окно закрывается по-настоящему (``close()`` -> ``closeEvent``), а не
+        просто скрывается: очередь меню должна узнать, что это меню больше не
+        показывается.
+        The window is really closed (``close()`` -> ``closeEvent``) rather than just
+        hidden: the menu queue has to learn this menu is on screen no more.
+        """
+        self.close()
+
     def keyPressEvent(self, event):
         """Клавиатура: цифры, Enter и Esc / the keyboard: digits, Enter and Esc."""
         key = event.key()
@@ -534,12 +553,15 @@ class ChoiceWindow(QWidget):
         nothing — the animation goes on. When nothing was picked, the None answer
         means "play nothing": silently substituting a variant would be worse.
         """
-        if not self._answered:
-            self._answered = True
-            try:
-                self.done_callback(None)
-            except Exception:
-                log.exception("Выбор анимации: колбэк падения окна упал")
+        # Закрытие окна всегда доносит до меню «дальше ничего»: если варианта не
+        # выбирали, это отказ, а если выбирали — просто «меню закрыто».
+        # Closing the window always carries "nothing further" to the menu: a refusal
+        # when nothing was picked, and plain "the menu is closed" otherwise.
+        self._answered = True
+        try:
+            self.done_callback(None)
+        except Exception:
+            log.exception("Выбор анимации: колбэк падения окна упал")
         if self.on_closed is not None:
             try:
                 self.on_closed()

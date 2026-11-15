@@ -5,6 +5,19 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
+## 1.10.4 — 15.11.2026
+
+**Исправлено: кнопка «Закрыть» не закрывала окно.**
+
+### Анимации
+- Кнопка «Закрыть» звала `_answer(None)`, а этот путь только сообщал меню «ничего
+  не выбрано» и окно не трогал. Нажатие выглядело так, будто ничего не
+  произошло, и выйти можно было только по Esc. Теперь кнопка закрывает окно
+  по-настоящему — так же, как Esc: меню снимается с очереди, невыбранное не
+  играет.
+- Закрытие окна всегда доносит до очереди «дальше ничего», даже если вариант уже
+  был выбран: раньше в этом случае меню могло остаться в очереди.
+
 ## 1.10.3 — 15.11.2026
 
 **Исправлено: не показывалось второе меню выбора и не было видно кнопки «Закрыть».**
@@ -725,6 +738,19 @@ English version below: [Changelog (English)](#-changelog-english).
 ---
 
 # 📌 Changelog (English)
+
+## 1.10.4 — 15 Nov 2026
+
+**Fixed: the "Закрыть" button did not close the window.**
+
+### Animations
+- The button called `_answer(None)`, and that path only told the menu "nothing was
+  picked" without touching the window. The click looked like nothing happened, and
+  Esc was the only way out. The button now really closes the window — exactly like
+  Esc: the menu leaves the queue and whatever was not picked does not play.
+- Closing the window always carries "nothing further" to the queue, even when a
+  variant was already picked: previously the menu could stay in the queue in that
+  case.
 
 ## 1.10.3 — 15 Nov 2026
 
