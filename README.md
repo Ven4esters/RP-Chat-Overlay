@@ -5,7 +5,7 @@
 ![Языков](https://img.shields.io/badge/языков-13-2e7d32)
 ![Сокращений](https://img.shields.io/badge/сокращений-180-8e6bd8)
 ![EXE](https://img.shields.io/badge/exe%20в%20dist-37%2C4%20МиБ%20готов-66d18b)
-![Changelog](https://img.shields.io/badge/changelog-1.5-3d6fd8)
+![Changelog](https://img.shields.io/badge/changelog-1.6-3d6fd8)
 ![VirusTotal](https://img.shields.io/badge/VirusTotal-отчёт-394eff)
 
 Печатаете по-русски — в чат игры уходит фраза на выбранном языке.
@@ -32,7 +32,7 @@
 > | **Что сделать** | Скачать папку `dist` и запустить `RPChatOverlay.exe` |
 > | **Что устанавливать** | **Ничего** — Python, PySide6 и все библиотеки внутри exe |
 > | **Первый запуск** | Рядом появятся `data\` (настройки и словари) и `logs\` (журнал) |
-> | **Сборка** | версия **1.5** · Python 3.12.8 · PySide6 6.8.1 · PyInstaller 6.22 · onefile |
+> | **Сборка** | версия **1.6** · Python 3.12.8 · PySide6 6.8.1 · PyInstaller 6.22 · onefile |
 > | **MD5** | `99648a90c173504c9b95ce6794748319` |
 > | **VirusTotal** | [отчёт по SHA-256](https://www.virustotal.com/gui/file/47d81b8109ff9a926571508b7437e1b8765dd66e6504f6500584bad92ac2e3fb) |
 >
@@ -69,35 +69,61 @@
 | **Проверка перевода** | оба направления, «Русский → выбранный язык перевода» и «Ваш язык → русский»: видно, что именно уйдёт в чат |
 | **Несколько сервисов перевода** | Google gtx → Google clients5 → Google web → MyMemory → Lingva → LibreTranslate: если один ответил «429», берётся следующий |
 | **Трей** | четыре строки: статус, направление перевода, «Настройки…», «Выход»; двойной клик — оверлей |
+| **Модули** | каждую часть программы можно выключить в разделе «Модули» — см. ниже |
+
+---
+
+## 🧩 Модули
+
+Программа собрана из независимых частей, и любую из них можно выключить
+в настройках → **Модули**. Выключенный модуль не ломает остальное: программа
+продолжает работать в урезанном виде, данные (словари, сокращения, настройки)
+остаются на месте.
+
+| Модуль | Что даёт | Если выключить |
+| --- | --- | --- |
+| **Перевод по сети** | цепочка Google → MyMemory → Lingva → LibreTranslate | работают только встроенные словари, без сети |
+| **Словарь** | готовые фразы, русская запись, слова-паразиты | фразы переводятся сервисами, без подсказки «как читается» |
+| **Сленг и сокращения** | `brb`, `afk`, `gg`, `спс` раскрываются до перевода | сокращения уходят как есть |
+| **Автоперевод** | каждое N-е сообщение переводится само | перевод только по `+маркерам+` и вручную |
+| **Отправка в игру** | оверлей открывает чат игры и нажимает Enter | текст только копируется в буфер обмена |
+| **Глобальная клавиша** | вызов оверлея из игры одной клавишей | оверлей открывается двойным щелчком по значку в трее |
+
+Зависимости соблюдаются автоматически: если выключить перевод по сети,
+автоперевод тоже перестаёт работать — он без сети не имеет смысла.
 
 ---
 
 ## 📁 Структура проекта
 
 ```
-italian-overlay/
-├─ dist/                          ← ГОТОВАЯ ПРОГРАММА
+RP Chat Overhaul/
+├─ dist/                          ← ГОТОВАЯ ПРОГРАММА (последняя сборка — 1.5)
 │  ├─ RPChatOverlay.exe           ← запускать это (37,4 МиБ)
 │  ├─ ЧИТАЙ_МЕНЯ.txt              ← инфо о файле: размер, MD5, сборка
 │  └─ READ_ME.txt                 ← тот же текст, имя латиницей (для старых архиваторов)
 │
-├─ source/                        ← исходники и сборка
-│  ├─ main.py                     ← точка входа (--settings, --selftest, --find-game, --langs)
-│  ├─ settings_ui.py              ← окно настроек (разделы в прокрутке, масштаб)
-│  ├─ overlay.py                  ← оверлей: чат игры → окно → отправка
-│  ├─ engine.py                   ← маркеры, действия, словарь, автоперевод, паразиты
-│  ├─ gamesend.py                 ← окно GTA, фокус, открытие/закрытие чата, ввод
-│  ├─ translator.py               ← цепочка сервисов перевода и кэш
-│  ├─ slang.py                    ← 180 сокращений и свои записи игрока
-│  ├─ i18n.py · ui_lang.py        ← русский/английский интерфейс и окно первого запуска
-│  ├─ translit.py                 ← русская запись по звучанию
-│  ├─ langs.py · langpacks/       ← 13 языков и встроенные словари
-│  ├─ glossary_data.py            ← итальянский словарь (103 фразы)
-│  ├─ autoplan.py · hotkey.py · common.py
+├─ source/                        ← исходники и сборка (версия 1.6)
+│  ├─ main.py                     ← точка входа (--settings, --selftest, --find-game, --langs, --version)
+│  ├─ app/                        ← весь код программы одним пакетом
+│  │  ├─ config.py                ← пути, журнал, config.json и настройки по умолчанию
+│  │  ├─ modules.py               ← реестр модулей: что можно выключить и что от чего зависит
+│  │  ├─ engine.py                ← маркеры, действия, словарь, автоперевод, паразиты
+│  │  ├─ translator.py            ← цепочка сервисов перевода и кэш
+│  │  ├─ slang.py                 ← 180 сокращений и свои записи игрока
+│  │  ├─ translit.py              ← русская запись по звучанию
+│  │  ├─ langs.py                 ← 13 языков перевода
+│  │  ├─ langpacks/               ← встроенные словари по языкам
+│  │  ├─ glossary_data.py         ← итальянский словарь (103 фразы)
+│  │  ├─ i18n.py · ui_lang.py     ← русский/английский интерфейс и окно первого запуска
+│  │  ├─ overlay.py               ← оверлей: чат игры → окно → отправка
+│  │  ├─ settings_ui.py           ← окно настроек (7 разделов, прокрутка, масштаб)
+│  │  ├─ gamesend.py · hotkey.py  ← окно GTA, ввод и глобальная клавиша
+│  │  └─ autoplan.py              ← счётчик автоперевода
 │  ├─ start.bat                   ← запуск из исходников (сам ставит Python и библиотеки)
 │  ├─ build_exe.bat               ← сборка exe → ../dist/RPChatOverlay.exe
 │  ├─ RPChatOverlay.spec          ← пресет PyInstaller
-│  ├─ requirements.txt · icon.ico · icon.png
+│  ├─ requirements.txt · icon.ico · icon.png · version_info.txt
 │  └─ images/                     ← картинки для этого README и для темы на форуме
 │
 ├─ .github/workflows/build-windows.yml   ← сборка exe в облаке GitHub
@@ -446,6 +472,25 @@ player types in their own language and the chat receives Russian.
 | **Translation check** | both directions, "Russian → selected translation language" and "Your language → Russian", shows exactly what the chat will receive |
 | **Several translation services** | Google gtx → Google clients5 → Google web → MyMemory → Lingva → LibreTranslate: if one answers 429, the next one is used |
 | **Tray** | four lines only: status, translation direction, "Settings…", "Exit"; double click opens the overlay |
+
+## Modules
+
+The program is built from independent parts, and every one of them can be
+switched off in **Settings → Modules**. A disabled module never breaks the rest:
+the program keeps working in a reduced form and no data (glossaries,
+abbreviations, settings) is lost.
+
+| Module | What it does | When switched off |
+| --- | --- | --- |
+| **Online translation** | the Google → MyMemory → Lingva → LibreTranslate chain | only the built-in glossaries work, offline |
+| **Glossary** | ready phrases, Russian reading, filler words | phrases are translated by the services, with no reading hint |
+| **Slang and abbreviations** | `brb`, `afk`, `gg` are expanded before translation | abbreviations go out as they are |
+| **Auto-translation** | every N-th message is translated automatically | translation only by `+markers+` and by hand |
+| **Sending into the game** | the overlay opens the chat and presses Enter | the text is only copied to the clipboard |
+| **Global hotkey** | opens the overlay from the game with one key | the overlay opens by double clicking the tray icon |
+
+Dependencies are honoured automatically: with online translation off,
+auto-translation is off as well, because it cannot work without a network.
 
 ## Quick start
 

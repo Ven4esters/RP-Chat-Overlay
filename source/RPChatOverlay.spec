@@ -1,6 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
 """RPChatOverlay.spec — сборка одного exe-файла через PyInstaller.
 
+Собирает source/main.py вместе с пакетом source/app (модули программы,
+словари языков, интерфейс) в один RPChatOverlay.exe.
+Bundles source/main.py together with the source/app package (program modules,
+language packs, interface) into a single RPChatOverlay.exe.
+
 Сборка (Windows, Python 3.12):
     pyinstaller --noconfirm --clean RPChatOverlay.spec
 Результат: dist\\RPChatOverlay.exe (один файл, ничего дополнительно ставить не нужно).
@@ -12,7 +17,8 @@ from PyInstaller.utils.hooks import collect_submodules
 
 # динамические импорты (importlib) PyInstaller сам не видит — перечисляем явно
 hidden = []
-hidden += collect_submodules("langpacks")
+hidden += collect_submodules("app")
+hidden += collect_submodules("app.langpacks")
 hidden += collect_submodules("deep_translator")
 
 excludes = [

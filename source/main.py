@@ -1,47 +1,89 @@
-"""main.py — запуск оверлея. Ключи: --settings, --selftest, --find-game, --langs."""
+"""Точка входа / entry point.
+
+Запуск приложения и служебные режимы командной строки.
+Application startup and command line service modes.
+
+Ключи / flags:
+    --settings    сразу открыть окно настроек / open the settings window
+    --selftest    прогон перевода и словарей без сети / offline self-check
+    --langs       список языков и встроенных словарей / language and pack list
+    --find-game   окна, похожие на игру / windows that look like the game
+    --version     версия программы / program version
+
+Примеры / examples:
+    python main.py --selftest
+    RPChatOverlay.exe --find-game
+"""
+
+from __future__ import annotations
+
 import ctypes
 import os
 import sys
 
-import i18n
-from common import load_config, log, save_config, setup_logging
-
-EXTRA = {
-    "hotkey": "F6",
-    "game_submit": True,          # после вставки нажимать Enter в игре
-    "game_open_chat_first": True, # сначала открыть чат игры (T), потом оверлей
-    "filler_always": True,        # слова-паразиты переводить в КАЖДОМ сообщении
-    "game_focus_delay_ms": 150,
-    "game_input_mode": "paste",   # "paste" = Ctrl+V, "type" = посимвольный ввод
-    "overlay_pos": [0.01, 0.28],  # положение окна относительно окна игры (доли ширины и высоты)
-    "overlay_width": 560,
-    # --- автоперевод (auto_mode и auto_every лежат в основном конфиге) ---
-    "auto_position": "last",      # какое сообщение в серии: "last" | "first" | "random" | число 1..N
-    "auto_fragments": 1,          # сколько фрагментов переводить в сообщении
-    "auto_min_words": 1,          # длина фрагмента: от скольких слов
-    "auto_max_words": 3,          # ... и до скольких
-    "auto_prefer_glossary": True, # сначала брать фразы, которые есть в словаре
-    "direction": "out",           # "in" = режим переводчика (любой язык → русский)
-    "slang": True,                # сленг и сокращения (lol, brb, afk; спс, мб)
-}
+from app import APP_NAME, MUTEX_NAME, VERSION, i18n, modules
+from app.config import log, load_config, setup_logging
 
 
-def prepare_config():
-    cfg = load_config()
-    for k, v in EXTRA.items():
-        cfg.setdefault(k, v)
-    save_config(cfg)
-    return cfg
+# --------------------------------------------------------------------- служебное
+def _silence_stdout() -> None:
+    """В оконной сборке консоли нет: print() должен молча писать в никуда.
+
+    A windowed build has no console; print() goes to a bit bucket instead of
+    raising on a missing stdout.
+    """
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, "w", encoding="utf-8")
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, "w", encoding="utf-8")
 
 
-def selftest(cfg):
-    """Проверка перевода по нескольким языкам без обращения к сети."""
-    import langs
-    from engine import Engine, has_fillers, is_counted_command, load_glossary
+def single_instance() -> tuple[int, bool]:
+    """Мьютекс одиночного запуска / single-instance mutex.
 
-    class NoNet:
-        def translate(self, text):
+    Возвращает (дескриптор, первый_ли_запуск).
+    Returns (handle, is_first_instance).
+    """
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateMutexW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p]
+    kernel32.CreateMutexW.restype = ctypes.c_void_p
+    handle = kernel32.CreateMutexW(None, False, MUTEX_NAME)
+    error_already_exists = 183
+    return handle, ctypes.get_last_error() != error_already_exists
+
+
+# ------------------------------------------------------------------ selftest
+def _offline_translator():
+    """Переводчик-заглушка: сеть в самопроверке не нужна / offline stub."""
+
+    class Offline:
+        def translate(self, text: str) -> str:
             raise RuntimeError("в selftest сеть не используется")
+
+    return Offline()
+
+
+def _reverse_translator():
+    """Переводчик-заглушка для режима «ваш язык → русский» / stub for reverse mode."""
+
+    class Reverse:
+        _known = {
+            "Ciao, fratello": "Привет, брат",
+            "Senti, aspetta": "Слушай, подожди",
+            "машет рукой": "машет рукой",
+            "/to Ivan Ciao, fratello Ivan": "Привет, брат",
+        }
+
+        def translate(self, text: str) -> str:
+            return self._known.get(text, f"[пер.: {text}]")
+
+    return Reverse()
+
+
+def selftest(cfg: dict) -> None:
+    """Проверка перевода и словарей без обращения к сети / offline self-check."""
+    from app import langs, slang
+    from app.engine import Engine, has_fillers, is_counted_command, load_glossary
 
     samples = {
         "it": ["Слушай, брат, подожди", "Ну что ты, я же говорил", "Потихоньку идём",
@@ -52,108 +94,105 @@ def selftest(cfg):
         "zh-CN": ["Слушай, брат", "Ну что ты, я же говорил"],
         "ja": ["Слушай, брат", "А что поделаешь"],
     }
-    for code in samples:
-        gl = load_glossary(code)
-        eng = Engine(cfg, gl, NoNet())
-        print(f"\n=== {langs.label(code)} ({code}) — фраз в словаре: {len(gl.phrases)}, "
-              f"паразитов: {len(gl.fillers)} ===")
-        for s in samples[code]:
-            r = eng.process(s)
-            flag = " [команда]" if is_counted_command(s) else ""
-            print(f"  {s!r}{flag}\n     -> {r.text!r} | чтение: {r.italian!r} | "
-                  f"переведено: {r.translated} | паразит: {has_fillers(s, cfg, gl)}")
-    gl = load_glossary("it")
-    eng = Engine(cfg, gl, NoNet())
-    # обратный режим: любой язык → русский (перевод подменяем, сеть не нужна)
-    class FakeIn:
-        def translate(self, text):
-            return {"Ciao, fratello": "Привет, брат",
-                    "Senti, aspetta": "Слушай, подожди",
-                    "машет рукой": "машет рукой",
-                    "/to Ivan Ciao, fratello Ivan": "Привет, брат"}.get(text, "[пер.: " + text + "]")
+    for code, phrases in samples.items():
+        glossary = load_glossary(code, cfg)
+        engine = Engine(cfg, glossary, _offline_translator())
+        print(f"\n=== {langs.label(code)} ({code}) — фраз в словаре: {len(glossary.phrases)}, "
+              f"паразитов: {len(glossary.fillers)} ===")
+        for phrase in phrases:
+            result = engine.process(phrase)
+            flag = " [команда]" if is_counted_command(phrase) else ""
+            print(f"  {phrase!r}{flag}\n     -> {result.text!r} | чтение: {result.native!r} | "
+                  f"переведено: {result.translated} | паразит: {has_fillers(phrase, cfg, glossary)}")
 
-    gl = load_glossary("it")
-    eng = Engine(cfg, gl, FakeIn())
+    engine = Engine(cfg, load_glossary("it", cfg), _reverse_translator())
     print("\nРежим переводчика (язык сервера → русский):")
-    for s in ("Ciao, fratello", "*машет рукой* Ciao, fratello",
-              "/me *машет рукой* и говорит Ciao, fratello"):
-        r = eng.process_in(s)
-        print(f"  {s!r}\n     -> перевод: {r.text!r} | оригинал: {r.italian!r} | "
-              f"переведено: {r.translated}")
+    for phrase in ("Ciao, fratello", "*машет рукой* Ciao, fratello",
+                   "/me *машет рукой* и говорит Ciao, fratello"):
+        result = engine.process_in(phrase)
+        print(f"  {phrase!r}\n     -> перевод: {result.text!r} | оригинал: {result.native!r} | "
+              f"переведено: {result.translated}")
 
     print("\nСленг и сокращения (раскрытие до перевода и русская подстраховка):")
-    import slang
-    for src in ("brb", "afk 5 min", "I'm afk", "ty, np", "gg wp", "looool, ez",
-                "idk man, wdym", "спс, мб завтра"):
-        ru_src = bool(__import__("re").search("[а-яё]", src, __import__("re").I))
-        expanded = slang.expand_russian(src)[0] if ru_src else slang.expand_foreign(src)[0]
-        print(f"  {src!r} -> {expanded!r}")
-    for src in ("ахах gg", "я afk", "lol, это было ez"):
-        print(f"  подстраховка: {src!r} -> {slang.restore_russian(src)[0]!r}")
+    for source in ("brb", "afk 5 min", "I'm afk", "ty, np", "gg wp", "looool, ez",
+                   "idk man, wdym", "спс, мб завтра"):
+        is_russian = slang.is_russian_token(source)
+        expanded = (slang.expand_russian(source) if is_russian else slang.expand_foreign(source))[0]
+        print(f"  {source!r} -> {expanded!r}")
+    for source in ("ахах gg", "я afk", "lol, это было ez"):
+        print(f"  подстраховка: {source!r} -> {slang.restore_russian(source)[0]!r}")
     print(f"  в таблицах: {slang.known()}")
 
     print("\nАвтоперевод (разные seed выбирают разные фрагменты):")
     for seed in (1, 2, 3):
         try:
-            r = eng.process("мне срочно нужна помощь, не знаю что делать",
-                            auto=True, seed=seed)
-            print(f"   seed {seed}: {r.text}")
-        except Exception as e:
-            print(f"   seed {seed}: фрагмент вне словаря, нужна сеть ({e})")
+            result = engine.process("мне срочно нужна помощь, не знаю что делать",
+                                    auto=True, seed=seed)
+            print(f"   seed {seed}: {result.text}")
+        except Exception as error:                      # фрагмент вне словаря
+            print(f"   seed {seed}: фрагмент вне словаря, нужна сеть ({error})")
 
 
-def list_langs():
-    """Список языков и наличие встроенного словаря."""
-    import langs
-    from langpacks import has_pack
-    for x in langs.LANGUAGES:
-        print(f"{x['code']:<7} {langs.label(x['code'], native=True):<32} "
-              f"словарь: {'встроен' if has_pack(x['code']) else 'нет (загружается вручную)'}"
-              f"{'' if langs.reading(x['code']) else ' · без русской записи'}")
+def list_langs() -> None:
+    """Список языков и наличие встроенного словаря / language and pack list."""
+    from app import langs
+    from app.langpacks import has_pack
+
+    for language in langs.LANGUAGES:
+        code = language["code"]
+        pack_state = "встроен" if has_pack(code) else "нет (загружается вручную)"
+        reading = "" if langs.reading(code) else " · без русской записи"
+        print(f"{code:<7} {langs.label(code, native=True):<32} словарь: {pack_state}{reading}")
 
 
-def find_game(cfg):
-    import gamesend as gs
-    for w in gs.list_windows():
-        if w.w > 100 and w.h > 100:
-            mark = ">>" if gs.is_game(w, cfg) else "  "
-            print(f"{mark} {w.hwnd:>10}  {w.exe or '?':<28} {w.cls:<28} {w.w}x{w.h}  {w.title[:40]}")
+def find_game(cfg: dict) -> None:
+    """Печатает окна Windows и отмечает то, что похоже на игру / list windows."""
+    from app import gamesend
+
+    for window in gamesend.list_windows():
+        if window.w > 100 and window.h > 100:
+            mark = ">>" if gamesend.is_game(window, cfg) else "  "
+            print(f"{mark} {window.hwnd:>10}  {window.exe or '?':<28} {window.cls:<28} "
+                  f"{window.w}x{window.h}  {window.title[:40]}")
 
 
-def single_instance():
-    k = ctypes.WinDLL("kernel32", use_last_error=True)
-    k.CreateMutexW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p]
-    k.CreateMutexW.restype = ctypes.c_void_p
-    handle = k.CreateMutexW(None, False, "Local\\ItalianOverlayMutex")
-    return handle, ctypes.get_last_error() != 183      # 183 = уже запущено
-
-
-def main():
-    # в оконной сборке (.exe) консоли нет — print() не должен падать
-    if sys.stdout is None:
-        sys.stdout = open(os.devnull, "w", encoding="utf-8")
-    if sys.stderr is None:
-        sys.stderr = open(os.devnull, "w", encoding="utf-8")
+# ---------------------------------------------------------------------- запуск
+def main() -> int:
+    """Запуск программы / program entry point."""
+    _silence_stdout()
     setup_logging()
-    cfg = prepare_config()
-    i18n.set_lang(cfg.get("ui_lang", "ru"))
+
+    if "--version" in sys.argv:
+        print(f"{APP_NAME} {VERSION}")
+        return 0
+
+    cfg = load_config()
+    i18n.set_lang(cfg.get("ui_lang", "ru"))      # журнал и консоль на языке игрока
+
     if "--selftest" in sys.argv:
-        return selftest(cfg)
+        selftest(cfg)
+        return 0
     if "--find-game" in sys.argv:
-        return find_game(cfg)
+        find_game(cfg)
+        return 0
     if "--langs" in sys.argv:
-        return list_langs()
-    handle, first = single_instance()
-    if not first:
-        print(i18n.t("Оверлей уже запущен (иконка «IT» в трее)."))
-        return
+        list_langs()
+        return 0
+
+    log.info("Модули: %s", modules.summary(cfg))
+    handle, is_first = single_instance()
+    if not is_first:
+        print(i18n.t("Оверлей уже запущен (значок в трее)."))
+        return 1
+    del handle                      # мьютекс живёт до выхода из процесса
+
     try:
-        from overlay import run_gui
-        sys.exit(run_gui(cfg, open_settings_on_start="--settings" in sys.argv))
+        from app.overlay import run_gui
+        return run_gui(cfg, open_settings_on_start="--settings" in sys.argv)
     except Exception:
         log.exception("Критическая ошибка")
         raise
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

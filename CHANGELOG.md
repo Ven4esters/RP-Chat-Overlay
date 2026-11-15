@@ -5,6 +5,40 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
+## 1.6 — 15.11.2026
+
+**Внутренняя переработка: модульность, порядок в коде, двуязычные комментарии.**
+Ничего из возможностей не убрано, интерфейс и поведение остались прежними.
+
+### Структура
+- Код собран в один пакет **`source/app`**: конфигурация, движок, перевод, словари,
+  интерфейс и системные модули лежат рядом, а не в общем каталоге исходников.
+- `common.py` переименован в **`app/config.py`** — имя говорит, что внутри: пути,
+  журнал, чтение и запись `config.json`, настройки по умолчанию.
+- **`app/modules.py`** — реестр модулей: у каждой части программы есть имя, описание,
+  ключ в конфигурации, зависимости и раздел настроек, где она включается.
+- Настройки по умолчанию собраны в одном месте: служебный словарь `EXTRA` из `main.py`
+  больше не дублирует ключи конфигурации.
+- В модуле словаря убран устаревший псевдоним `it_to_ru`, в `i18n.py` — лишний импорт,
+  файлы приведены к одинаковым переводам строк, у публичных функций появились
+  подсказки типов.
+
+### Модули
+- В окне настроек появился раздел **«Модули»** — седьмая страница: видно, что можно
+  выключить, что от чего зависит и где включается то, у чего уже есть свой переключатель.
+- Любую часть можно отключить без вреда для программы: перевод по сети, словарь,
+  сокращения, автоперевод, отправка в игру, глобальная клавиша.
+- Зависимости соблюдаются сами: без перевода по сети автоперевод тоже считается
+  выключенным. Все отключения видны в журнале одной строкой.
+
+### Документация
+- Каждый модуль снабжён комментарием на двух языках: русское описание и английское.
+- README дополнен таблицей модулей и новой схемой проекта.
+- Версия программы — **1.6.0**; готовый exe в `dist` собран из версии 1.5,
+  пересобрать можно через `source/build_exe.bat`.
+
+---
+
 ## 1.5 — 14.11.2026
 
 **Одно обновление вместо трёх.** Собранное вместе: исправления проверки перевода
@@ -94,6 +128,40 @@ English version below: [Changelog (English)](#-changelog-english).
 ---
 
 # 📌 Changelog (English)
+
+## 1.6 — 2026-11-15
+
+**Internal rework: modularity, code hygiene, bilingual comments.**
+No feature was removed; the interface and the behaviour stay the same.
+
+### Structure
+- The code now lives in a single package, **`source/app`**: configuration, engine,
+  translation, glossaries, interface and system modules sit side by side.
+- `common.py` was renamed to **`app/config.py`**, which says what is inside: paths,
+  logging, `config.json` reading and writing, default settings.
+- **`app/modules.py`** is the module registry: every part of the program has a name,
+  a description, a configuration key, its dependencies and the settings page where it
+  is switched on.
+- The default settings live in one place: the `EXTRA` dictionary in `main.py` no longer
+  duplicates configuration keys.
+- The obsolete `it_to_ru` alias is gone, an unused import was removed from `i18n.py`,
+  line endings are consistent and public functions carry type hints.
+
+### Modules
+- A new **Modules** page in the settings window shows what can be switched off, what
+  depends on what, and where everything else is configured.
+- Every part can be disabled without harming the program: online translation, glossary,
+  abbreviations, auto-translation, sending into the game, the global hotkey.
+- Dependencies are honoured automatically: with online translation off, auto-translation
+  counts as disabled too. Disabled modules are logged on one line at startup.
+
+### Documentation
+- Every module is commented in two languages, Russian and English.
+- The README gained a module table and a new project layout.
+- Program version is **1.6.0**; the ready exe in `dist` was built from 1.5, rebuild it
+  with `source/build_exe.bat`.
+
+---
 
 ## 1.5 — 14 Nov 2026
 

@@ -1,0 +1,211 @@
+"""Пути, журнал и конфигурация программы / paths, logging and configuration.
+
+Здесь собрано всё, что зависит от места запуска: папка данных, файлы журнала,
+чтение и запись JSON, набор настроек по умолчанию.
+This module owns everything that depends on where the program runs: the data
+folder, log files, JSON reading and writing, and the default settings.
+
+Правила / rules:
+  * пользовательские данные никогда не перезаписываются молча: сначала
+    создаётся временный файл, затем он подменяет старый (атомарная запись);
+    user data is never overwritten silently: a temporary file is written first
+    and then swapped in (atomic write);
+  * если папка программы недоступна для записи, данные уходят в %LOCALAPPDATA%.
+    if the program folder is read-only, data goes to %LOCALAPPDATA%.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import sys
+from pathlib import Path
+from typing import Any
+
+from app import APP_NAME, modules
+
+# --------------------------------------------------------------------------- пути
+def _root() -> Path:
+    """Папка программы: рядом с .exe (сборка) или с исходниками.
+
+    Program folder: next to the .exe in a build, or the source folder otherwise.
+    Если писать в неё нельзя (например, Program Files), данные переезжают
+    в %LOCALAPPDATA%\\RPChatOverlay — программа работает и оттуда.
+    If the folder is not writable (Program Files, for example), data moves to
+    %LOCALAPPDATA%\\RPChatOverlay and the program keeps working from there.
+    """
+    base = (Path(sys.executable).resolve().parent if getattr(sys, "frozen", False)
+            else Path(__file__).resolve().parent.parent)
+    try:
+        (base / "data").mkdir(parents=True, exist_ok=True)
+        probe = base / "data" / ".writable"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink()
+        return base
+    except OSError:
+        fallback = (Path(os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+                         or Path.home()) / "RPChatOverlay")
+        try:
+            fallback.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            pass          # работаем без сохранения / continue without persistence
+        return fallback
+
+
+ROOT: Path = _root()
+DATA: Path = ROOT / "data"
+LOGS: Path = ROOT / "logs"
+
+CONFIG_PATH: Path = DATA / "config.json"
+CACHE_PATH: Path = DATA / "cache.json"
+SLANG_PATH: Path = DATA / "slang.json"              # свои сокращения игрока / user abbreviations
+GLOSSARY_DIR: Path = DATA / "glossaries"            # по файлу на язык / one file per language
+GLOSSARY_PATH: Path = DATA / "glossary.json"        # старый единый словарь / legacy single glossary
+LOG_PATH: Path = LOGS / "app.log"
+
+log: logging.Logger = logging.getLogger("app")
+
+# ----------------------------------------------------------------- настройки
+# Ключ -> значение по умолчанию. Каждый ключ прокомментирован по-русски и
+# по-английски; новых ключей достаточно добавить только здесь.
+# Key -> default value, commented in both languages; new keys belong here only.
+DEFAULT_CONFIG: dict[str, Any] = {
+    # --- язык и направление / language and direction ---
+    "target_lang": "it",                # язык перевода / target language code
+    "send_mode": "reading",             # "reading" = русская запись, "native" = текст на языке
+                                        # "reading" sends the Russian reading, "native" the foreign text
+    "direction": "out",                 # "out" = русский → язык, "in" = любой язык → русский
+                                        # "out" = Russian into the target language, "in" = anything into Russian
+
+    # --- интерфейс / interface ---
+    "ui_lang": "ru",                    # язык интерфейса: "ru" | "en" / UI language
+    "ui_lang_chosen": False,            # игрок уже выбирал язык / language already picked
+    "show_settings_on_start": True,     # показывать настройки при запуске / open settings on start
+    "setup_done": False,                # первый запуск пройден / first run completed
+    "ui_scale": 1.0,                    # масштаб интерфейса / interface scale
+    "always_on_top": True,              # оверлей поверх игры / overlay above the game
+
+    # --- вспомогательные модули / optional modules ---
+    "translator_enabled": True,         # перевод по сети / online translation
+    "glossary_enabled": True,           # словарь / glossary
+    "hotkey_enabled": True,             # глобальная клавиша / global hotkey
+    "slang": True,                      # сленг и сокращения / slang and abbreviations
+
+    # --- текст и маркеры / text and markers ---
+    "marker_open": "+",                 # маркер «переведи это» / "translate this" marker
+    "marker_close": "+",
+    "max_chars": 256,                   # предел длины сообщения / message length limit
+    "debounce_ms": 450,                 # пауза после ввода / typing pause before translating
+    "filler_always": True,              # слова-паразиты в каждом сообщении / fillers in every message
+
+    # --- автоперевод / auto-translation ---
+    "auto_mode": False,                 # включён ли автоперевод / auto-translation on
+    "auto_every": 4,                    # каждое N-е сообщение / every N-th message
+    "auto_position": "last",            # "last" | "first" | "random" | номер 1..N
+    "auto_fragments": 1,                # сколько фрагментов переводить / fragments per message
+    "auto_min_words": 1,                # длина фрагмента: от / fragment length, min
+    "auto_max_words": 3,                # ... и до / fragment length, max
+    "auto_prefer_glossary": True,       # сначала фразы из словаря / prefer glossary phrases
+
+    # --- отправка в игру / sending into the game ---
+    "game_send": True,                  # отправлять в игру / send into the game
+    "game_press_enter": False,          # нажимать Enter после вставки / press Enter after pasting
+    "game_submit": True,                # отправлять сообщение / submit the message
+    "game_chat_key": "t",               # клавиша чата в игре / in-game chat key
+    "game_open_chat_first": True,       # сначала открыть чат игры / open the game chat first
+    "game_open_delay_ms": 300,          # пауза после открытия чата / pause after opening
+    "game_paste_delay_ms": 150,         # пауза перед вставкой / pause before pasting
+    "game_focus_delay_ms": 150,         # пауза перед возвратом фокуса / pause before refocusing
+    "game_input_mode": "paste",         # "paste" = Ctrl+V, "type" = посимвольный ввод / typed input
+    "game_window_class": "grcWindow",   # класс окна игры / game window class
+    "game_extra_exes": [],              # дополнительные процессы игры / extra game processes
+
+    # --- горячая клавиша и окно / hotkey and window ---
+    "hotkey": "F6",
+    "overlay_pos": [0.01, 0.28],        # положение окна в долях окна игры / position as a fraction
+    "overlay_width": 560,               # ширина оверлея, px / overlay width in pixels
+}
+
+
+# --------------------------------------------------------------------- журнал
+def setup_logging() -> None:
+    """Создаёт папки данных и включает запись журнала в logs/app.log.
+
+    Creates the data folders and starts logging into logs/app.log.
+    Необработанные исключения тоже попадают в журнал — по нему видно, что
+    именно случилось у игрока.
+    Unhandled exceptions are logged as well, so a player's report can be traced.
+    """
+    DATA.mkdir(exist_ok=True)
+    LOGS.mkdir(exist_ok=True)
+    GLOSSARY_DIR.mkdir(exist_ok=True)
+    logging.basicConfig(
+        filename=str(LOG_PATH),
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+        encoding="utf-8",
+    )
+    sys.excepthook = lambda exc_type, exc, tb: log.critical(
+        "Необработанная ошибка", exc_info=(exc_type, exc, tb)
+    )
+    log.info("=== Запуск %s, Python %s ===", APP_NAME, sys.version.split()[0])
+
+
+# ----------------------------------------------------------------------- JSON
+def read_json(path: str | Path, default: Any = None) -> Any:
+    """Читает JSON-файл; при любой ошибке возвращает default и пишет в журнал.
+
+    Reads a JSON file; on any error returns `default` and logs the problem.
+    """
+    try:
+        with open(path, "r", encoding="utf-8-sig") as handle:
+            return json.load(handle)
+    except FileNotFoundError:
+        return default
+    except (OSError, ValueError):
+        log.exception("Не удалось прочитать %s", path)
+        return default
+
+
+def write_json(path: str | Path, data: Any) -> None:
+    """Атомарно записывает JSON: сначала .tmp, потом подмена файла.
+
+    Writes JSON atomically: a .tmp file first, then an atomic replace.
+    """
+    tmp = f"{path}.tmp"
+    with open(tmp, "w", encoding="utf-8") as handle:
+        json.dump(data, handle, ensure_ascii=False, indent=2)
+    os.replace(tmp, path)
+
+
+# -------------------------------------------------------------------- конфиг
+def load_config() -> dict[str, Any]:
+    """Читает config.json, дополняет его значениями по умолчанию и сохраняет.
+
+    Reads config.json, fills in the defaults and writes the file back, so a new
+    build always sees the keys it needs.
+    """
+    cfg: dict[str, Any] = dict(DEFAULT_CONFIG)
+    saved = read_json(CONFIG_PATH, {})
+    if isinstance(saved, dict):
+        cfg.update(saved)
+    for key in ("marker_open", "marker_close"):
+        if not isinstance(cfg.get(key), str) or not cfg[key]:
+            cfg[key] = DEFAULT_CONFIG[key]
+    modules.apply_defaults(cfg)
+    save_config(cfg)
+    return cfg
+
+
+def save_config(cfg: dict[str, Any]) -> bool:
+    """Сохраняет конфигурацию, не роняя программу при ошибке записи.
+
+    Saves the configuration; a write error is logged instead of raised.
+    """
+    try:
+        write_json(CONFIG_PATH, cfg)
+        return True
+    except OSError:
+        log.exception("Не удалось сохранить config.json")
+        return False
