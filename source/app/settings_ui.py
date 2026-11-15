@@ -24,14 +24,15 @@ import threading
 import time
 from pathlib import Path
 
-from PySide6.QtCore import QObject, Qt, QTimer, Signal
-from PySide6.QtGui import QGuiApplication, QKeySequence
+from PySide6.QtCore import QObject, QPoint, QRect, Qt, QTimer, Signal
+from PySide6.QtGui import (QColor, QDrag, QGuiApplication, QKeySequence, QPainter,
+                           QPixmap, QPolygon)
 import urllib.parse
 
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox,
                                QDialog, QFileDialog, QFormLayout, QFrame, QHBoxLayout,
                                QHeaderView, QLabel, QLineEdit, QListWidget,
-                               QListWidgetItem, QMessageBox, QPushButton,
+                               QListWidgetItem, QMenu, QMessageBox, QPushButton,
                                QScrollArea, QSizePolicy, QSpinBox, QStackedWidget,
                                QTableWidget, QTableWidgetItem, QToolButton,
                                QVBoxLayout, QWidget)
@@ -363,33 +364,125 @@ class DragTable(QTableWidget):
     boxes stay behind. So the row is moved by the table itself through
     ``on_move(from_row, to_row)``, which rebuilds the rows from the data, and
     everything moves along.
+
+    Почему не штатный перенос / why not Qt's own move
+    ------------------------------------------------
+    ``QAbstractItemView.startDrag`` после ``QDrag.exec()`` вызывает
+    ``clearOrRemove``: при ``MoveAction`` Qt **удаляет** исходную строку сам. У
+    нас строку уже пересобрал ``on_move``, поэтому удаление приходилось на новую
+    таблицу — строка исчезала. Здесь ``QDrag.exec()`` вызывается напрямую, без
+    ``clearOrRemove``, и строку двигает только ``on_move``.
+    ``QAbstractItemView.startDrag`` calls ``clearOrRemove`` after ``QDrag.exec()``:
+    with ``MoveAction`` Qt deletes the source row itself. Our ``on_move`` has
+    already rebuilt the rows, so that deletion hit the fresh table and the row
+    vanished. Here ``QDrag.exec()`` is called directly, without
+    ``clearOrRemove``, and only ``on_move`` moves anything.
+
+    Куда встанет строка / where the row will land
+    ---------------------------------------------
+    Штатный индикатор Qt рисуется по краю ячейки и почти не виден, поэтому
+    таблица рисует свою линию вставки — толстую, акцентного цвета, во всю
+    ширину, — и дополнительно подсвечивает строку, которую тянут.
+    The stock Qt indicator is drawn on the cell edge and is barely visible, so
+    the table paints its own drop line — thick, accent-coloured, full width — and
+    also highlights the row being dragged.
     """
+
+    # цвета линии вставки и «призрака» перетаскиваемой строки
+    # the drop line and the dragged row colours
+    LINE_COLOR = QColor("#5b8cff")
+    DRAG_BG = QColor(91, 140, 255, 46)     # подсветка исходной строки / dragged row
+    TARGET_BG = QColor(91, 140, 255, 22)   # цель перетаскивания / the drop target
+    LINE_WIDTH = 3
 
     def __init__(self, on_move=None, rows=0, columns=0, parent=None):
         super().__init__(rows, columns, parent)
         self.on_move = on_move
         self._drag_row = -1
+        self._drop_at = -1        # перед какой строкой встанет / the row it lands before
+        self._drop_rect = None    # та же точка, но в координатах области / in viewport coords
         self.setDragEnabled(True)
         self.setAcceptDrops(True)
-        self.setDropIndicatorShown(True)
+        # штатный индикатор выключен: рисуем свой, заметный
+        # the stock indicator is off: ours is the visible one
+        self.setDropIndicatorShown(False)
         self.setDragDropOverwriteMode(False)
         self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self.setDefaultDropAction(Qt.DropAction.MoveAction)
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.setMouseTracking(True)
 
     # --- перетаскивание ---
     def startDrag(self, actions):
-        """Запоминаем, какую строку тащат / remember the row being dragged."""
-        self._drag_row = self.currentRow()
-        super().startDrag(actions)
+        """Свой перенос: без ``clearOrRemove``, который удаляет строку.
+
+        Our own drag: no ``clearOrRemove``, which is what deleted the row.
+
+        Данные для Qt готовятся вручную (``mimeData`` + ``QDrag``), поэтому
+        исходная строка остаётся на месте, пока её не переставит ``on_move``.
+        The data for Qt is prepared by hand (``mimeData`` + ``QDrag``), so the
+        source row stays where it is until ``on_move`` moves it.
+        """
+        source = self.currentRow()
+        if source < 0 or source >= self.rowCount():
+            return
+        self._drag_row = source
+        indexes = self.selectedIndexes() or [self.model().index(source, 0)]
+        mime = self.model().mimeData(indexes)
+        if mime is None:
+            self._drag_row = -1
+            return
+        drag = QDrag(self)
+        drag.setMimeData(mime)
+        # «призрак» строки под курсором: видно, что именно тащат
+        # a ghost of the row under the cursor: it shows what is being dragged
+        pixmap = self._row_pixmap(source)
+        if pixmap is not None:
+            drag.setPixmap(pixmap)
+            drag.setHotSpot(QPoint(12, pixmap.height() // 2))
+        self.viewport().update()
+        drag.exec(Qt.DropAction.MoveAction)
+        # после переноса разметка сбрасывается: линия вставки не должна висеть
+        # after the drag the marks are cleared so the drop line does not linger
+        self._drag_row = -1
+        self._drop_at = -1
+        self._drop_rect = None
+        self.viewport().update()
+
+    def _row_pixmap(self, row: int) -> QPixmap | None:
+        """Снимок строки для «призрака» под курсором / a snapshot of the row."""
+        top = self.rowViewportPosition(row)
+        height = self.rowHeight(row)
+        if height <= 0:
+            return None
+        pixmap = QPixmap(self.viewport().width(),
+                         min(height, self.viewport().height()))
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        painter.setOpacity(0.85)
+        # рисуем область таблицы как есть, но только одну строку
+        # the table area is drawn as is, one row only
+        painter.fillRect(pixmap.rect(), QColor("#1c1c24"))
+        painter.end()
+        self.viewport().render(pixmap, QPoint(0, 0),
+                               QRect(0, top, self.viewport().width(), pixmap.height()))
+        return pixmap
 
     def dragEnterEvent(self, event):
         event.setDropAction(Qt.DropAction.MoveAction)
+        event.accept()
+        self._mark_drop(event.position().toPoint())
+
+    def dragLeaveEvent(self, event):
+        self._drop_at = -1
+        self._drop_rect = None
+        self.viewport().update()
         event.accept()
 
     def dragMoveEvent(self, event):
         event.setDropAction(Qt.DropAction.MoveAction)
         event.accept()
+        self._mark_drop(event.position().toPoint())
 
     def dropEvent(self, event):
         """Отдать перенос в on_move: Qt сам строки не двигает.
@@ -399,6 +492,9 @@ class DragTable(QTableWidget):
         source = self._drag_row
         target = self._drop_row(event.position().toPoint())
         self._drag_row = -1
+        self._drop_at = -1
+        self._drop_rect = None
+        self.viewport().update()
         event.setDropAction(Qt.DropAction.MoveAction)
         event.accept()
         if source < 0 or self.on_move is None:
@@ -407,14 +503,99 @@ class DragTable(QTableWidget):
             return
         self.on_move(source, target)
 
+    def _mark_drop(self, pos) -> None:
+        """Запомнить, где встанет строка, и перерисовать линию вставки.
+
+        Remember where the row will land and repaint the drop line.
+        """
+        row = self._drop_row(pos)
+        rect = None
+        if 0 <= row < self.rowCount():
+            rect = self.visualRect(self.model().index(row, 0))
+        self._drop_at = row
+        self._drop_rect = rect
+        self.viewport().update()
+
     def _drop_row(self, pos) -> int:
-        """Перед какой строкой встанет перетаскиваемая / the row it lands before."""
+        """Перед какой строкой встанет перетаскиваемая / the row it lands before.
+
+        За краем последней строки — значит, в самый конец списка.
+        Past the last row means the very end of the list.
+        """
         index = self.indexAt(pos)
         if not index.isValid():
-            return self.rowCount()
+            if self.rowCount() == 0:
+                return 0
+            last = self.visualRect(self.model().index(self.rowCount() - 1, 0))
+            # ниже последней строки — в конец; выше первой — в начало
+            # below the last row lands at the end, above the first at the start
+            return self.rowCount() if pos.y() > last.center().y() else 0
         row = index.row()
         rect = self.visualRect(index)
         return row + 1 if pos.y() > rect.center().y() else row
+
+    # --- отрисовка подсказок перетаскивания / drag hints ---
+    def paintEvent(self, event):
+        """Обычная отрисовка плюс линия вставки и подсветка строк.
+
+        The usual painting plus the drop line and the row highlights.
+        """
+        super().paintEvent(event)
+        painter = QPainter(self.viewport())
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+        width = self.viewport().width()
+
+        # строка, которую тянут: подсвечиваем, чтобы не потерять её из виду
+        # the row being dragged is tinted, so it is not lost from sight
+        if 0 <= self._drag_row < self.rowCount():
+            top = self.rowViewportPosition(self._drag_row)
+            painter.fillRect(0, top, width, self.rowHeight(self._drag_row),
+                             self.DRAG_BG)
+
+        # строка, на которую сейчас упадёт переносимая: лёгкая подсветка
+        # the row the dragged one will land on: a light tint
+        if 0 <= self._drop_at < self.rowCount():
+            top = self.rowViewportPosition(self._drop_at)
+            painter.fillRect(0, top, width, self.rowHeight(self._drop_at),
+                             self.TARGET_BG)
+
+        # сама линия вставки: место, куда строка встанет
+        # the drop line itself: exactly where the row will land
+        if self._drop_at >= 0:
+            y = self._line_y(self._drop_at)
+            if y is not None:
+                painter.fillRect(0, y - self.LINE_WIDTH // 2, width,
+                                 self.LINE_WIDTH, self.LINE_COLOR)
+                # треугольник-указатель слева: видно даже на светлой строке
+                # an arrow on the left: visible even on a light row
+                painter.setBrush(self.LINE_COLOR)
+                painter.setPen(Qt.PenStyle.NoPen)
+                size = 7
+                painter.drawPolygon(QPolygon([
+                    QPoint(0, y - size), QPoint(size, y), QPoint(0, y + size)]))
+        painter.end()
+
+    def _line_y(self, row: int) -> int | None:
+        """Y линии вставки перед строкой ``row`` / the y of the line before a row.
+
+        ``row == rowCount()`` — линия под последней строкой: тогда это конец
+        списка. Возвращается координата в области прокрутки.
+        ``row == rowCount()`` means below the last row, that is the end of the
+        list. The value is a viewport coordinate.
+        """
+        count = self.rowCount()
+        if count == 0:
+            return 0
+        if row >= count:
+            top = self.rowViewportPosition(count - 1)
+            y = top + self.rowHeight(count - 1)
+            if y < 0 or y > self.viewport().height():
+                return None
+            return min(y, self.viewport().height() - self.LINE_WIDTH)
+        top = self.rowViewportPosition(row)
+        if top < 0 or top > self.viewport().height():
+            return None
+        return max(self.LINE_WIDTH // 2, top)
 
     # --- общий перенос готовых ячеек ---
     @staticmethod
@@ -2270,6 +2451,12 @@ class SettingsWindow(QDialog):
         self.tbl_anims.setWordWrap(False)
         self.tbl_anims.itemChanged.connect(self._anims_edited)
         self.tbl_anims.itemSelectionChanged.connect(self._update_anims_ui)
+        # ПКМ по правилу — свойства анимации: варианты, названия и описания.
+        # Это же меню умеет добавить второй вариант к обычному правилу.
+        # right-click a rule opens its properties: variants, titles and
+        # descriptions. The same menu adds a second variant to a plain rule.
+        self.tbl_anims.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tbl_anims.customContextMenuRequested.connect(self._anims_menu)
         lay.addWidget(self.tbl_anims, 1)
 
         btns = QHBoxLayout()
@@ -2360,11 +2547,23 @@ class SettingsWindow(QDialog):
             "анимации играют по очереди, по одной: пока одна на экране, следующая "
             "ждёт. Порядок — как в самом сообщении: «Чёрт, я устал *кашляет*» "
             "сначала запустит анимацию на «чёрт», потом на «кашляет», даже если в "
-            "таблице эти правила стоят наоборот."))
+            "таблице эти правила стоят наоборот. Если один ключ целиком входит в "
+            "другой, играет только длинный: на «Сел откинувшись» сработает «сел "
+            "откинувшись», а «сел» промолчит — иначе короткая анимация сразу же "
+            "погасила бы длинную. Отдельные упоминания в том же сообщении "
+            "считаются: «Сел откинувшись, а потом сел прямо» запустит обе."))
         lay.addWidget(_hint(
             "Строки таблицы перетаскиваются мышью — вместе с правилом едут его "
-            "режим, формы, длительность и галочки. Порядок в таблице нужен для "
-            "удобства: в игре анимации играют по порядку слов в сообщении."))
+            "режим, формы, длительность и галочки. Пока строку тянут, она "
+            "подсвечена, а синяя линия показывает, куда она встанет. Порядок в "
+            "таблице нужен для удобства: в игре анимации играют по порядку слов "
+            "в сообщении."))
+        lay.addWidget(_hint(
+            "ПКМ по строке — «Свойства анимации…»: там задаются варианты, если "
+            "одному ключу подходят несколько анимаций. Например, ключ «оперся "
+            "руками» с вариантами anim_counterleanbar и anim_leanrail: в игре "
+            "откроется оверлей выбора с названием и описанием каждого. Один "
+            "вариант — обычное правило, оно играет сразу."))
         self._fill_anims()
         self._update_anims_ui()
         return page
@@ -2430,9 +2629,18 @@ class SettingsWindow(QDialog):
             return
         rows = self.tbl_anims.selectionModel().selectedRows()
         name = ""
+        variants = []
         if rows:
-            item = self.tbl_anims.item(rows[0].row(), 2)
-            name = item.text().strip() if item is not None else ""
+            rules = self._collect_anims()
+            row = rows[0].row()
+            if 0 <= row < len(rules):
+                rule = rules[row]
+                # у правила с вариантами имени нет: проверяем первый, чтобы
+                # кнопка работала и для выбора из двух
+                # a rule with variants has no single name: the first one is sent,
+                # so the button works for a choice of two as well
+                variants = [choice.name for choice in rule.variant_list()]
+                name = rule.name.strip() or (variants[0] if variants else "")
         if not name:
             self._anim_say(i18n.t(
                 "Сначала выберите правило с названием анимации."))
@@ -2441,7 +2649,14 @@ class SettingsWindow(QDialog):
         if problem:
             self._anim_say(i18n.t("Название не подойдёт: ") + i18n.t(problem))
             return
-        self._anim_say(i18n.tf("Отправляю /anim %s в игру…", name), seconds=25.0)
+        if len(variants) > 1:
+            # честно: проверяется только один из вариантов
+            # honest: only one of the variants is being checked
+            self._anim_say(i18n.tf("У правила %d варианта(ов) — отправляю "
+                                   "первый: /anim %s", len(variants), name),
+                           seconds=25.0)
+        else:
+            self._anim_say(i18n.tf("Отправляю /anim %s в игру…", name), seconds=25.0)
         threading.Thread(
             target=lambda: self.anim_test_done.emit(*api["send"](name)),
             name="anim-test", daemon=True).start()
@@ -2509,6 +2724,88 @@ class SettingsWindow(QDialog):
         log.info("Анимации: правило «%s» переставлено (%d -> %d)",
                  rule.keywords[:30], source, target)
 
+    def _anims_menu(self, pos):
+        """ПКМ по таблице правил: свойства анимации и быстрые действия.
+
+        Right-click on the rules table: the animation properties and quick
+        actions. Пункт «Свойства анимации…» — единственный вход в варианты,
+        названия и описания.
+        The Animation properties item is the one way into the variants, titles
+        and descriptions.
+        """
+        index = self.tbl_anims.indexAt(pos)
+        if not index.isValid():
+            return
+        row = index.row()
+        self.tbl_anims.selectRow(row)
+        menu = QMenu(self.tbl_anims)
+        act_props = menu.addAction(i18n.t("Свойства анимации…"))
+        act_variant = None
+        rules = self._collect_anims()
+        current = rules[row] if 0 <= row < len(rules) else None
+        if current is not None:
+            act_variant = menu.addAction(i18n.t("Добавить ещё один вариант…"))
+        menu.addSeparator()
+        act_dup = menu.addAction(i18n.t("Дублировать правило"))
+        act_del = menu.addAction(i18n.t("Удалить правило"))
+        chosen = menu.exec(self.tbl_anims.viewport().mapToGlobal(pos))
+        if chosen is None:
+            return
+        if chosen is act_props:
+            self._anim_props(row, force_variants=False)
+        elif act_variant is not None and chosen is act_variant:
+            self._anim_props(row, force_variants=True)
+        elif chosen is act_dup:
+            self._duplicate_anim(row)
+        elif chosen is act_del:
+            self._del_anim()
+
+    def _anim_props(self, row, force_variants=False):
+        """Окно свойств анимации для строки таблицы.
+
+        The animation properties dialog for a table row.
+
+        ``force_variants`` — «Добавить ещё один вариант»: у обычного правила имя
+        превращается в первый вариант, и сразу открывается второй — так из
+        одного ``/anim`` получается выбор из двух.
+        ``force_variants`` is "Add one more variant": a plain rule's name becomes
+        its first variant and a second row is added at once, turning a single
+        ``/anim`` into a choice of two.
+        """
+        rules = self._collect_anims()
+        if not 0 <= row < len(rules):
+            return
+        rule = rules[row]
+        if force_variants and not rule.choices:
+            # имя из столбца «/anim» становится первым вариантом
+            # the name from the /anim column becomes the first variant
+            rule.choices = [anims.Choice(name=rule.name.strip())]
+        if not rule.choices and not rule.name.strip():
+            self._anim_say(i18n.t("Сначала задайте название анимации в таблице."))
+            return
+        if not ask_anim_props(rule, self):
+            return
+        # правило заменяется целиком: имя, варианты, всё остальное как было
+        # the rule is replaced as a whole: the name, the variants, the rest as is
+        rules[row] = rule
+        self._fill_anims(rules)
+        self.tbl_anims.selectRow(row)
+        self._anims_changed()
+        log.info("Анимации: свойства правила «%s» сохранены (вариантов: %d)",
+                 rule.keywords[:30], len(rule.variant_list()))
+
+    def _duplicate_anim(self, row):
+        """Скопировать правило в новую строку под ним / copy a rule below itself."""
+        rules = self._collect_anims()
+        if not 0 <= row < len(rules):
+            return
+        copy = anims.Rule.from_dict(rules[row].to_dict())
+        copy.id = anims.Rule().id          # новый id, чтобы строки не путались
+        rules.insert(row + 1, copy)
+        self._fill_anims(rules)
+        self.tbl_anims.selectRow(row + 1)
+        self._anims_changed()
+
     def _add_anim_row(self, rule):
         """Одна строка таблицы по правилу / one table row for a rule."""
         row = self.tbl_anims.rowCount()
@@ -2523,11 +2820,15 @@ class SettingsWindow(QDialog):
             return item
 
         item_on = checkable(rule.enabled)
+        # id едет в первой ячейке вместе с галочкой — по нему правило находится
+        # после пересборки таблицы
+        # the id travels in the first cell next to the checkbox, so the rule can
+        # be found again after the table is rebuilt
         item_on.setData(Qt.ItemDataRole.UserRole, rule.id)
         item_loop = checkable(rule.loop)
         cells = [item_on,
                  QTableWidgetItem(rule.keywords),
-                 QTableWidgetItem(rule.name),
+                 QTableWidgetItem(self._anim_name_cell(rule)),
                  None,                       # режим — выпадающий список,
                  None,                       # формы — тоже список,
                  QTableWidgetItem(str(rule.duration_ms)),
@@ -2537,6 +2838,16 @@ class SettingsWindow(QDialog):
                 continue
             item.setToolTip(item.text())
             self.tbl_anims.setItem(row, column, item)
+        # варианты хранятся в ячейке имени: таблица — единственный источник правил,
+        # пока окно открыто, и пересборка не должна их терять
+        # the variants live in the name cell: the table is the only source of
+        # rules while the window is open, and a rebuild must not lose them
+        name_item = self.tbl_anims.item(row, 2)
+        if name_item is not None:
+            name_item.setToolTip(self._anim_name_hint(rule))
+            if rule.choices:
+                name_item.setData(Qt.ItemDataRole.UserRole + 1,
+                                  [choice.to_dict() for choice in rule.choices])
         combo = QComboBox()
         # названия режимов хранятся по-русски: так i18n.retranslate может
         # переводить их в любую сторону сколько угодно раз
@@ -2574,6 +2885,40 @@ class SettingsWindow(QDialog):
         self._anim_forms_hint(forms_combo)
         self.tbl_anims.setCellWidget(row, 4, forms_combo)
         return row
+
+    def _anim_name_cell(self, rule) -> str:
+        """Что написать в столбце «/anim», когда вариантов несколько.
+
+        What the /anim column shows when there are several variants.
+        Один вариант или обычное правило — просто имя. Несколько — имя первого
+        и «+N», а полный список с названиями виден в подсказке ячейки: строка
+        таблицы остаётся узкой, но ничего не теряется.
+        One variant or a plain rule is just the name. Several show the first name
+        and «+N», with the full titled list in the cell tooltip: the row stays
+        narrow and nothing is lost.
+        """
+        if not rule.choices:
+            return rule.name
+        if len(rule.choices) == 1:
+            return rule.choices[0].name
+        return f"{rule.choices[0].name}  +{len(rule.choices) - 1}"
+
+    def _anim_name_hint(self, rule) -> str:
+        """Подсказка столбца «/anim»: все варианты с названиями.
+
+        The /anim column tooltip: every variant with its title.
+        """
+        if not rule.choices:
+            return rule.name
+        lines = []
+        for choice in rule.choices:
+            line = choice.name
+            if choice.title:
+                line += " — " + choice.title
+            if choice.description:
+                line += ": " + choice.description
+            lines.append(line)
+        return "\n".join(lines)
 
     def _anims_combo_changed(self, *_):
         """Сменили режим чтения в строке / the read mode of a row changed."""
@@ -2624,14 +2969,28 @@ class SettingsWindow(QDialog):
             except ValueError:
                 duration = -1        # problem() скажет «длительность должна быть…»
             item_loop = self.tbl_anims.item(row, 6)
+            # варианты из ячейки имени: обычное правило их не имеет, и тогда
+            # остаётся только name, как раньше
+            # the variants come from the name cell; a plain rule has none, and
+            # then only name remains, exactly as before
+            name_item = self.tbl_anims.item(row, 2)
+            raw_choices = (name_item.data(Qt.ItemDataRole.UserRole + 1)
+                           if name_item is not None else None)
+            choices = []
+            if isinstance(raw_choices, list):
+                for entry in raw_choices:
+                    choice = anims.Choice.from_dict(entry)
+                    if choice is not None:
+                        choices.append(choice)
             rule = anims.Rule(
                 keywords=text(1),
-                name=text(2),
+                name=text(2) if not choices else "",
                 mode=mode,
                 forms=forms,
                 duration_ms=duration,
                 loop=bool(item_loop and item_loop.checkState() == Qt.CheckState.Checked),
                 enabled=bool(item_on.checkState() == Qt.CheckState.Checked),
+                choices=choices,
             )
             ident = str(item_on.data(Qt.ItemDataRole.UserRole) or "").strip()
             if ident:
@@ -2844,17 +3203,18 @@ class SettingsWindow(QDialog):
         # the same order as in real use: by the place of the word in the message,
         # every keyword of a rule fires on its own, synonyms by their key
         ctx = self._anim_context()
-        hits = []
-        for index, rule in enumerate(self._collect_anims()):
-            for position, form in rule.hits(text, ctx):
-                hits.append((position, index,
-                             rule.name.strip() or i18n.t("без названия"), form))
-        hits.sort(key=lambda item: (item[0], item[1]))
+        # тот же разбор, что и в работе: вложенные ключи («сел» внутри «сел
+        # откинувшись») показывает именно так, как они сыграют
+        # the same resolution as at run time: nested keywords («сел» inside «сел
+        # откинувшись») are shown exactly the way they will play
+        rules = [rule for rule in self._collect_anims() if rule.ready()]
+        hits = [(position, self._anim_hit_label(rule), form)
+                for position, _index, rule, form in anims.plan(rules, text, ctx)]
         if hits:
             # видно не только правило, но и какая именно форма его задела
             # shows the rule and the exact form that fired it
             parts = ["/anim " + name + (f" ← «{form}»" if form else "")
-                     for _, _, name, form in hits]
+                     for _, name, form in hits]
             text_out = i18n.t("Сработают: ") + ", ".join(parts)
             # правило может сработать и при этом не дойти до игры: проверка
             # слов не равна работе модуля, о выключенных модулях говорим прямо
@@ -2871,6 +3231,22 @@ class SettingsWindow(QDialog):
                 "Ни одно правило не сработает: в этом режиме ключевого слова в "
                 "сообщении нет."))
             self.lb_anims_test.setStyleSheet("color:#ffb45b;")
+
+    def _anim_hit_label(self, rule) -> str:
+        """Что написать в проверке фразы: правило или его варианты.
+
+        What the phrase check prints: the rule or its variants.
+        У правила с вариантами имени команды нет — вместо него видно, сколько
+        их и что откроется: «выбор из 2: anim_counterleanbar, anim_leanrail».
+        A rule with variants has no single command name, so the check shows how
+        many there are and what the chooser will offer.
+        """
+        if not rule.choices:
+            return rule.name.strip() or i18n.t("без названия")
+        names = [choice.name for choice in rule.choices]
+        if len(names) == 1:
+            return names[0]
+        return (i18n.tf("выбор из %d: ", len(names)) + ", ".join(names))
 
     def _export_anims(self):
         """Правила в JSON — их можно перенести на другой компьютер."""
@@ -3496,6 +3872,240 @@ def _pretty_hotkey(spec):
 def _sz(w, h):
     from PySide6.QtCore import QSize
     return QSize(w, h)
+
+
+class AnimProps(QDialog):
+    """Свойства анимации: варианты, их названия и описания.
+
+    Animation properties: the variants, their titles and descriptions.
+
+    Зачем / why
+    -----------
+    Один ключ часто подходит к нескольким анимациям: «Опёрся руками» — это и
+    ``anim_counterleanbar``, и ``anim_leanrail``. Когда вариантов два и больше,
+    в игре открывается оверлей выбора, и игроку нужно показать не имя команды,
+    а человеческое название с описанием.
+    One keyword often fits several animations: «Опёрся руками» is both
+    ``anim_counterleanbar`` and ``anim_leanrail``. With two or more variants the
+    game shows a chooser, and the player must see a human title with a
+    description rather than a command name.
+
+    Здесь же задаётся и обычное правило без вариантов: одна строка — это просто
+    название анимации, как в таблице. Так диалог остаётся единственным местом,
+    где меняются свойства, и неважно, один вариант или несколько.
+    The dialog also edits an ordinary single-animation rule: one row is just the
+    animation name, as in the table. That keeps the dialog the one place where
+    properties are edited, whether there is one variant or several.
+    """
+
+    def __init__(self, rule, parent=None):
+        super().__init__(parent)
+        self.rule = rule
+        self.setWindowTitle(i18n.t("Свойства анимации"))
+        self.setStyleSheet(style_sheet(1.0))
+        self.setMinimumWidth(620)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(20, 16, 20, 14)
+        lay.setSpacing(10)
+
+        head = QLabel(i18n.tf("Ключевые слова: %s",
+                              rule.keywords.strip() or i18n.t("не заданы")))
+        head.setStyleSheet("font-size:14px;font-weight:600;")
+        head.setWordWrap(True)
+        lay.addWidget(head)
+
+        lay.addWidget(_hint(i18n.t(
+            "Заполните варианты: имя для /anim, название и описание. Если "
+            "вариантов два и больше, в игре откроется оверлей выбора — игрок "
+            "увидит название и описание, а не имя команды. Один вариант — "
+            "обычное правило, оно играет сразу.")))
+
+        self.tbl = QTableWidget(0, 3)
+        self.tbl.setHorizontalHeaderLabels(
+            [i18n.t("/anim"), i18n.t("Название"), i18n.t("Описание")])
+        head_view = self.tbl.horizontalHeader()
+        head_view.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        head_view.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        head_view.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.tbl.verticalHeader().setVisible(False)
+        self.tbl.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.tbl.setMinimumHeight(190)
+        lay.addWidget(self.tbl, 1)
+
+        btns = QHBoxLayout()
+        self.bt_add = QPushButton(i18n.t("Добавить вариант"))
+        self.bt_add.clicked.connect(self._add)
+        self.bt_del = QPushButton(i18n.t("Удалить вариант"))
+        self.bt_del.setObjectName("danger")
+        self.bt_del.clicked.connect(self._del)
+        self.bt_up = QPushButton(i18n.t("Выше"))
+        self.bt_up.clicked.connect(lambda: self._move(-1))
+        self.bt_down = QPushButton(i18n.t("Ниже"))
+        self.bt_down.clicked.connect(lambda: self._move(1))
+        for button in (self.bt_add, self.bt_del, self.bt_up, self.bt_down):
+            btns.addWidget(button)
+        btns.addStretch(1)
+        lay.addLayout(btns)
+
+        self.lb_problem = QLabel("")
+        self.lb_problem.setProperty("no_i18n", True)
+        self.lb_problem.setWordWrap(True)
+        self.lb_problem.setStyleSheet("color:#ffb45b;")
+        lay.addWidget(self.lb_problem)
+
+        bottom = QHBoxLayout()
+        bottom.addStretch(1)
+        self.bt_cancel = QPushButton(i18n.t("Отмена"))
+        self.bt_cancel.setAutoDefault(False)
+        self.bt_cancel.clicked.connect(self.reject)
+        self.bt_ok = QPushButton(i18n.t("Готово"))
+        self.bt_ok.setObjectName("primary")
+        self.bt_ok.setDefault(True)
+        self.bt_ok.clicked.connect(self._accept)
+        bottom.addWidget(self.bt_cancel)
+        bottom.addWidget(self.bt_ok)
+        lay.addLayout(bottom)
+
+        self._fill()
+        self.tbl.itemSelectionChanged.connect(self._sync_buttons)
+        # правка любой ячейки сразу перепроверяет варианты: кнопка «Готово»
+        # гаснет и загорается по мере ввода, без нажатий «проверить»
+        # editing any cell revalidates at once: the Done button dims and lights up
+        # as the text is typed, with no separate "check" press
+        self.tbl.itemChanged.connect(lambda *_: self._validate())
+        self.tbl.setEditTriggers(QAbstractItemView.EditTrigger.DoubleClicked
+                                 | QAbstractItemView.EditTrigger.SelectedClicked
+                                 | QAbstractItemView.EditTrigger.EditKeyPressed
+                                 | QAbstractItemView.EditTrigger.AnyKeyPressed)
+
+    # --- таблица ---
+    def _fill(self):
+        """Заполнить таблицу вариантами правила / the rule variants in the table."""
+        variants = self.rule.variant_list()
+        self.tbl.blockSignals(True)
+        self.tbl.setRowCount(0)
+        for choice in variants:
+            self._add_row(choice)
+        self.tbl.blockSignals(False)
+        self._sync_buttons()
+        self._validate()
+
+    def _add_row(self, choice):
+        row = self.tbl.rowCount()
+        self.tbl.insertRow(row)
+        for column, text in enumerate((choice.name, choice.title,
+                                       choice.description)):
+            item = QTableWidgetItem(text)
+            item.setToolTip(text)
+            self.tbl.setItem(row, column, item)
+        return row
+
+    def _add(self):
+        row = self._add_row(anims.Choice())
+        self.tbl.selectRow(row)
+        self.tbl.setCurrentCell(row, 0)
+        self.tbl.editItem(self.tbl.item(row, 0))
+        self._validate()
+
+    def _del(self):
+        rows = sorted({index.row() for index in self.tbl.selectedIndexes()},
+                      reverse=True)
+        if not rows:
+            self._problem_hint(i18n.t("Сначала выберите вариант."))
+            return
+        for row in rows:
+            self.tbl.removeRow(row)
+        self._sync_buttons()
+        self._validate()
+
+    def _move(self, delta):
+        rows = self.tbl.selectionModel().selectedRows()
+        if not rows:
+            return
+        row = rows[0].row()
+        target = row + delta
+        if not 0 <= target < self.tbl.rowCount():
+            return
+        cells = []
+        for column in range(self.tbl.columnCount()):
+            item = self.tbl.takeItem(row, column)
+            cells.append(item if item is not None else QTableWidgetItem(""))
+        self.tbl.removeRow(row)
+        self.tbl.insertRow(target)
+        for column, item in enumerate(cells):
+            self.tbl.setItem(target, column, item)
+        self.tbl.selectRow(target)
+
+    def _sync_buttons(self):
+        has = bool(self.tbl.selectionModel().selectedRows())
+        for button in (self.bt_del, self.bt_up, self.bt_down):
+            button.setEnabled(has)
+
+    def _problem_hint(self, text):
+        self.lb_problem.setText(text)
+
+    def _validate(self):
+        """Проверить варианты на месте и сказать, что не так.
+
+        Check the variants right here and say what is wrong.
+        """
+        problems = []
+        seen = set()
+        for row in range(self.tbl.rowCount()):
+            choice = self._choice_at(row)
+            problem = choice.problem()
+            if problem:
+                problems.append(i18n.tf("Строка %d: ", row + 1) + i18n.t(problem))
+                continue
+            if choice.name in seen:
+                problems.append(i18n.tf("Строка %d: ", row + 1)
+                                + i18n.t("такая анимация уже есть в списке"))
+            seen.add(choice.name)
+        if self.tbl.rowCount() > anims.MAX_CHOICES:
+            problems.append(i18n.t(anims.VAL_TOO_MANY_CHOICES))
+        self.lb_problem.setText(" ".join(problems))
+        self.bt_ok.setEnabled(not problems and self.tbl.rowCount() > 0)
+        return not problems
+
+    def _choice_at(self, row) -> "anims.Choice":
+        def text(column):
+            item = self.tbl.item(row, column)
+            return item.text().strip() if item is not None else ""
+        return anims.Choice(name=text(0).lstrip("/"), title=text(1),
+                            description=text(2))
+
+    def choices(self) -> list["anims.Choice"]:
+        """Итоговые варианты в порядке таблицы / the variants in table order."""
+        return [self._choice_at(row) for row in range(self.tbl.rowCount())]
+
+    def _accept(self):
+        if not self._validate():
+            return
+        self.accept()
+
+
+def ask_anim_props(rule, parent=None):
+    """ПКМ по правилу: свойства анимации; меняет ``rule`` на месте.
+
+    Right-click on a rule: the animation properties; ``rule`` is changed in place.
+    Возвращает True, если игрок нажал «Готово».
+    Returns True when the player pressed Done.
+    """
+    dialog = AnimProps(rule, parent)
+    if dialog.exec() != QDialog.DialogCode.Accepted:
+        return False
+    variants = dialog.choices()
+    # один вариант — обычное правило: имя переезжает в name, вариантов нет,
+    # чтобы конфиг остался прежним и старые версии его понимали
+    # one variant is an ordinary rule: the name goes into name and the variants
+    # are dropped, so the config stays the old shape and older versions read it
+    if len(variants) == 1:
+        rule.name = variants[0].name
+        rule.choices = []
+    else:
+        rule.choices = variants
+        rule.name = ""
+    return True
 
 
 class DlxConsent(QDialog):

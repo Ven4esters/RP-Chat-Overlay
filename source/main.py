@@ -354,6 +354,148 @@ def selftest_anims(cfg: dict) -> None:
     print(f"  повтор ключа + второй ключ: {commands}")
     failed += 0 if commands == ["/anim rain", "/sa"] * 2 else 1
 
+    # вложенные ключи: «сел» и «сел откинувшись» — играет только длинное,
+    # иначе длинная анимация сразу же гасится короткой
+    # nested keywords: of «сел» and «сел откинувшись» only the long one plays,
+    # otherwise the long animation is put out by the short one right away
+    print("\n=== Вложенные ключи: длинное совпадение важнее короткого ===")
+    nested_cases = (
+        ("Сел откинувшись на спинку", ["sit_back"]),
+        ("Сел на стул", ["sit"]),
+        ("Сел откинувшись, а потом сел прямо", ["sit_back", "sit"]),
+        ("Сел. Потом сел откинувшись.", ["sit", "sit_back"]))
+    for phrase, expected in nested_cases:
+        commands, _ = quick([rule(keywords="сел", name="sit", duration_ms=60),
+                             rule(keywords="сел откинувшись", name="sit_back",
+                                  duration_ms=60)], phrase)
+        names = [line.split()[-1] for line in commands if line.startswith("/anim")]
+        failed += 0 if names == expected else 1
+        print(f"  {'ok    ' if names == expected else 'ПРОВАЛ'} {phrase!r} -> {names}"
+              f" (ждали {expected})")
+
+    commands, _ = quick([rule(keywords="сел, сел откинувшись", name="sit",
+                              duration_ms=60)], "Сел откинувшись")
+    print(f"  оба ключа в одном правиле, длинный первым: {commands}")
+    failed += 0 if commands == ["/anim sit", "/sa"] else 1
+
+    # варианты анимации: два и больше /anim на один ключ — оверлей выбора
+    # animation variants: two or more /anim commands per keyword show a chooser
+    print("\n=== Варианты анимации (выбор из нескольких) ===")
+    cl = anims.Choice
+    variants_rule = anims.Rule(
+        keywords="оперся руками", name="", duration_ms=60,
+        choices=[cl(name="anim_counterleanbar", title="Опёрся на стойку",
+                    description="Локти на барной стойке"),
+                 cl(name="anim_leanrail", title="Опёрся на перила",
+                    description="Опирается на перила")])
+    failed += 0 if variants_rule.problem() == "" else 1
+    print(f"  правило с вариантами проходит проверку: {variants_rule.problem()!r}")
+    failed += 0 if variants_rule.needs_choice() else 1
+    print(f"  нужен оверлей выбора: {variants_rule.needs_choice()}")
+
+    single = anims.Rule(keywords="сел", duration_ms=60, choices=[cl(name="sit")])
+    failed += 0 if not single.needs_choice() else 1
+    print(f"  один вариант — обычное правило, оверлея нет: {single.needs_choice()}")
+
+    plain = anims.Rule(keywords="сел", name="sit", duration_ms=60)
+    failed += 0 if not plain.needs_choice() else 1
+    print(f"  правило без вариантов как раньше: {[c.name for c in plain.variant_list()]}")
+
+    again = anims.Rule.from_dict(variants_rule.to_dict())
+    same = [(c.name, c.title, c.description) for c in again.choices]
+    failed += 0 if same == [(c.name, c.title, c.description)
+                            for c in variants_rule.choices] else 1
+    print(f"  сохранение и чтение вариантов: {len(same)} шт.")
+
+    strings = anims.Rule.from_dict({"keywords": "x", "choices": ["anim_a", "anim_b"]})
+    failed += 0 if [c.name for c in strings.choices] == ["anim_a", "anim_b"] else 1
+    print(f"  варианты можно писать строкой: {[c.name for c in strings.choices]}")
+
+    # выбор: какой вариант уйдёт в игру
+    def choice_run(pick):
+        commands = []
+        chooser = lambda rule: (rule.choices[pick]
+                                if isinstance(pick, int) else pick)
+        runner_ = anims.Runner(
+            {"anims_enabled": True, "anim_extra_ms": 0},
+            send=lambda command: (commands.append(command) or (True, "")),
+            on_event=None, chooser=chooser)
+        runner_._rules = [anims.Rule(keywords="оперся", duration_ms=60,
+                                     choices=[cl(name="anim_a"), cl(name="anim_b")])]
+        runner_.feed("оперся")
+        time.sleep(0.35)
+        runner_.shutdown()
+        return commands
+
+    commands = choice_run(1)
+    print(f"  выбран второй вариант: {commands}")
+    failed += 0 if commands == ["/anim anim_b", "/sa"] else 1
+
+    commands = choice_run(None)
+    print(f"  отказ от выбора — не играет ничего: {commands}")
+    failed += 0 if commands == [] else 1
+
+    # смена варианта на ходу: окно не закрывается, и новый выбор меняет анимацию
+    # swapping on the fly: the window stays open and a new pick changes it
+    commands = []
+    swap = {}
+
+    def slow_pick(rule_obj, on_change=None):
+        """Первый ответ сразу, второй приходит во время проигрывания.
+
+        The first answer is immediate, the second arrives mid-play.
+        """
+        if on_change is not None:
+            swap["change"] = on_change
+        return rule_obj.choices[0]
+
+    runner_swap = anims.Runner(
+        {"anims_enabled": True, "anim_extra_ms": 0},
+        send=lambda command: (commands.append(command) or (True, "")),
+        on_event=None, chooser=slow_pick)
+    runner_swap._rules = [anims.Rule(keywords="оперся", duration_ms=400,
+                                     choices=[cl(name="anim_a"), cl(name="anim_b")])]
+    runner_swap.feed("оперся")
+    time.sleep(0.15)
+    swap["change"](anims.Choice(name="anim_b"))
+    time.sleep(0.7)
+    runner_swap.shutdown()
+    print(f"  смена варианта на ходу: {commands}")
+    # после смены новая анимация тоже гасится своим /sa
+    # the swapped-in animation is put out with its own /sa as well
+    failed += 0 if commands == ["/anim anim_a", "/sa", "/anim anim_b", "/sa"] else 1
+
+    # два ключа с выбором в одном сообщении: окна не наслаиваются, очередь меню
+    # идёт по одному, а выбор по каждому ключу сохраняется
+    # two chooser keywords in one message: the windows never stack, the menus run
+    # one at a time, and each keyword keeps its own pick
+    print("\n=== Два ключа с выбором в одном сообщении ===")
+    two = [anims.Rule(keywords="оперся", duration_ms=200,
+                      choices=[cl(name="lean_a"), cl(name="lean_b")],
+                      id="r1"),
+           anims.Rule(keywords="сел", duration_ms=200,
+                      choices=[cl(name="sit_a"), cl(name="sit_b")], id="r2")]
+    asked, orders = [], []
+
+    def two_pick(rule, on_change=None):
+        asked.append(rule.keywords)
+        return rule.choices[0]
+
+    sent_two = []
+    runner_two = anims.Runner(
+        {"anims_enabled": True, "anim_extra_ms": 0},
+        send=lambda command: (sent_two.append(command) or (True, "")),
+        on_event=None, chooser=two_pick)
+    runner_two._rules = two
+    runner_two.feed("оперся и сел")
+    time.sleep(0.9)
+    runner_two.shutdown()
+    orders.append(asked)
+    print(f"  спросили по очереди: {asked}")
+    failed += 0 if asked == ["оперся", "сел"] else 1
+    print(f"  сыграло по выбору каждого: {sent_two}")
+    failed += 0 if sent_two[:2] == ["/anim lean_a", "/sa"] else 1
+
     print("\n=== Проверка неверных правил ===")
     for bad in (rule(keywords=""), rule(name=""), rule(name="my anim"),
                 rule(duration_ms=-5), rule(mode=9)):

@@ -797,12 +797,25 @@ STRINGS = {
         "Rows can be dragged with the mouse; the order is kept in the settings "
         "and stays that way the next time the window opens.",
     "Строки таблицы перетаскиваются мышью — вместе с правилом едут его "
-    "режим, формы, длительность и галочки. Порядок в таблице нужен для "
-    "удобства: в игре анимации играют по порядку слов в сообщении.":
+    "режим, формы, длительность и галочки. Пока строку тянут, она "
+    "подсвечена, а синяя линия показывает, куда она встанет. Порядок в "
+    "таблице нужен для удобства: в игре анимации играют по порядку слов "
+    "в сообщении.":
         "Rows can be dragged with the mouse, and the rule's mode, forms, "
-        "duration and checkboxes travel with it. The table order is for "
-        "convenience: in the game animations play in the order of the words in "
-        "the message.",
+        "duration and checkboxes travel with it. While a row is dragged it is "
+        "highlighted, and a blue line shows where it will land. The table order "
+        "is for convenience: in the game animations play in the order of the "
+        "words in the message.",
+    "ПКМ по строке — «Свойства анимации…»: там задаются варианты, если "
+    "одному ключу подходят несколько анимаций. Например, ключ «оперся "
+    "руками» с вариантами anim_counterleanbar и anim_leanrail: в игре "
+    "откроется оверлей выбора с названием и описанием каждого. Один "
+    "вариант — обычное правило, оно играет сразу.":
+        "Right-click a row and choose Animation properties: that is where the "
+        "variants live, for when one keyword fits several animations. Take the "
+        "keyword «оперся руками» with the anim_counterleanbar and anim_leanrail "
+        "variants: the game shows a chooser with a title and a description for "
+        "each. A single variant is an ordinary rule and plays at once.",
     "Пауза после анимации, мс":
         "Pause after an animation, ms",
     "Добавляется к длительности самой анимации, и только потом "
@@ -830,6 +843,53 @@ STRINGS = {
         "Any case, number and conjugation: «открыл», «открывает», «откроет» share one stem. No dictionaries, always available.",
     "Сравнение по словарной форме слова (пакет pymorphy3) и по основе: «люди/человек», «зонта/зонт», «открыл/открывает». Без пакета pymorphy3 работает как «Основы».":
         "Comparison by the dictionary form (the pymorphy3 package) and by the stem: «люди/человек», «зонта/зонт», «открыл/открывает». Without pymorphy3 it works like «Stems».",
+    # ---------- варианты анимации и оверлей выбора / variants and the chooser ----------
+    "Свойства анимации": "Animation properties",
+    "Свойства анимации…": "Animation properties…",
+    "Добавить ещё один вариант…": "Add one more variant…",
+    "Дублировать правило": "Duplicate rule",
+    "Удалить правило": "Delete rule",
+    "Ключевые слова: %s": "Keywords: %s",
+    "не заданы": "none",
+    "Название": "Title",
+    "Описание": "Description",
+    "Добавить вариант": "Add variant",
+    "Удалить вариант": "Remove variant",
+    "Отмена": "Cancel",
+    "Готово": "Done",
+    "такая анимация уже есть в списке": "that animation is already in the list",
+    "Сначала выберите вариант.": "Select a variant first.",
+    "Сначала задайте название анимации в таблице.":
+        "Set the animation name in the table first.",
+    "Заполните варианты: имя для /anim, название и описание. Если "
+    "вариантов два и больше, в игре откроется оверлей выбора — игрок "
+    "увидит название и описание, а не имя команды. Один вариант — "
+    "обычное правило, оно играет сразу.":
+        "Fill in the variants: the /anim name, a title and a description. With "
+        "two or more variants the game opens a chooser, and the player sees the "
+        "title and description instead of the command name. One variant is an "
+        "ordinary rule and plays at once.",
+    "Выбор анимации": "Animation choice",
+    "Какую анимацию играть?": "Which animation should play?",
+    "Какую анимацию вы собираетесь использовать?":
+        "Which animation are you going to use?",
+    "Без описания": "No description",
+    "играет": "playing",
+    "Ещё меню в очереди: %d — после этого.":
+        "Menus still to come: %d, right after this one.",
+    "Окно не закроется само: другой вариант можно выбрать в любой момент · Esc — закрыть":
+        "The window will not close on its own: you can pick another variant "
+        "at any time · Esc closes it",
+    "Ничего": "Nothing",
+    "Ключ «%s» — какую анимацию играть?": "Keyword «%s» — which animation?",
+    "Выбор отправится в чат игры как /anim.":
+        "The choice is sent into the game chat as /anim.",
+    "выбор из %d: ": "a choice of %d: ",
+    "У правила %d варианта(ов) — отправляю первый: /anim %s":
+        "The rule has %d variants — sending the first one: /anim %s",
+    "Добавить ещё один вариант": "Add one more variant",
+    "вариантов анимации не может быть больше 12":
+        "there cannot be more than 12 animation variants",
     "Пакет pymorphy3 не найден: уровень «Леммы» сравнивает по основе.":
         "The pymorphy3 package is missing: the «Lemmas» level compares by stem.",
     "Добавить правило":
@@ -844,8 +904,8 @@ STRINGS = {
         "Rule check",
     "Например: /me привет":
         "For example: /me hello",
-    "Несколько ключевых слов в одном правиле разделяются запятой: «привет, здравствуй». Совпадение ищется целым словом и без учёта регистра, «ё» и «е» считаются одной буквой. Столбец «Формы» решает, как сравнивать слово: «Точно» — ровно написанное, «Основы» — любые падежи и спряжения («открыл» = «открывает»), «Леммы» — по словарю pymorphy3. Одно и то же слово правило запускает один раз, сколько бы раз оно ни повторилось, а каждое своё ключевое слово — отдельным выходом: «да ну, да брось» на «Да ну да брось» сыграет анимацию дважды. Если в одном сообщении совпало несколько правил, анимации играют по очереди, по одной: пока одна на экране, следующая ждёт. Порядок — как в самом сообщении: «Чёрт, я устал *кашляет*» сначала запустит анимацию на «чёрт», потом на «кашляет», даже если в таблице эти правила стоят наоборот.":
-        "Several keywords in one rule are separated by commas: «привет, здравствуй». A match is a whole word, case-insensitive, and «ё» counts as «е». The «Forms» column decides how a word is compared: «Exact» is the written form, «Stems» covers any case and conjugation («открыл» = «открывает»), «Lemmas» uses the pymorphy3 dictionary. The same word fires a rule once however often it repeats, while every keyword of the rule fires on its own: «да ну, да брось» plays the animation twice on «Да ну да брось». When several rules match one message, the animations play one after another: while one is on screen, the next waits. The order follows the message itself: «Чёрт, я устал *кашляет*» plays the «чёрт» animation first and the «кашляет» one second, even when the rules are listed the other way round.",
+    "Несколько ключевых слов в одном правиле разделяются запятой: «привет, здравствуй». Совпадение ищется целым словом и без учёта регистра, «ё» и «е» считаются одной буквой. Столбец «Формы» решает, как сравнивать слово: «Точно» — ровно написанное, «Основы» — любые падежи и спряжения («открыл» = «открывает»), «Леммы» — по словарю pymorphy3. Одно и то же слово правило запускает один раз, сколько бы раз оно ни повторилось, а каждое своё ключевое слово — отдельным выходом: «да ну, да брось» на «Да ну да брось» сыграет анимацию дважды. Если в одном сообщении совпало несколько правил, анимации играют по очереди, по одной: пока одна на экране, следующая ждёт. Порядок — как в самом сообщении: «Чёрт, я устал *кашляет*» сначала запустит анимацию на «чёрт», потом на «кашляет», даже если в таблице эти правила стоят наоборот. Если один ключ целиком входит в другой, играет только длинный: на «Сел откинувшись» сработает «сел откинувшись», а «сел» промолчит — иначе короткая анимация сразу же погасила бы длинную. Отдельные упоминания в том же сообщении считаются: «Сел откинувшись, а потом сел прямо» запустит обе.":
+        "Several keywords in one rule are separated by commas: «привет, здравствуй». A match is a whole word, case-insensitive, and «ё» counts as «е». The «Forms» column decides how a word is compared: «Exact» is the written form, «Stems» covers any case and conjugation («открыл» = «открывает»), «Lemmas» uses the pymorphy3 dictionary. The same word fires a rule once however often it repeats, while every keyword of the rule fires on its own: «да ну, да брось» plays the animation twice on «Да ну да брось». When several rules match one message, the animations play one after another: while one is on screen, the next waits. The order follows the message itself: «Чёрт, я устал *кашляет*» plays the «чёрт» animation first and the «кашляет» one second, even when the rules are listed the other way round. When one keyword sits inside another, only the longer one fires: on «Сел откинувшись» the «сел откинувшись» rule plays and «сел» stays quiet, otherwise the short animation would put the long one out at once. Separate mentions in the same message still count: «Сел откинувшись, а потом сел прямо» plays both.",
     "Правил: %d, готовы к работе: %d, с зацикливанием: %d":
         "Rules: %d, ready to run: %d, looping: %d",
     " · модуль выключен":

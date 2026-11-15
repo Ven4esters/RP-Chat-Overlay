@@ -153,11 +153,25 @@ _NICK_RE = re.compile(r"\s*\S+\s+")          # получатель в /to и /l
 _ACTION_RE = re.compile(r"\*([^*]+)\*")
 _WORD_RE = re.compile(r"[^\W\d_]+(?:[-'’][^\W\d_]+)*", re.UNICODE)   # слова с позициями
 
+# Варианты одной анимации: ключ один, а /anim из него — несколько.
+# Названия и описания задаются в интерфейсе (ПКМ по правилу) и нужны для
+# оверлея выбора: игрок видит не «anim_counterleanbar», а «Опёрся на стойку —
+# Стоит, опершись локтями на барную стойку».
+# Variants of one animation: one keyword, several /anim commands. The titles and
+# descriptions are set in the interface (right-click a rule) and feed the chooser
+# overlay, so the player sees a human name instead of «anim_counterleanbar».
+MAX_CHOICES = 12          # больше вариантов в оверлее не поместится / the chooser fits no more
+MAX_TITLE = 60            # длина названия варианта / the variant title length
+MAX_DESC = 300            # длина описания варианта / the variant description length
+
 VAL_EMPTY_KEYWORD = "ключевое слово не задано"
 VAL_EMPTY_NAME = "название анимации не задано"
 VAL_BAD_NAME = "в названии анимации не должно быть пробелов и косых черт"
 VAL_BAD_MS = "длительность должна быть от 0 до 600000 мс"
 VAL_BAD_MODE = "такой режим считывания не поддерживается"
+VAL_TOO_MANY_CHOICES = f"вариантов анимации не может быть больше {MAX_CHOICES}"
+# в словаре перевода ключ — ровно эта строка с числом
+# the translation key is exactly this string, the number included
 
 
 # ------------------------------------------------------------------- разбор
@@ -295,24 +309,28 @@ def _keyword_negated(keyword: str) -> bool:
 
 def _phrase_hits(words: list[tuple[int, int, str]], word_keys: list[frozenset[str]],
                  chunk: str, keyword: str, keys: "morph.KeyCache", forms: int,
-                 negation: bool = True) -> list[tuple[int, str]]:
-    """Совпадения ключевой фразы в куске текста: (смещение, найденный текст).
+                 negation: bool = True) -> list[tuple[int, int]]:
+    """Совпадения ключевой фразы в куске текста: (начало, конец).
 
-    Every match of the keyword phrase in a chunk: (offset, the text found).
+    Every match of the keyword phrase in a chunk: (start, end).
 
     Слова фразы ищутся по порядку, между ними допускается не больше
     ``GAP_WORDS`` посторонних слов; на уровне «Точно» — только вплотную.
     ``negation`` включает проверку отрицания (кроме ключей, где оно уже есть).
+    Возвращаются границы найденного, а не текст: по границам потом видно,
+    какое совпадение длиннее и какое лежит внутри другого.
     The phrase words are matched in order with at most ``GAP_WORDS`` words in
     between (the "Exact" level wants them adjacent). ``negation`` turns the
     negation check on — except for keywords that already negate themselves.
+    The span is returned rather than the text: the spans show which match is
+    longer and which one sits inside another.
     """
     want = [keys(word, forms) for word in _WORD_RE.findall(keyword)]
     if not want:
         return []
     check = negation and not _keyword_negated(keyword)
     gap = 0 if forms == morph.FORMS_EXACT else GAP_WORDS
-    found: list[tuple[int, str]] = []
+    found: list[tuple[int, int]] = []
     for index in range(len(words)):
         if not word_keys[index] & want[0]:
             continue
@@ -320,10 +338,10 @@ def _phrase_hits(words: list[tuple[int, int, str]], word_keys: list[frozenset[st
         matched = [index]
         for need in want[1:]:
             step = previous + 1
-            last = previous + 1 + gap
+            last = previous + 1 + gap      # не больше ``gap`` слов между словами
             while step <= last and step < len(words) and not word_keys[step] & need:
                 step += 1
-            if step >= len(words) or not word_keys[step] & need:
+            if step > last or step >= len(words) or not word_keys[step] & need:
                 previous = -1
                 break
             previous = step
@@ -334,9 +352,75 @@ def _phrase_hits(words: list[tuple[int, int, str]], word_keys: list[frozenset[st
             log.info("Анимации: «%s» найдено, но отрицание — пропуск",
                      chunk[words[index][0]:words[previous][1]])
             continue
-        start, end = words[index][0], words[previous][1]
-        found.append((start, chunk[start:end].strip()))
+        found.append((words[index][0], words[previous][1]))
     return found
+
+
+def _inside(inner: tuple[int, int], outer: tuple[int, int]) -> bool:
+    """Лежит ли ``inner`` внутри ``outer`` и короче ли он.
+
+    Does ``inner`` sit inside ``outer``, and is it shorter.
+
+    Нужно для вложенных ключей: «сел» находится внутри «сел откинувшись», и
+    играть должно не оба, а только более точное — длинное — совпадение.
+    Совпадение той же длины вложенным не считается: два правила с одинаковым
+    ключом — осознанный выбор игрока, и оба срабатывают.
+    This is for nested keywords: «сел» is found inside «сел откинувшись», and only
+    the more precise, longer match must play — never both. A match of the same
+    length is not nested: two rules with an identical keyword are the player's
+    deliberate choice, and both fire.
+    """
+    return (outer[0] <= inner[0] and inner[1] <= outer[1]
+            and (outer[1] - outer[0]) > (inner[1] - inner[0]))
+
+
+def select_spans(candidates: Iterable[tuple[int, int, object]]
+                 ) -> list[tuple[int, int, object]]:
+    """Какие совпадения играют: длинное забирает своё, короткое отступает.
+
+    Which matches play: the long one takes its place and the short one steps
+    aside.
+
+    ``candidates`` — (начало, конец, метка ключа) по всем правилам сразу.
+    Метка — это (правило, номер ключевого слова): по ней видно, какое срабатывание
+    чьё, ведь у каждого правила свои ключи.
+    ``candidates`` are (start, end, a keyword label) for every rule at once. The
+    label is (rule, keyword number): it tells whose hit is whose, as every rule
+    has keywords of its own.
+    Порядок разбора такой:
+    The selection goes like this:
+
+    1. Совпадения покороче отбрасываются, если лежат внутри более длинного:
+       «сел» внутри «сел откинувшись» — это та же мысль, только короче.
+       Shorter matches are dropped when they sit inside a longer one: «сел»
+       inside «сел откинувшись» says the same thing in fewer words.
+    2. Один ключ играет один раз: повтор того же слова второй раз молчит.
+       Два разных ключа одного правила, стоящие рядом («да ну да брось»), —
+       это два срабатывания, поэтому метки у них разные.
+       One keyword plays once: a repeated word stays quiet the second time. Two
+       different keywords of one rule side by side («да ну да брось») are two
+       hits, which is why their labels differ.
+    """
+    items = sorted(candidates,
+                   key=lambda item: (-(item[1] - item[0]), item[0], repr(item[2])))
+    # 1: короткое внутри длинного — не отдельное срабатывание
+    # 1: a short match inside a long one is not a hit of its own
+    outer = [(begin, end) for begin, end, _ in items]
+    alive = [item for index, item in enumerate(items)
+             if not any(_inside((item[0], item[1]), other)
+                        for other_index, other in enumerate(outer)
+                        if other_index != index)]
+    # 2: один ключ играет один раз
+    # 2: one keyword plays once
+    picked: list[tuple[int, int, object]] = []
+    taken: set[object] = set()
+    for begin, end, label in alive:
+        if label in taken:
+            continue
+        taken.add(label)
+        picked.append((begin, end, label))
+    picked.sort(key=lambda item: (item[0], item[1]))
+    return picked
 
 
 # -------------------------------------------------------------- контекст поиска
@@ -384,6 +468,69 @@ class Context:
 
 # -------------------------------------------------------------------- правило
 @dataclass
+class Choice:
+    """Один вариант анимации: имя для /anim плюс подпись и описание.
+
+    One animation variant: the /anim name plus a title and a description.
+    """
+
+    name: str = ""          # имя для /anim / the /anim name
+    title: str = ""         # как назвать игроку / the name shown to the player
+    description: str = ""   # объяснение в оверлее выбора / the chooser description
+
+    def label(self) -> str:
+        """Как вариант подписан: название, а без него — имя команды.
+
+        How the variant is labelled: its title, or the command name without one.
+        """
+        return (self.title or "").strip() or (self.name or "").strip()
+
+    def problem(self) -> str:
+        """Что не так с вариантом; пустая строка — всё в порядке."""
+        if not (self.name or "").strip():
+            return VAL_EMPTY_NAME
+        if re.search(r"[\s/]", self.name.strip()):
+            return VAL_BAD_NAME
+        return ""
+
+    def to_dict(self) -> dict[str, Any]:
+        data: dict[str, Any] = {"name": self.name.strip().lstrip("/")}
+        if (self.title or "").strip():
+            data["title"] = self.title.strip()[:MAX_TITLE]
+        if (self.description or "").strip():
+            data["description"] = self.description.strip()[:MAX_DESC]
+        return data
+
+    @classmethod
+    def from_dict(cls, data: Any) -> "Choice | None":
+        """Вариант из config.json; пустой или мусор — None.
+
+        A variant from config.json; an empty or junk one is None.
+        Можно писать просто строкой: ``"anim_leanrail"`` — тогда ни названия,
+        ни описания у варианта нет.
+        A bare string works too: ``"anim_leanrail"`` gives a variant with neither
+        a title nor a description.
+        """
+        if isinstance(data, str):
+            name = data.strip().lstrip("/")
+            return cls(name=name) if name else None
+        if not isinstance(data, Mapping):
+            return None
+        name = str(data.get("name") or "").strip().lstrip("/")
+        if not name:
+            return None
+        return cls(name=name,
+                   title=str(data.get("title") or "").strip()[:MAX_TITLE],
+                   description=str(data.get("description") or "").strip()[:MAX_DESC])
+
+
+def _same_rule(one: "Rule", other: "Rule") -> bool:
+    """Это срабатывания одного правила / do both come from the same rule."""
+    return (getattr(one, "id", None) == getattr(other, "id", None)
+            and one.keywords == other.keywords)
+
+
+@dataclass
 class Rule:
     """Правило анимации / one animation rule."""
 
@@ -395,6 +542,9 @@ class Rule:
     loop: bool = False
     enabled: bool = True
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
+    # варианты: два и больше — в игре открывается оверлей выбора
+    # variants: two or more make the game show the chooser overlay
+    choices: list[Choice] = field(default_factory=list)
 
     # --- проверка ---
     def problem(self) -> str:
@@ -405,10 +555,16 @@ class Rule:
         if not keywords_of(self.keywords):
             return VAL_EMPTY_KEYWORD
         name = self.name.strip()
-        if not name:
+        if not name and not self.choices:
             return VAL_EMPTY_NAME
-        if re.search(r"[\s/]", name):
+        if name and re.search(r"[\s/]", name):
             return VAL_BAD_NAME
+        if len(self.choices) > MAX_CHOICES:
+            return VAL_TOO_MANY_CHOICES
+        for choice in self.choices:
+            problem = choice.problem()
+            if problem:
+                return problem
         if not isinstance(self.duration_ms, int) or not MIN_MS <= self.duration_ms <= MAX_MS:
             return VAL_BAD_MS
         if self.mode not in MODES:
@@ -418,6 +574,29 @@ class Rule:
     def ready(self) -> bool:
         """Правило можно исполнять / the rule can actually run."""
         return self.enabled and not self.problem()
+
+    # --- варианты ---
+    def variant_list(self) -> list["Choice"]:
+        """Что игрок выберет: варианты, а без них — само правило.
+
+        What the player chooses from: the variants, or the rule itself when it
+        has none. Одно правило без вариантов ведёт себя как раньше — сразу
+        играет, без оверлея.
+        A rule without variants behaves as before: it plays at once, no overlay.
+        """
+        if self.choices:
+            return list(self.choices)
+        name = self.name.strip()
+        return [Choice(name=name)] if name else []
+
+    def needs_choice(self) -> bool:
+        """Нужен ли оверлей выбора: вариантов два и больше.
+
+        Is the chooser needed: two or more variants. Один вариант — это обычное
+        правило, выбор из одного ничего не решает.
+        One variant is an ordinary rule: choosing from one option decides nothing.
+        """
+        return len(self.choices) > 1
 
     # --- сопоставление ---
     def scan(self, text: str, ctx: "Context | None" = None
@@ -444,20 +623,50 @@ class Rule:
         The hits of the rule in order: (position, the text found). Two different
         keywords in one message give two hits, a repeated word gives one.
         """
+        return [(start, form) for start, _, form in self.spans(text, ctx)]
+
+    def spans(self, text: str, ctx: "Context | None" = None
+              ) -> list[tuple[int, int, str]]:
+        """Срабатывания правила с границами: (начало, конец, найденный текст).
+
+        Свои совпадения правило разбирает само — тем же правилом «длинное
+        побеждает вложенное», что и в работе: два ключа одного правила, один из
+        которых вложен в другой, дают одно срабатывание, а не два.
+        The hits of the rule with their bounds: (start, end, the text found). The
+        rule resolves its own matches with the same "the longer one wins" rule
+        used at run time: two keywords of one rule, one nested in the other, give
+        one hit, not two.
+        """
+        picked = select_spans(self.candidates(text, ctx))
+        return [(begin, end, text[begin:end].strip()) for begin, end, _label
+                in picked]
+
+    def candidates(self, text: str, ctx: "Context | None" = None
+                   ) -> list[tuple[int, int, int]]:
+        """Все совпадения правила без разбора: (начало, конец, номер ключа).
+
+        Отдаются и вложенные совпадения: короткое слово внутри длинной фразы —
+        это тоже находка, просто её потом отбросит отбор. Нужно это затем, что
+        решать, какое совпадение лишнее, приходится сразу для **всех** правил:
+        «сел» и «сел откинувшись» могут жить в двух разных правилах.
+        Every match of the rule, nested ones included: (start, end, keyword
+        number). A short word inside a long phrase is a find too, it is just
+        dropped later. The selection has to happen across **all** rules at once,
+        because «сел» and «сел откинувшись» may live in two different rules.
+        """
         if not self.enabled:
-            return [], []
+            return []
         keywords = keywords_of(self.keywords)
         if not keywords:
-            return [], []
+            return []
         ctx = ctx or Context()
-        hits: list[tuple[int, str]] = []
+        found: list[tuple[int, int, int]] = []
         for start, chunk in analysed_spans(text, self.mode):
             words = _words_of(chunk)
             word_keys = [ctx.keys(word, self.forms) for _, _, word in words]
             phrases = ctx.phrases(chunk)
-            claimed: list[tuple[int, int]] = []      # уже занятые места в куске
-            for keyword in keywords:
-                here: list[tuple[int, str]] = list(
+            for order, keyword in enumerate(keywords):
+                here: list[tuple[int, int]] = list(
                     _phrase_hits(words, word_keys, chunk, keyword, ctx.keys,
                                  self.forms, ctx.negation))
                 key = ctx.key_of(keyword)
@@ -476,30 +685,11 @@ class Rule:
                             log.info("Анимации: «%s» найдено, но отрицание — пропуск",
                                      chunk[offset:end])
                             continue
-                        here.append((offset, chunk[offset:end].strip()))
-                if not here:
-                    continue
-                here.sort(key=lambda item: item[0])
-                # одно срабатывание на ключ: повтор того же слова второй раз не
-                # играет, а место берётся первое, ещё никем не занятое —
-                # так «да ну» и «да брось» в одной фразе дают два срабатывания
-                # one hit per keyword: a repeated word plays once, and the place
-                # is the first still free one, so «да ну» plus «да брось» in one
-                # phrase fire twice
-                span = None
-                for offset, form in here:
-                    candidate = (offset, offset + len(form))
-                    if any(candidate[0] < other_end and other_start < candidate[1]
-                           for other_start, other_end in claimed):
-                        continue
-                    span = candidate
-                    break
-                if span is None:
-                    continue
-                claimed.append(span)
-                hits.append((start + span[0], chunk[span[0]:span[1]].strip()))
-        hits.sort(key=lambda item: item[0])
-        return hits
+                        here.append((offset, end))
+                for begin, end in here:
+                    found.append((start + begin, start + end, order))
+        found.sort(key=lambda item: (item[0], -(item[1] - item[0]), item[2]))
+        return found
 
     def matches(self, text: str, ctx: "Context | None" = None) -> list[str]:
         """Какие слова нашлись в сообщении / which words matched."""
@@ -507,10 +697,14 @@ class Rule:
 
     # --- хранение ---
     def to_dict(self) -> dict[str, Any]:
-        return {"id": self.id, "keywords": self.keywords, "name": self.name.strip(),
-                "mode": int(self.mode), "forms": int(self.forms),
-                "duration_ms": int(self.duration_ms),
-                "loop": bool(self.loop), "enabled": bool(self.enabled)}
+        data: dict[str, Any] = {
+            "id": self.id, "keywords": self.keywords, "name": self.name.strip(),
+            "mode": int(self.mode), "forms": int(self.forms),
+            "duration_ms": int(self.duration_ms),
+            "loop": bool(self.loop), "enabled": bool(self.enabled)}
+        if self.choices:
+            data["choices"] = [choice.to_dict() for choice in self.choices]
+        return data
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "Rule":
@@ -532,6 +726,13 @@ class Rule:
         forms = _int(data.get("forms"), morph.FORMS_DEFAULT)
         if forms not in morph.FORMS:
             forms = morph.FORMS_DEFAULT
+        choices: list[Choice] = []
+        raw_choices = data.get("choices")
+        if isinstance(raw_choices, (list, tuple)):
+            for item in raw_choices:
+                choice = Choice.from_dict(item)
+                if choice is not None:
+                    choices.append(choice)
         return cls(
             keywords=str(data.get("keywords") or ""),
             name=str(data.get("name") or "").strip().lstrip("/"),
@@ -541,6 +742,7 @@ class Rule:
             loop=bool(data.get("loop")),
             enabled=bool(data.get("enabled", True)),
             id=str(data.get("id") or uuid.uuid4().hex[:8]),
+            choices=choices[:MAX_CHOICES],
         )
 
 
@@ -563,6 +765,72 @@ def rules_to_cfg(rules: Iterable[Rule]) -> list[dict[str, Any]]:
     return [rule.to_dict() for rule in rules]
 
 
+# ------------------------------------------------------------------ разбор
+def plan(rules: Iterable["Rule"], text: str, ctx: "Context | None" = None
+         ) -> list[tuple[int, int, "Rule", str]]:
+    """Что сыграет и в каком порядке: (место, номер правила, правило, текст).
+
+    What plays, and in which order: (position, rule number, rule, text).
+
+    Это единственное место, где решается судьба вложенных ключей: «сел» и «сел
+    откинувшись» — разные правила, и решать приходится сразу за оба. Порядок —
+    по месту в сообщении, при равных местах — по таблице правил.
+    This is the only place where nested keywords are settled: «сел» and «сел
+    откинувшись» are separate rules, so the decision has to cover both at once.
+    The order follows the message, ties follow the rule table.
+    """
+    table = list(rules)
+    ctx = ctx or Context()
+    candidates: list[tuple[int, int, int, int, str]] = []
+    for index, rule in enumerate(table):
+        for begin, end, order in rule.candidates(text, ctx):
+            candidates.append((begin, end, index, order, text[begin:end]))
+    if not candidates:
+        return []
+    picked = select_spans((begin, end, (index, order))
+                          for begin, end, index, order, _ in candidates)
+    chosen = {(begin, end) for begin, end, _ in picked}
+    # что не сыграло и почему — видно в журнале
+    # what did not play, and why, is visible in the log
+    for begin, end, index, _order, form in candidates:
+        if (begin, end) in chosen:
+            continue
+        if any(other_begin <= begin and end <= other_end
+               and (other_end - other_begin) > (end - begin)
+               for other_begin, other_end, _label in picked):
+            log.info("Анимации: «%s» входит в более длинное совпадение — "
+                     "правило «%s» пропущено", form, table[index].keywords[:40])
+    # одно правило в одном месте срабатывает один раз, а разные правила на одном
+    # и том же слове — оба, как было и раньше
+    # a rule fires once at one place; different rules on the same word both fire,
+    # exactly as before
+    per_rule_span: dict[tuple[int, int, int], None] = {}
+    for begin, end, (index, _order) in picked:
+        per_rule_span[(begin, end, index)] = None
+    result = [(begin, index, table[index], text[begin:end]) for begin, end, index
+              in sorted(per_rule_span, key=lambda item: item[:2])]
+    for index, rule in enumerate(table):
+        forms: list[str] = []
+        played = 0
+        for begin, end, hit_index, _order, form in candidates:
+            if hit_index != index:
+                continue
+            if form not in forms:
+                forms.append(form)
+            if (begin, end) in chosen:
+                played += 1
+        if not forms:
+            continue
+        # одно срабатывание на каждое ключевое слово правила: разные ключи
+        # играют подряд, повтор того же слова — только раз
+        # one hit per keyword of the rule: different keywords play in turn, a
+        # repeated word plays once
+        log.info("Анимации: «%s» по правилу «%s» (%s) -> /anim %s, "
+                 "срабатываний: %d", text[:60], rule.keywords[:40],
+                 ", ".join(forms), rule.name, played)
+    return result
+
+
 # ------------------------------------------------------------------ исполнитель
 class Runner:
     """Очередь анимаций: `/anim` -> пауза -> `/sa`, при зацикливании по кругу.
@@ -580,7 +848,8 @@ class Runner:
                  on_event: Callable[[str, str], None] | None = None,
                  equivalent: Callable[[str], str] | None = None,
                  press_key: Callable[[str], tuple[bool, str]] | None = None,
-                 text_keys: Callable[[str], list[tuple[int, int, str]]] | None = None
+                 text_keys: Callable[[str], list[tuple[int, int, str]]] | None = None,
+                 chooser: Callable[["Rule"], "Choice | None"] | None = None
                  ) -> None:
         """equivalent — «фраза -> ключ словаря» для слов-синонимов.
 
@@ -595,6 +864,15 @@ class Runner:
         анимации клавишей вместо команды `/sa`.
         press_key presses a key in the game (a simulated press) so an animation
         can be stopped by a key instead of the /sa command.
+
+        chooser — спросить игрока, какой из вариантов играть. Вызывается из
+        потока очереди и должен вернуть выбранный ``Choice`` или None, если
+        игрок отказался (или оверлей показать не удалось) — тогда правило
+        пропускается целиком. Без неё правило с вариантами играет первый.
+        chooser asks the player which variant to play. It is called from the
+        queue thread and must return the chosen ``Choice``, or None when the
+        player backed out (or the overlay could not be shown) — the rule is then
+        skipped entirely. Without it a rule with variants plays the first one.
         """
         self.cfg: Mapping[str, Any] = cfg or {}
         self.send = send or (lambda command: (False, "отправка недоступна"))
@@ -602,6 +880,7 @@ class Runner:
         self.equivalent = equivalent
         self.press_key = press_key
         self.text_keys = text_keys
+        self.chooser = chooser
         self._rules: list[Rule] = rules_from_cfg(self.cfg)
         self._queue: deque[Rule] = deque()
         self._lock = threading.RLock()
@@ -609,6 +888,13 @@ class Runner:
         self._thread: threading.Thread | None = None
         self._done = threading.Event()
         self._end_at = 0.0                      # конец проигрывания, monotonic
+        # Смена анимации на ходу: окно выбора остаётся открытым, и новый выбор
+        # приходит сюда, а не в очередь.
+        # Swapping the animation on the fly: the chooser stays open, and a new pick
+        # arrives here instead of the queue.
+        self._swap_choice = None                # какой вариант просят играть
+        self._swap_token = 0                    # какой заход правила это застал
+        self._play_token = 0                    # номер текущего захода правила
         self._quiet_off = False                 # про выключенный модуль пишем раз
         self._stop_run = threading.Event()      # прервать текущий цикл / abort the run
         self._current: Rule | None = None
@@ -661,29 +947,28 @@ class Runner:
         self._quiet_off = False
         ctx = Context(equivalent=self.equivalent, text_keys=self.text_keys,
                       negation=self.negation())
-        hits: list[tuple[int, int, Rule]] = []
-        for index, rule in enumerate(self.rules()):
-            if not rule.ready():
-                continue
-            found, positions = rule.scan(text, ctx)
-            if not positions:
-                continue
-            # одно срабатывание на каждое ключевое слово правила: разные ключи
-            # играют подряд, повтор того же слова — только раз
-            # one hit per keyword of the rule: different keywords play in turn,
-            # a repeated word plays once
-            log.info("Анимации: «%s» по правилу «%s» (%s) -> /anim %s, "
-                     "срабатываний: %d",
-                     text[:60], rule.keywords[:40], ", ".join(found), rule.name,
-                     len(positions))
-            for position in positions:
-                hits.append((position, index, rule))
-        hits.sort(key=lambda item: (item[0], item[1]))     # позиция, потом таблица
+        rules = [rule for rule in self.rules() if rule.ready()]
+        hits = plan(rules, text, ctx)
         log.info("Анимации: в очередь %s", " -> ".join("/anim " + rule.name
-                                                       for _, _, rule in hits))
-        for _, _, rule in hits:
+                                                       for _, _, rule, _ in hits))
+        for _, _, rule, _ in hits:
+            # Меню этого правила ещё висит в очереди выбора — возвращаем его,
+            # а не открываем второе такое же: игрок как раз хочет поменять
+            # анимацию по этому ключу.
+            # This rule's menu is still waiting in the choice queue: it is brought
+            # back instead of opening a second one — the player wants to change the
+            # animation for that keyword.
+            focus = getattr(self.chooser, "focus_menu_for", None)
+            if callable(focus) and rule.needs_choice():
+                try:
+                    if focus(rule):
+                        log.info("Анимации: меню «%s» поднято из очереди выбора",
+                                 rule.keywords[:40])
+                        continue
+                except Exception:
+                    log.exception("Анимации: не удалось вернуть меню выбора")
             self._enqueue(rule)
-        return [rule for _, _, rule in hits]
+        return [rule for _, _, rule, _ in hits]
 
     def _enqueue(self, rule: Rule) -> None:
         copy = Rule.from_dict(rule.to_dict())      # снимок на момент срабатывания
@@ -709,6 +994,12 @@ class Runner:
         play. Only a full stop — ``stop()`` or ``clear()`` — drops it.
         """
         self._reset_pending = True
+        # Окно выбора остаётся открытым: игрок нажал «остановить», но выбрать
+        # другой вариант после остановки — обычное дело. Совсем убирает окно
+        # только полная остановка (stop/clear).
+        # The chooser stays open: the player asked to stop, but picking another
+        # variant afterwards is normal. Only a full stop (stop/clear) removes it.
+        self._drop_choice_window()
         with self._cv:
             queued = len(self._queue)
             if not self._current and not queued:
@@ -722,6 +1013,9 @@ class Runner:
     def stop(self, reason: str = "") -> bool:
         """Прервать текущий цикл и очистить очередь / abort the run and the queue."""
         stopped = bool(self._current) or bool(self._queue)
+        # полная остановка убирает окно совсем; клавиша остановки его оставляет
+        # a full stop removes the window for good; the stop key keeps it
+        self._drop_choice_window(close=True)
         if reason and reason != "остановлено игроком":
             self._reset_pending = False
         with self._cv:
@@ -909,7 +1203,25 @@ class Runner:
         self._stop_run.clear()
         with self._lock:
             self._current = rule
-        self._emit("playing", rule.name)
+            self._play_token += 1
+            token = self._play_token
+            self._swap_choice = None
+        # выбор варианта — до первого /anim: пока игрок думает, в игре ничего
+        # не играет, и очередь стоит. Окно после выбора не закрывается, и выбор
+        # другого варианта меняет анимацию на ходу.
+        # the variant is chosen before the first /anim: nothing plays in the game
+        # while the player picks, and the queue waits. The window stays open after
+        # the pick, and picking another variant swaps the animation on the fly.
+        variant = self._choose(rule, token)
+        if variant is None:
+            # игрок отказался или оверлей не показать: правило пропускаем целиком,
+            # иначе в чат уйдёт не то, что он ждал
+            # the player backed out or the overlay could not be shown: the whole
+            # rule is skipped, otherwise the game plays what he did not pick
+            self._end_at = time.monotonic()
+            self._withdraw_choice(token)
+            return
+        self._emit("playing", variant.label() if rule.needs_choice() else rule.name)
         # время проигрывания считается от отправки `/anim`: сама отправка тоже
         # занимает время (фокус в игру, чат, вставка, Enter), и оно входит в
         # длительность, иначе каждая пауза незаметно удлинялась бы на полсекунды
@@ -917,32 +1229,63 @@ class Runner:
         # (focus, game chat, paste, Enter), and it belongs to the duration —
         # otherwise every pause would quietly grow by half a second
         started = time.monotonic()
-        if not self._send(f"/anim {rule.name}", rule):
+        if not self._send(f"/anim {variant.name}", rule):
             self._end_at = started
             return
         if rule.duration_ms <= 0:
             # 0 мс: анимацию не останавливаем — ни /sa, ни клавишей
             # 0 ms: the animation is not stopped at all
             self._end_at = started
-            self._emit("done", rule.name)
+            self._emit("done", variant.name)
             return
         deadline = started + rule.duration_ms / 1000.0
         while True:
-            if self._wait(max(0.0, deadline - time.monotonic())):
-                # анимацию остановили клавишей игрока: гасим её выбранным способом
-                # the player stopped the animation: put it out the chosen way
-                if self._reset_pending:
-                    self._reset_pending = False
-                    self._stop_animation(rule)
-                self._end_at = time.monotonic()
-                return
+            # Смена варианта проверяется ДО решения о конце: за время ожидания
+            # игрок мог нажать другой вариант, и тогда правило не заканчивается,
+            # а играет выбранное — при зацикливании и без него одинаково.
+            # The swap is checked BEFORE deciding the run is over: while waiting the
+            # player may have picked another variant, and then the rule does not
+            # end but plays the pick — with looping and without it alike.
+            swapped = self._take_swap(token)
+            if swapped is not None and swapped.name != variant.name:
+                log.info("Анимации: смена варианта %s -> %s", variant.name,
+                         swapped.name)
+                self._stop_animation(rule)
+                variant = swapped
+                self._emit("playing", variant.label())
+                started = time.monotonic()
+                if not self._send(f"/anim {variant.name}", rule):
+                    self._end_at = started
+                    return
+                if rule.duration_ms <= 0:
+                    self._end_at = started
+                    self._emit("done", variant.name)
+                    return
+                deadline = started + rule.duration_ms / 1000.0
+                continue
+            if time.monotonic() < deadline:
+                # Ждём короткими шагами, чтобы не проспать смену варианта.
+                # Wait in short steps so a variant swap is not slept through.
+                left = deadline - time.monotonic()
+                if self._stop_run.wait(min(left, 0.08)):
+                    # анимацию остановили клавишей игрока: гасим её выбранным
+                    # способом
+                    # the player stopped the animation: put it out the chosen way
+                    if self._reset_pending:
+                        self._reset_pending = False
+                        self._stop_animation(rule)
+                    self._end_at = time.monotonic()
+                    self._withdraw_choice(token)
+                    self._notify_rule_done()
+                    return
+                continue
             if rule.loop:
                 # при зацикливании остановки нет: анимация просто запускается
                 # снова по таймеру, ровно через свою длительность
                 # with looping on nothing stops: the animation simply starts
                 # again by the timer, exactly one duration later
                 deadline += rule.duration_ms / 1000.0
-                if not self._send(f"/anim {rule.name}", rule, quiet=True):
+                if not self._send(f"/anim {variant.name}", rule, quiet=True):
                     self._end_at = deadline
                     return
                 continue
@@ -954,8 +1297,174 @@ class Runner:
             # the next animation starts one tail after the END of the play, and
             # the time spent stopping is taken out of that tail
             self._end_at = deadline
-            self._emit("done", rule.name)
+            # подписку не снимаем: меню ещё висит, и игрок может поменять
+            # анимацию — тогда она сыграет заново (push_swap)
+            # the subscription stays: the menu is still up, and the player may swap
+            # the animation — then it plays again (push_swap)
+            self._notify_rule_done()
+            self._emit("done", variant.name)
             return
+
+    def _choose(self, rule: Rule, token: int = 0) -> "Choice | None":
+        """Какой вариант играть / which variant to play.
+
+        Три случая:
+        Three cases:
+
+        * вариантов нет или он один — играем его, оверлей не нужен;
+          no variants or just one — it plays, no overlay needed;
+        * вариантов два и больше, но спросить некого — играем первый, о чём
+          честно пишем в журнал;
+          two or more variants but nobody to ask — the first plays, and the log
+          says so honestly;
+        * есть ``chooser`` — спрашиваем игрока; None от него означает отказ, и
+          тогда правило пропускается.
+          a ``chooser`` is set — the player is asked; None means he backed out and
+          the rule is skipped.
+        """
+        variants = rule.variant_list()
+        if not variants:
+            log.warning("Анимации: у правила «%s» нет ни названия, ни вариантов",
+                        rule.keywords[:40])
+            return None
+        if not rule.needs_choice():
+            return variants[0]
+        if self.chooser is None:
+            log.warning("Анимации: у правила «%s» %d варианта(ов), но выбрать "
+                        "негде — играю первый (%s)", rule.keywords[:40],
+                        len(variants), variants[0].name)
+            return variants[0]
+        # выбор блокирует очередь: пока оверлей открыт, следующее правило ждёт
+        # the choice blocks the queue: while the overlay is open the next rule
+        # waits
+        # Окно выбора не закрывается после ответа: игрок может передумать и
+        # нажать другой вариант, и тогда анимация меняется на ходу.
+        # The chooser does not close after the answer: the player may change his
+        # mind and press another variant, and then the animation swaps on the fly.
+        def on_change(choice):
+            if token and token != self._play_token:
+                # правило уже доиграло, а меню ещё открыто: выбор играет заново
+                # the rule has finished but its menu is still up: replay the pick
+                self.push_swap(rule, choice)
+                return
+            with self._lock:
+                self._swap_choice = choice
+
+        attach = getattr(self.chooser, "attach", None)
+        if callable(attach):
+            # меню запоминает, чем сыграть выбор после конца правила
+            # the menu remembers what to play a pick with after the rule ends
+            attach(rule, lambda choice: self.push_swap(rule, choice))
+        try:
+            try:
+                picked = self.chooser(rule, on_change=on_change)
+            except TypeError:
+                # заглушка без второго аргумента — обычная функция
+                # a stub without the second argument is a plain function
+                picked = self.chooser(rule)
+        except Exception:
+            log.exception("Анимации: выбор варианта не удался")
+            return variants[0]
+        if picked is None:
+            log.info("Анимации: выбор варианта для «%s» отменён — правило пропущено",
+                     rule.keywords[:40])
+            return None
+        log.info("Анимации: выбран вариант «%s» (%s) по правилу «%s»",
+                 picked.label(), picked.name, rule.keywords[:40])
+        return picked
+
+    def _notify_rule_done(self) -> None:
+        """Сказать окну выбора, что правило доиграло.
+
+        Tell the chooser window that the rule has finished.
+
+        Окно остаётся открытым (закрывает его только игрок), но пометку «играет»
+        снимаем: анимация больше не идёт.
+        The window stays open (only the player closes it), but the "playing" mark
+        is cleared: the animation is not running any more.
+        """
+        finished = getattr(self.chooser, "rule_finished", None)
+        if callable(finished):
+            try:
+                finished()
+            except Exception:
+                log.exception("Анимации: не удалось снять пометку в окне выбора")
+
+    def push_swap(self, rule, choice) -> bool:
+        """Меню открыто, а его правило уже доиграло: сыграть выбор заново.
+
+        The menu is still open but its rule has finished: play the pick again.
+
+        Иначе выбор по первому ключу пропадал бы, как только доиграет его
+        анимация, — а игрок как раз может вернуться к нему и передумать.
+        ``choice is None`` означает «закрыть»: поставленная в очередь анимация
+        этого правила снимается, если ещё не началась.
+        Otherwise a pick for the first keyword would be lost the moment its
+        animation ends — while the player may well come back and change his mind.
+        ``choice is None`` means "close": a queued animation of that rule is
+        dropped if it has not started yet.
+        """
+        if choice is None:
+            with self._cv:
+                self._queue = deque(item for item in self._queue
+                                    if not _same_rule(item, rule))
+                if self._current is not None and _same_rule(self._current, rule):
+                    self._stop_run.set()
+                self._cv.notify_all()
+            return True
+        with self._cv:
+            self._queue = deque(item for item in self._queue
+                                if not _same_rule(item, rule))
+            copy = Rule.from_dict(rule.to_dict())
+            copy.choices = [choice]
+            copy.name = choice.name
+            self._queue.appendleft(copy)
+            self._ensure_thread()
+            self._cv.notify_all()
+        log.info("Анимации: выбор по «%s» играет заново (%s)",
+                 rule.keywords[:40], choice.name)
+        return True
+
+    def _take_swap(self, token: int) -> "Choice | None":
+        """Забрать запрошенную смену варианта для этого захода правила.
+
+        Take the requested variant swap for this rule run.
+        """
+        with self._lock:
+            if token != self._play_token:
+                return None
+            choice, self._swap_choice = self._swap_choice, None
+            return choice
+
+    def _withdraw_choice(self, token: int) -> None:
+        """Снять подписку на смену варианта: правило доиграло.
+
+        Drop the variant-swap subscription: the rule has finished.
+        """
+        with self._lock:
+            if token == self._play_token:
+                self._swap_choice = None
+
+    def _drop_choice_window(self, close: bool = False) -> None:
+        """Закрыть открытый оверлей выбора, если он есть.
+
+        Close the open chooser window, if any.
+
+        chooser — это функция, но у настоящего оверлея есть ещё и ``cancel``:
+        проверяем по наличию метода, чтобы заглушки в проверках оставались
+        простыми функциями.
+        chooser is a function, but the real overlay also has ``cancel``: it is
+        looked up by the method's presence, so plain function stubs stay valid.
+        """
+        cancel = getattr(self.chooser, "cancel", None)
+        if callable(cancel):
+            try:
+                cancel(close=close)
+            except TypeError:
+                # заглушка без параметра / a stub without the parameter
+                cancel()
+            except Exception:
+                log.exception("Анимации: не удалось закрыть окно выбора")
 
     def _wait(self, seconds: float) -> bool:
         """Пауза с возможностью прервать; True — прервали.

@@ -5,6 +5,109 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
+## 1.10.2 — 15.11.2026
+
+**Два ключа с выбором в одном сообщении: окна не наслаиваются.**
+
+### Анимации
+- **Окно выбора одно на программу.** Раньше каждое новое срабатывание заменяло
+  окно предыдущего, и выбор по первому ключу терялся. Теперь меню стоят в
+  очереди: спрашивают по одному, в подзаголовке видно «Ещё меню в очереди: N».
+  Следующее показывается через полсекунды после выбора (и пауза начинается заново,
+  если нажать ещё цифру) — иначе случайное нажатие попало бы в другое меню.
+- **Выбор сохраняется по каждому ключу.** Меню помнит свой вариант, даже когда его
+  сменило другое. Написали первый ключ снова — вернулось его меню с отмеченным
+  вариантом, и другой вариант меняет именно его анимацию.
+- **Esc закрывает окно и снимает все невыбранные меню.** Уже выбранное и
+  сыгранное остаётся.
+- Клавиши в игре: цифры 1–9 и Enter отвечают по видимому меню даже без мыши
+  (окно не забирает фокус у игры), Esc закрывает окно выбора, а не чат игры.
+- Клавиша остановки снимает меню, по которым ещё ничего не выбрано; выбор,
+  уже сделанный в меню, она не отменяет.
+
+## 1.10.1 — 15.11.2026
+
+**Один ключ — несколько анимаций: в игре появляется выбор. И перетаскивание починено.**
+
+### Анимации
+- **Оверлей выбора анимации.** Если одному ключу подходят несколько анимаций
+  («Опёрся руками» — это `anim_counterleanbar` и `anim_leanrail`), поверх игры
+  открывается окно со списком вариантов: название, описание и имя команды.
+  Выбор мышью или клавиатурой: **1–9** — номер, **Enter** — первый вариант,
+  **Esc** — ничего не играть. Не выбрал за 30 секунд или закрыл окно — не играет
+  ничего: молчаливая подмена одним из вариантов была бы хуже.
+- **ПКМ по правилу → «Свойства анимации…».** Там задаются варианты: имя для
+  `/anim`, кастомное название и описание. Пункт «Добавить ещё один вариант…»
+  превращает обычное правило в выбор из двух: имя из столбца «/anim» становится
+  первым вариантом. В том же меню — «Дублировать правило».
+- **Старые правила работают как раньше.** Один вариант — обычное правило:
+  оверлей не открывается, `/anim` уходит сразу. Столбец «/anim» у правила с
+  вариантами можно оставить пустым; в таблице видно `anim_counterleanbar +1`,
+  а полный список с названиями — в подсказке ячейки.
+- **Проверка фразы показывает выбор:** «Сработают: /anim выбор из 2:
+  anim_counterleanbar, anim_leanrail». Кнопка «Отправить /anim в игру» у такого
+  правила честно пишет, что отправляет первый вариант.
+- Открытый оверлей выбора закрывается клавишей остановки и полной остановкой —
+  окно не остаётся висеть поверх игры.
+- Варианты хранятся в `config.json` рядом с правилом (`choices`), список можно
+  писать и просто строками: `"choices": ["anim_a", "anim_b"]`.
+
+- **Окно выбора читаемое.** Раньше вариантом была кнопка с раскладкой внутри:
+  кнопка считает высоту по своему пустому тексту, поэтому все варианты
+  схлопывались в тонкие полоски и строки наезжали друг на друга. Теперь это
+  карточки: номер в рамке, название, описание (или «Без описания») и имя
+  `/anim`. Высота окна считается по содержимому — список больше не обрезается
+  до двух с половиной вариантов на обычном мониторе.
+- Заголовок окна — просто «Какую анимацию вы собираетесь использовать?»:
+  перечисление ключей растягивало его на три строки и отжимало сам список.
+- **Окно появляется справа и не закрывается само.** Таймер на 30 секунд убран:
+  окно висит, пока его не закроют. После первого выбора оно остаётся на месте,
+  выбранная анимация помечается зелёной рамкой и словом «играет», а нажатие
+  другого варианта меняет анимацию на ходу (текущая гасится, новая запускается).
+  Так можно перебирать варианты, пока не найдётся нужный. Закрывают окно Esc или
+  «Закрыть»; если ничего не выбрано — не играет ничего.
+
+### Настройки
+- **Исправлено: перетаскивание строк теряло строку.** `QAbstractItemView.startDrag`
+  после переноса вызывает `clearOrRemove`, и при `MoveAction` Qt удалял исходную
+  строку сам — уже **после** того, как таблица пересобралась, поэтому удаление
+  попадало в новую таблицу и строка исчезала. Теперь перенос делается напрямую
+  через `QDrag` без `clearOrRemove`, и строку двигает только пересборка.
+- **Видно, куда встанет строка.** Вместо еле заметного штатного индикатора
+  рисуется своя линия вставки: толстая, акцентного цвета, во всю ширину, с
+  указателем слева. Перетаскиваемая строка подсвечивается, строка-цель — тоже.
+  За краем последней строки линия означает «в самый конец списка».
+- Касается всех трёх таблиц: анимации, словарь, сокращения.
+- Самотест: новый блок «Варианты анимации (выбор из нескольких)» — проверка
+  правила, сохранение и чтение вариантов, выбор второго, отказ от выбора.
+
+## 1.9.9 — 15.11.2026
+
+**Вложенные ключи: длинная анимация больше не гасится короткой.**
+
+### Анимации
+- **Исправлено: «Активно хлопает в ладоши» и «хлопает в ладоши» запускали две
+  анимации подряд.** Короткий ключ находился внутри длинной фразы, поэтому в
+  очередь вставали обе: сначала длинная, а сразу за ней короткая, и `/sa` от
+  второй гасил первую. Игрок видел мигание вместо анимации. Теперь **играет
+  только длинное совпадение**: на «Сел откинувшись» сработает «сел откинувшись»,
+  а «сел» промолчит.
+- **Решение принимается сразу по всем правилам**, а не по каждому отдельно:
+  «сел» и «сел откинувшись» могут жить как в одном правиле через запятую, так и
+  в двух разных — результат одинаковый.
+- **Отдельные упоминания не пострадали:** «Сел откинувшись, а потом сел прямо»
+  по-прежнему играет дважды — короткое слово в другом месте текста остаётся
+  самостоятельным срабатыванием.
+- **В журнале видно пропуск:** `Анимации: «Сел» входит в более длинное
+  совпадение — правило «сел» пропущено`.
+- **Поле «Проверить» показывает то же, что сыграет в игре:** проверка фразы идёт
+  через тот же разбор, поэтому вложенные ключи видны так же, как сработают.
+- **Попутно исправлено:** ключевая фраза могла совпасть, даже когда между её
+  словами стояло больше слов, чем разрешает зазор (лишнее слово уводило поиск за
+  границу, и это не проверялось).
+- Самотест: новый блок «Вложенные ключи: длинное совпадение важнее короткого» —
+  четыре прогона и оба ключа в одном правиле.
+
 ## 1.9.8 — 14.11.2026
 
 **Чат игры очищается перед каждой вставкой.**
@@ -599,6 +702,113 @@ English version below: [Changelog (English)](#-changelog-english).
 ---
 
 # 📌 Changelog (English)
+
+## 1.10.2 — 15 Nov 2026
+
+**Two chooser keywords in one message: the windows never stack.**
+
+### Animations
+- **One chooser window per program.** Every new hit used to replace the previous
+  window, and the pick for the first keyword was lost. The menus now queue up:
+  they are asked one at a time, and the subtitle shows "Menus still to come: N".
+  The next one appears half a second after a pick (and the pause restarts if
+  another digit is pressed) — otherwise a stray keypress would land in a
+  different menu.
+- **Every keyword keeps its own pick.** A menu remembers its variant even after
+  another menu took the window. Write the first keyword again and its menu comes
+  back with the variant marked, and picking another one changes exactly that
+  animation.
+- **Esc closes the window and drops every unpicked menu.** What was already
+  picked and played stays.
+- Keys in the game: 1–9 and Enter answer the visible menu even without the mouse
+  (the window does not steal the focus), and Esc closes the chooser rather than
+  the game chat.
+- The stop key drops menus nothing was picked in; a pick already made in a menu
+  is not undone.
+
+## 1.10.1 — 15 Nov 2026
+
+**One keyword, several animations: the game now asks. And dragging is fixed.**
+
+### Animations
+- **The animation chooser overlay.** When one keyword fits several animations
+  («Опёрся руками» is both `anim_counterleanbar` and `anim_leanrail`), a window
+  opens above the game listing the variants: title, description and command name.
+  Pick with the mouse or the keyboard: **1–9** for a number, **Enter** for the
+  first, **Esc** to play nothing. Nothing chosen within 30 seconds or the window
+  closed means nothing plays — silently substituting a variant would be worse.
+- **Right-click a rule → Animation properties.** That is where the variants live:
+  the `/anim` name, a custom title and a description. The "Add one more variant"
+  item turns a plain rule into a choice of two: the name from the `/anim` column
+  becomes the first variant. The same menu has "Duplicate rule".
+- **Existing rules behave exactly as before.** One variant is an ordinary rule:
+  no overlay, the `/anim` goes out at once. The `/anim` column may stay empty for
+  a rule with variants; the table shows `anim_counterleanbar +1` and the full
+  titled list sits in the cell tooltip.
+- **The phrase check shows the choice:** "Will fire: /anim a choice of 2:
+  anim_counterleanbar, anim_leanrail". The Send /anim into the game button says
+  honestly that it sends the first variant.
+- An open chooser is closed by the stop key and by a full stop, so the window
+  never hangs above the game.
+- The variants live in `config.json` next to the rule (`choices`), and a plain
+  list of strings works too: `"choices": ["anim_a", "anim_b"]`.
+
+- **A readable chooser window.** The variant used to be a button with a layout
+  inside it: a button sizes itself from its own empty text, so every variant
+  collapsed into a thin strip and the lines overlapped. They are cards now: a
+  framed number, the title, the description (or "No description") and the
+  `/anim` name. The window height follows the content, so the list is no longer
+  cut down to two and a half variants on an ordinary monitor.
+- The window title is simply "Which animation are you going to use?": listing
+  the keywords stretched it to three lines and squeezed the list itself.
+- **The window appears on the right and never closes itself.** The 30-second
+  timer is gone: the window stays until it is closed. After the first pick it
+  remains in place, the chosen animation is marked with a green frame and the
+  word "playing", and pressing another variant swaps the animation on the fly
+  (the current one is put out, the new one starts). That makes it possible to
+  flip through the variants until the right one shows up. Esc or Close closes
+  the window; with nothing picked, nothing plays.
+
+### Settings
+- **Fixed: dragging a row lost the row.** `QAbstractItemView.startDrag` calls
+  `clearOrRemove` after the drop, and with `MoveAction` Qt deleted the source row
+  itself — right **after** the table had been rebuilt, so the deletion hit the new
+  table and the row vanished. The drag now goes through `QDrag` directly, without
+  `clearOrRemove`, and only the rebuild moves anything.
+- **It is visible where the row will land.** Instead of the barely visible stock
+  indicator the table paints its own drop line: thick, accent-coloured, full
+  width, with an arrow on the left. The dragged row is tinted and so is the
+  target row. Past the last row, the line means the very end of the list.
+- Applies to all three tables: animations, glossary, abbreviations.
+- Self-test: a new block "Animation variants (a choice of several)" — rule
+  validation, saving and reading the variants, picking the second, backing out.
+
+## 1.9.9 — 15 Nov 2026
+
+**Nested keywords: a short animation no longer puts the long one out.**
+
+### Animations
+- **Fixed: «Активно хлопает в ладоши» and «хлопает в ладоши» started two
+  animations in a row.** The short keyword was found inside the long phrase, so
+  both went into the queue: the long one first and the short one right after it,
+  and the second `/sa` put the first one out. The player saw a flicker instead of
+  an animation. Now **only the long match plays**: on «Сел откинувшись» the «сел
+  откинувшись» rule fires and «сел» stays quiet.
+- **The decision covers all rules at once**, not each rule on its own: «сел» and
+  «сел откинувшись» may live in one rule separated by a comma or in two separate
+  rules — the result is the same.
+- **Separate mentions are untouched:** «Сел откинувшись, а потом сел прямо» still
+  plays twice, as the short word at another place in the message stays a hit of
+  its own.
+- **The log shows the skip:** `Анимации: «Сел» входит в более длинное совпадение
+  — правило «сел» пропущено`.
+- **The Check field shows what the game will really play:** a phrase is checked
+  through the same resolution, so nested keywords show up they way they fire.
+- **Also fixed:** a keyword phrase could match even when more words sat between
+  its words than the gap allows (an extra word pushed the search past the limit
+  and that was not checked).
+- Self-test: a new block «Вложенные ключи: длинное совпадение важнее короткого» —
+  four runs plus both keywords in one rule.
 
 ## 1.9.8 — 14 Nov 2026
 

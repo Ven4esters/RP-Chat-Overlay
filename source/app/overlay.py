@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (QApplication, QFrame, QLabel, QLineEdit, QMenu,
                                QSystemTrayIcon, QVBoxLayout, QWidget)
 
 from app import APP_NAME, gamesend as gs, i18n, langs, modules
+from app import animchoice
 from app import anims as anims_mod
 from app.autoplan import AutoPlan
 from app.config import log, resource_path, save_config
@@ -304,8 +305,35 @@ class Overlay(QWidget):
         except Exception:
             log.exception("Не удалось закрыть чат игры")
 
+    def _chooser(self):
+        """Окно выбора анимации, если оно сейчас что-то показывает.
+
+        The animation chooser, when it is showing something.
+        """
+        try:
+            return animchoice.chooser() if animchoice.chooser().busy() else None
+        except Exception:
+            return None
+
     def keyPressEvent(self, e):
         ctrl = bool(e.modifiers() & Qt.KeyboardModifier.ControlModifier)
+        # Окно выбора анимации смотрит в игру, а нажатия идут сюда: без этого
+        # цифры и Esc работали только с мышью, а окно висело само по себе.
+        # The chooser looks into the game while the keys arrive here: without
+        # this the digits and Esc worked only with the mouse, and the window just
+        # hung there.
+        chooser = self._chooser()
+        if chooser is not None:
+            key = e.key()
+            if key == Qt.Key.Key_Escape:
+                chooser.close_window()
+                return
+            if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                chooser.confirm()
+                return
+            if Qt.Key.Key_1 <= key <= Qt.Key.Key_9:
+                if chooser.type_digit(key - Qt.Key.Key_0):
+                    return
         if e.key() == Qt.Key.Key_Escape:
             self.close_overlay()
         elif ctrl and e.nativeVirtualKey() == 0x52:          # Ctrl+R в любой раскладке
@@ -733,10 +761,19 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
 
     bridge.anims_text.connect(lambda text, error: win.notify(text, error),
                               Qt.ConnectionType.QueuedConnection)
+    # выбор варианта анимации: у правила с двумя и более /anim открывается
+    # оверлей, и в чат уходит то, что выбрал игрок
+    # the variant chooser: a rule with two or more /anim commands opens an
+    # overlay, and what the player picked goes into the chat
+    # Передаём сам объект выбора, а не обёртку: у него есть `cancel` и
+    # `rule_finished`, которыми очередь закрывает окно и снимает пометки.
+    # The chooser object itself is passed, not a wrapper: it carries `cancel` and
+    # `rule_finished`, which the queue uses to close the window and clear marks.
     runner = anims_mod.Runner(cfg, send=anims_send, on_event=anims_event,
                               equivalent=anim_equivalent,
                               press_key=anims_press_key,
-                              text_keys=anim_text_keys)
+                              text_keys=anim_text_keys,
+                              chooser=animchoice.chooser())
     win.anims = runner
     # окно настроек проверяет этим словарём, доходит ли команда до игры
     # the settings window uses this mapping to check whether a command arrives
