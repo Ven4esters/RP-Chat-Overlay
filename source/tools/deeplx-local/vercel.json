@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/", "destination": "/api" },
+    { "source": "/translate", "destination": "/api/translate" },
+    { "source": "/v1/translate", "destination": "/api/translate" },
+    { "source": "/v2/translate", "destination": "/api/translate" }
+  ],
+  "functions": {
+    "api/translate.js": { "maxDuration": 30 }
+  }
+}

@@ -90,6 +90,16 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "translator_enabled": True,         # перевод по сети / online translation
     "glossary_enabled": True,           # словарь / glossary
     "hotkey_enabled": True,             # глобальная клавиша / global hotkey
+    "dlx_enabled": False,               # DeepL рядом (DLX) / local DeepL service
+    "dlx_asked": False,                 # предупреждение уже показано / consent shown
+    "dlx_port": 0,                      # 0 — выбрать свободный / 0 means auto
+    "dlx_autostart": True,              # поднимать вместе с программой / start with app
+    "dlx_auto_update": True,            # проверять обновления / check for updates
+    "dlx_proxy": "",                    # HTTP-прокси для DeepL / HTTP proxy for DeepL
+    "dlx_use_system_proxy": True,        # брать прокси из настроек Windows / use the Windows proxy
+    "dlx_url": "",                      # свой адрес сервиса вместо dlx.exe / own service URL
+    "dlx_url_token": "",                # токен своего сервиса / token of that service
+    "dlx_pro_token": "",                # токен DeepL Pro (OAuth) / DeepL Pro OAuth token
     "slang": True,                      # сленг и сокращения / slang and abbreviations
 
     # --- текст и маркеры / text and markers ---
@@ -149,6 +159,14 @@ def setup_logging() -> None:
     sys.excepthook = lambda exc_type, exc, tb: log.critical(
         "Необработанная ошибка", exc_info=(exc_type, exc, tb)
     )
+    # перехватчики ошибок: исключения, потоки, Qt и аварийные падения
+    # error hooks: exceptions, threads, Qt and hard crashes
+    try:
+        from app import errorlog
+        errorlog.install()
+        log.info("Журналы: %s и %s", LOG_PATH, errorlog.ERROR_PATH)
+    except Exception:
+        log.exception("Не удалось включить журнал ошибок")
     log.info("=== Запуск %s, Python %s ===", APP_NAME, sys.version.split()[0])
 
 

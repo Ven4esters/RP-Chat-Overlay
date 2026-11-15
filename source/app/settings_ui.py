@@ -23,15 +23,19 @@ import json
 import threading
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDialog,
-                               QFileDialog, QFormLayout, QFrame, QHBoxLayout,
+from PySide6.QtCore import QObject, Qt, QTimer, Signal
+from PySide6.QtGui import QGuiApplication, QKeySequence
+import urllib.parse
+
+from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox,
+                               QDialog, QFileDialog, QFormLayout, QFrame, QHBoxLayout,
                                QHeaderView, QLabel, QLineEdit, QListWidget,
                                QListWidgetItem, QMessageBox, QPushButton,
                                QScrollArea, QSizePolicy, QSpinBox, QStackedWidget,
-                               QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
+                               QTableWidget, QTableWidgetItem, QToolButton,
+                               QVBoxLayout, QWidget)
 
+from app import dlx as dlx_mod
 from app import i18n, langs, modules, slang
 from app.config import DATA, DEFAULT_CONFIG, log, save_config
 from app.engine import (Engine, Glossary, glossary_path, load_glossary_data,
@@ -58,15 +62,40 @@ QLineEdit, QSpinBox, QComboBox { background: #0e0e12; border: 1px solid #3a3a48;
                                  border-radius: 6px; padding: 6px 8px; min-height: 18px; }
 QLineEdit:focus, QSpinBox:focus, QComboBox:focus { border: 1px solid #5b8cff; }
 QLineEdit:read-only { color: #b9c4ff; }
+/* у счётчиков свои кнопки «−» и «+», штатные стрелки убираем совсем, иначе
+   они отнимают у поля почти всю ширину. Spin boxes draw their − and + as real
+   buttons, so the built-in arrows are given zero width instead of a hidden one. */
+QSpinBox::up-button, QSpinBox::down-button { width: 0px; height: 0px;
+                                            border: none; background: transparent; }
 QComboBox QAbstractItemView { background: #1c1c24; selection-background-color: #2e3f6b;
                               border: 1px solid #3a3a48; }
-QPushButton { background: #26262f; border: 1px solid #3a3a48; border-radius: 7px;
-              padding: 7px 14px; }
-QPushButton:hover { background: #2e2e3a; }
-QPushButton:pressed { background: #232331; }
-QPushButton#primary { background: #3d6fd8; border: 1px solid #4f7ee6; font-weight: 600; }
-QPushButton#primary:hover { background: #4a7ce8; }
-QPushButton#danger { color: #ff9c9c; }
+/* Кнопки: заметная рамка, отдельные состояния и видимый фокус для клавиатуры.
+   Buttons carry a visible outline, distinct hover/pressed states and a focus ring
+   for keyboard users. */
+QPushButton { background: #22222c; border: 1px solid #3c3c4a; border-radius: 8px;
+              padding: 8px 16px; color: #e9e9f2; min-height: 20px; }
+QPushButton:hover { background: #2c2c39; border: 1px solid #4d4d60; }
+QPushButton:pressed { background: #1c1c25; border: 1px solid #5b8cff; }
+QPushButton:focus { border: 1px solid #4d4d60; }
+QPushButton:disabled { background: #1a1a21; border: 1px solid #2b2b36; color: #6b6b78; }
+/* главная кнопка: ровная заливка без светлой рамки — рамка того же цвета,
+   что и фон, поэтому кнопка не выглядит постоянно нажатой / the main button is
+   a flat fill: its border matches the fill, so it never looks stuck in focus */
+QPushButton#primary { background: #3d6fd8; border: 1px solid #3d6fd8; color: #ffffff;
+                      font-weight: 600; }
+QPushButton#primary:hover { background: #4a7ce8; border: 1px solid #4a7ce8; }
+QPushButton#primary:pressed { background: #345fbd; border: 1px solid #345fbd; }
+QPushButton#primary:focus { background: #4174e2; border: 1px solid #4174e2; }
+QPushButton#primary:disabled { background: #2b3a5c; border: 1px solid #35486e; color: #9aa6bd; }
+QPushButton#danger { color: #ff9c9c; border: 1px solid #4a3238; }
+QPushButton#danger:hover { background: #2a1e22; border: 1px solid #7a4a52; color: #ffbcbc; }
+QPushButton#soft { color: #ffcf9c; border: 1px solid #33333f; background: transparent; }
+QPushButton#soft:hover { background: #2a2418; border: 1px solid #7a6444; color: #ffd9ae; }
+QToolButton#step { background: #22222c; border: 1px solid #3c3c4a; border-radius: 8px;
+                   color: #e9e9f2; font-weight: 600; }
+QToolButton#step:hover { background: #2f2f3d; border: 1px solid #5b8cff; }
+QToolButton#step:pressed { background: #1c1c25; border: 1px solid #5b8cff; }
+QToolButton#step:disabled { color: #6b6b78; border: 1px solid #2b2b36; background: #1a1a21; }
 QCheckBox { spacing: 8px; }
 QCheckBox::indicator { width: 16px; height: 16px; border-radius: 4px;
                        border: 1px solid #4a4a58; background: #0e0e12; }
@@ -76,6 +105,16 @@ QTableWidget { background: #0e0e12; border: 1px solid #3a3a48; border-radius: 8p
 QHeaderView::section { background: #1c1c24; color: #b9b9c6; border: none;
                        border-bottom: 1px solid #3a3a48; padding: 6px; }
 QTableWidget::item { padding: 4px; }
+/* галочки в таблице словаря: свой индикатор, иначе Qt рисует тонкую «птичку»
+   без рамки, которую на тёмном фоне почти не видно. Table check indicators are
+   drawn explicitly: the default is a thin tick with no box, nearly invisible here. */
+QTableWidget::indicator, QTableView::indicator { width: 18px; height: 18px; }
+QTableWidget::indicator:unchecked, QTableView::indicator:unchecked {
+    border: 1px solid #5a5a6a; border-radius: 4px; background: #16161d; }
+QTableWidget::indicator:unchecked:hover, QTableView::indicator:unchecked:hover {
+    border: 1px solid #7ea6ff; }
+QTableWidget::indicator:checked, QTableView::indicator:checked {
+    border: 1px solid #7ea6ff; border-radius: 4px; background: #3d6fd8; }
 QScrollBar:vertical { background: #14141a; width: 10px; margin: 0; }
 QScrollBar::handle:vertical { background: #33333f; border-radius: 5px; min-height: 30px; }
 QScrollBar::add-line, QScrollBar::sub-line { height: 0; }
@@ -103,7 +142,18 @@ def style_sheet(scale=1.0):
     out = out.replace("font-size: 19px", "font-size: %dpx" % int(round(19 * k)))
     out = out.replace("font-size: 12px", "font-size: %dpx" % int(round(12 * k)))
     out = out.replace("font-size: 11px", "font-size: %dpx" % int(round(11 * k)))
-    return out
+    # размеры кнопок считаются от того же масштаба: на 150 % палец и мышь
+    # попадают в кнопку так же уверенно, как на 100 %
+    extra = (
+        "QPushButton { min-height: %dpx; padding: %dpx %dpx; }\n"
+        "QToolButton#step { min-width: %dpx; min-height: %dpx; font-size: %dpx; }\n"
+        "QCheckBox::indicator { width: %dpx; height: %dpx; }\n"
+        "QTableWidget::indicator, QTableView::indicator { width: %dpx; height: %dpx; }\n"
+        % (int(round(20 * k)), int(round(8 * k)), int(round(16 * k)),
+           int(round(26 * k)), int(round(24 * k)), int(round(15 * k)),
+           int(round(16 * k)), int(round(16 * k)), int(round(18 * k)), int(round(18 * k)))
+    )
+    return out + extra
 
 
 def _scroll_page(page):
@@ -123,6 +173,10 @@ def _scroll_page(page):
     area.viewport().setAutoFillBackground(False)
     page.setAutoFillBackground(False)
     return area
+
+# строка подвала, когда всё сохранено / the footer line in its idle state
+_FOOTER_IDLE = "Изменения применятся после «Сохранить»."
+
 
 MODIFIER_KEYS = {Qt.Key.Key_Control, Qt.Key.Key_Alt, Qt.Key.Key_Shift,
                  Qt.Key.Key_Meta, Qt.Key.Key_AltGr}
@@ -243,6 +297,51 @@ def _small_spin(spin, lo, hi, suffix="", width=170, step=None, prefix=None):
     return spin
 
 
+def _num_row(spin, width=None):
+    """Счётчик с крупными кнопками «−» и «+» / counter with big − and + buttons.
+
+    Штатные стрелки Qt на тёмной теме почти не видны, а попасть в них мышью
+    трудно. Поэтому рядом стоят две обычные кнопки: размер задаётся стилем и
+    растёт вместе с масштабом интерфейса, нажатие повторяется при удержании.
+    Qt's own spin arrows are tiny and almost invisible on a dark theme, so two
+    real buttons sit next to the field. Their size follows the interface scale
+    and a held button repeats its step.
+    """
+    box = QWidget()
+    row = QHBoxLayout(box)
+    row.setContentsMargins(0, 0, 0, 0)
+    row.setSpacing(6)
+    # штатные стрелки убираются стилем (QSpinBox::up-button, width: 0), а не
+    # NoButtons: при NoButtons Qt отдаёт полю ввода 1 px и текст исчезает
+    # the built-in arrows are removed by the style sheet (zero width), not by
+    # NoButtons: with NoButtons Qt shrinks the line edit to 1 px and the text
+    # disappears
+    minus = QToolButton()
+    minus.setText("−")
+    minus.setToolTip(i18n.t("Уменьшить значение"))
+    minus.clicked.connect(spin.stepDown)
+    plus = QToolButton()
+    plus.setText("+")
+    plus.setToolTip(i18n.t("Увеличить значение"))
+    plus.clicked.connect(spin.stepUp)
+    for b in (minus, plus):
+        b.setObjectName("step")
+        b.setAutoRepeat(True)
+        b.setAutoRepeatDelay(400)
+        b.setAutoRepeatInterval(70)
+        b.setCursor(Qt.CursorShape.PointingHandCursor)
+        b.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        b.setAccessibleName(b.text())
+        b.setAccessibleDescription(b.toolTip())
+    row.addWidget(minus)
+    row.addWidget(spin, 1)
+    row.addWidget(plus)
+    row.addStretch(1)
+    if width:
+        spin.setMaximumWidth(width)
+    return box
+
+
 def _sep():
     s = QFrame()
     s.setObjectName("sep")
@@ -250,13 +349,46 @@ def _sep():
     return s
 
 
+class DlxJob(QObject):
+    """Фоновое действие над сервисом DLX / a background action on the DLX service.
+
+    Сеть и запуск процесса могут занять секунды, поэтому они уходят в поток, а
+    окно получает только результат — сигналом, то есть в главном потоке.
+    Network calls and process start can take seconds, so they run in a thread and
+    the window only receives the result, through a signal, on the main thread.
+    """
+
+    finished = Signal(bool, str)        # получилось?, причина / ok?, reason
+
+    def __init__(self, fn, parent=None):
+        super().__init__(parent)
+        self.fn = fn
+
+    def start(self) -> None:
+        """Запускает действие в отдельном потоке / starts the action in a thread."""
+        def run():
+            ok, reason = False, ""
+            try:
+                ok = bool(self.fn())
+            except Exception as error:      # noqa: BLE001 — причину покажем игроку
+                log.exception("DLX: фоновое действие не удалось")
+                reason = str(error) or type(error).__name__
+            self.finished.emit(ok, reason)
+        threading.Thread(target=run, daemon=True, name="dlx-job").start()
+
+
 class SettingsWindow(QDialog):
     """Окно настроек. signal saved(cfg) — после сохранения."""
 
     saved = Signal(dict)
 
-    def __init__(self, cfg, parent=None, first_run=False):
+    def __init__(self, cfg, parent=None, first_run=False, dlx=None):
+        """Окно настроек; dlx — сервис DeepL, если он уже создан программой.
+
+        The settings window; dlx is the DeepL service when the program created one.
+        """
         super().__init__(parent)
+        self.dlx = dlx
         self.cfg = dict(cfg)
         self.docs = {}            # код языка -> данные словаря
         self.dirty = set()        # языки с несохранёнными правками словаря
@@ -290,6 +422,7 @@ class SettingsWindow(QDialog):
                                   ("Словарь", "page_glossary", self._page_glossary),
                                   ("Сокращения", "page_slang", self._page_slang),
                                   ("Проверка", "page_test", self._page_test),
+                                  ("DeepL", "page_dlx", self._page_dlx),
                                   ("Модули", "page_modules", self._page_modules)):
             item = QListWidgetItem(name)
             item.setSizeHint(item.sizeHint().expandedTo(item.sizeHint() + _sz(0, 10)))
@@ -315,17 +448,23 @@ class SettingsWindow(QDialog):
         self._preview_timer.setSingleShot(True)
         self._preview_timer.timeout.connect(self._do_preview)
         self._apply_adaptive_size(center=True)
+        # фокус — на список разделов: кнопка «Сохранить» не должна встречать
+        # игрока подсветкой / focus goes to the section list, so the Save button
+        # does not greet the player with a highlight
+        QTimer.singleShot(0, self.nav.setFocus)
 
     # ------------------------------------------------------------ каркас
     def _build_header(self):
         w = QWidget()
-        w.setStyleSheet("background:#17171e;")
+        w.setObjectName("header")
+        w.setStyleSheet("QWidget#header { background:#17171e; }")
         lay = QVBoxLayout(w)
         lay.setContentsMargins(20, 14, 20, 12)
         lay.setSpacing(2)
-        title = _title("Настройки" if not self.first_run else "Добро пожаловать в RP Chat Overlay",
-                       "h1")
-        lay.addWidget(title)
+        self.header_title = _title(
+            "Настройки" if not self.first_run else "Добро пожаловать в RP Chat Overlay",
+            "h1")
+        lay.addWidget(self.header_title)
         self.header_sub = QLabel()
         self.header_sub.setProperty("no_i18n", True)
         self.header_sub.setObjectName("sub")
@@ -334,23 +473,40 @@ class SettingsWindow(QDialog):
 
     def _build_footer(self):
         w = QWidget()
-        w.setStyleSheet("background:#17171e;border-top:1px solid #26262f;")
+        w.setObjectName("footer")
+        w.setStyleSheet("QWidget#footer { background:#17171e;"
+                        "border-top:1px solid #26262f; }")
         lay = QHBoxLayout(w)
         lay.setContentsMargins(20, 12, 20, 12)
         lay.setSpacing(10)
-        self.footer_hint = _hint("Изменения применятся после «Сохранить».")
-        lay.addWidget(self.footer_hint, 1)
+        # слева — редкое и опасное действие, справа — обычный порядок окон:
+        # «Закрыть», затем главная кнопка. Left holds the rare destructive
+        # action, right follows the usual window order: Close, then the main one.
+        self.footer_hint = _hint(_FOOTER_IDLE)
         self.btn_reset = QPushButton("Сбросить всё")
+        self.btn_reset.setObjectName("soft")
         self.btn_reset.setToolTip("Вернуть заводские настройки (словари не затрагиваются)")
         self.btn_reset.clicked.connect(self._reset_all)
-        self.btn_cancel = QPushButton("Отмена")
-        self.btn_cancel.clicked.connect(self.reject)
+        self.btn_cancel = QPushButton("Закрыть")
+        self.btn_cancel.setToolTip("Закрыть окно: сохранять для этого не нужно")
+        self.btn_cancel.clicked.connect(self._cancel)
         self.btn_save = QPushButton("Сохранить")
         self.btn_save.setObjectName("primary")
-        self.btn_save.setDefault(True)
+        # setDefault(True) заставляет Qt рисовать кнопку «нажатой по умолчанию»
+        # всё время, поэтому Enter обрабатывается в keyPressEvent окна
+        # setDefault(True) makes Qt draw a permanent default-button highlight, so
+        # Enter is handled in the window keyPressEvent instead
+        self.btn_save.setAutoDefault(False)
+        self.btn_save.setToolTip("Применить настройки (Ctrl+S); окно остаётся открытым")
+        self.btn_save.setShortcut(QKeySequence.StandardKey.Save)
         self.btn_save.clicked.connect(self._save)
         for b in (self.btn_reset, self.btn_cancel, self.btn_save):
-            lay.addWidget(b)
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
+            b.setAutoDefault(False)
+        lay.addWidget(self.btn_reset)
+        lay.addWidget(self.footer_hint, 1)
+        lay.addWidget(self.btn_cancel)
+        lay.addWidget(self.btn_save)
         return w
 
     # ------------------------------------------------ размер под экран
@@ -545,7 +701,7 @@ class SettingsWindow(QDialog):
 
             "или при масштабе Windows 150 % удобнее 120–130 %.")
         self.sp_ui_scale.valueChanged.connect(self._ui_scale_changed)
-        row_scale.addWidget(self.sp_ui_scale)
+        row_scale.addWidget(_num_row(self.sp_ui_scale))
         row_scale.addStretch(1)
         cl.addLayout(row_scale)
         self.lb_ui_scale = _hint("")
@@ -585,10 +741,10 @@ class SettingsWindow(QDialog):
         # не было своей высоты, и поля уезжали под соседнюю карточку
         form.addRow("Скобки перевода", row)
         self.sp_max = _small_spin(QSpinBox(), 20, 512, " символов", 170)
-        form.addRow("Максимум в сообщении", self.sp_max)
+        form.addRow("Максимум в сообщении", _num_row(self.sp_max))
         self.sp_debounce = _small_spin(QSpinBox(), 100, 2000, " мс", 170, step=50)
         self.sp_debounce.setToolTip("Пауза после последнего символа, перед переводом")
-        form.addRow("Задержка перевода", self.sp_debounce)
+        form.addRow("Задержка перевода", _num_row(self.sp_debounce))
         cl.addLayout(form)
         cl.addWidget(_hint("Внутри таких скобок текст переводится принудительно: "
                            "«+привет+» → «Ciao»."))
@@ -697,7 +853,7 @@ class SettingsWindow(QDialog):
         form.setVerticalSpacing(10)
         self.sp_every = _small_spin(QSpinBox(), 2, 20, "-е сообщение", 230, prefix="каждое ")
         self.sp_every.setToolTip("Как часто переводить: одно сообщение из N")
-        form.addRow("Частота", self.sp_every)
+        form.addRow("Частота", _num_row(self.sp_every))
         self.cb_pos = QComboBox()
         self.cb_pos.setMaximumWidth(340)
         for val, text in (("last", "последнее в серии (каждое N-е)"),
@@ -706,14 +862,14 @@ class SettingsWindow(QDialog):
             self.cb_pos.addItem(text, val)
         form.addRow("Какое сообщение", self.cb_pos)
         self.sp_frag = _small_spin(QSpinBox(), 1, 3, " фрагм.", 170)
-        form.addRow("Фрагментов в сообщении", self.sp_frag)
+        form.addRow("Фрагментов в сообщении", _num_row(self.sp_frag))
         row = QHBoxLayout()
         self.sp_min = _small_spin(QSpinBox(), 1, 6, "", 62)
         self.sp_maxw = _small_spin(QSpinBox(), 1, 8, "", 62)
         row.addWidget(QLabel("от"))
-        row.addWidget(self.sp_min)
+        row.addWidget(_num_row(self.sp_min, 56))
         row.addWidget(QLabel("до"))
-        row.addWidget(self.sp_maxw)
+        row.addWidget(_num_row(self.sp_maxw, 56))
         row.addWidget(QLabel("слов"))
         row.addStretch(1)
         w = QWidget()
@@ -767,11 +923,11 @@ class SettingsWindow(QDialog):
         self.ed_chatkey.setFixedWidth(56)
         form.addRow("Клавиша чата", self.ed_chatkey)
         self.sp_focus = _small_spin(QSpinBox(), 0, 2000, " мс", 170, step=10)
-        form.addRow("После переключения в игру", self.sp_focus)
+        form.addRow("После переключения в игру", _num_row(self.sp_focus))
         self.sp_opendelay = _small_spin(QSpinBox(), 0, 2000, " мс", 170, step=10)
-        form.addRow("После открытия чата", self.sp_opendelay)
+        form.addRow("После открытия чата", _num_row(self.sp_opendelay))
         self.sp_paste = _small_spin(QSpinBox(), 0, 2000, " мс", 170, step=10)
-        form.addRow("После вставки текста", self.sp_paste)
+        form.addRow("После вставки текста", _num_row(self.sp_paste))
         cl.addLayout(form)
         lay.addWidget(card)
         lay.addStretch(1)
@@ -803,11 +959,14 @@ class SettingsWindow(QDialog):
         self.lb_gcount.setProperty("no_i18n", True)
         head.insertWidget(1, self.lb_gcount)
 
-        self.tbl = QTableWidget(0, 3)
-        self.tbl.setHorizontalHeaderLabels(["Фраза", "Русская запись", "Русские значения (через ;)"])
-        self.tbl.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        self.tbl.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.tbl.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.tbl = QTableWidget(0, 4)
+        self.tbl.setHorizontalHeaderLabels(["Паразит", "Фраза", "Русская запись",
+                                            "Русские значения (через ;)"])
+        head = self.tbl.horizontalHeader()
+        head.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        self.tbl.setColumnWidth(0, 78)
+        for c in (1, 2, 3):
+            head.setSectionResizeMode(c, QHeaderView.ResizeMode.Stretch)
         self.tbl.verticalHeader().setVisible(False)
         self.tbl.setAlternatingRowColors(False)
         self.tbl.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -831,8 +990,10 @@ class SettingsWindow(QDialog):
             btns.addWidget(b)
         btns.addStretch(1)
         lay.addLayout(btns)
-        lay.addWidget(_hint("Фразы-паразиты отмечены «★» — они переводятся в каждом сообщении. "
-                            "Значения — это то, что вы печатаете по-русски; «е/ё» и «и/й» считаются одной буквой."))
+        lay.addWidget(_hint("Галочка в первой колонке — слово-паразит: фраза переводится в каждом "
+                            "сообщении, даже когда автоперевод ещё не сработал. Выбор сохраняется "
+                            "вместе со словарём. Значения — это то, что вы печатаете по-русски; "
+                            "«е/ё» и «и/й» считаются одной буквой."))
         return page
 
     def _fill_table(self, data):
@@ -845,13 +1006,24 @@ class SettingsWindow(QDialog):
             ru, _, meanings = str(val).partition("|")
             r = self.tbl.rowCount()
             self.tbl.insertRow(r)
-            star = "★ " if self._norm_key(phrase) in fillers else ""
-            items = [QTableWidgetItem(star + str(phrase)),
+            # галочка вместо звёздочки: видно, что это переключатель, и его
+            # можно снять мышью или пробелом с клавиатуры
+            # a checkbox instead of a star: it looks switchable and can be
+            # toggled by mouse or by the space key
+            mark = QTableWidgetItem("")
+            mark.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled
+                          | Qt.ItemFlag.ItemIsSelectable)
+            mark.setCheckState(Qt.CheckState.Checked if self._norm_key(phrase) in fillers
+                               else Qt.CheckState.Unchecked)
+            mark.setToolTip(i18n.t("Переводить эту фразу в каждом сообщении"))
+            items = [mark,
+                     QTableWidgetItem(str(phrase)),
                      QTableWidgetItem(ru.strip()),
                      QTableWidgetItem(meanings.strip().lstrip(";").strip())]
             for c, it in enumerate(items):
                 it.setData(Qt.ItemDataRole.UserRole, str(phrase))
-                it.setToolTip(it.text())
+                if c:
+                    it.setToolTip(it.text())
                 self.tbl.setItem(r, c, it)
         self.tbl.blockSignals(False)
         self._filter_table()
@@ -881,23 +1053,38 @@ class SettingsWindow(QDialog):
         self._collect_glossary()
 
     def _collect_glossary(self):
-        """Переносит таблицу в данные словаря текущего языка."""
+        """Переносит таблицу в данные словаря текущего языка.
+
+        Галочка в первой колонке делает фразу словом-паразитом: движок берёт
+        список из ключа «_fillers», а флаг «_fillers_user» говорит, что список
+        выбран человеком и встроенный словарь его больше не перезаписывает.
+        The checkbox in the first column makes a phrase a filler word: the engine
+        reads «_fillers», and «_fillers_user» marks the list as the user's own so
+        a built-in glossary update never overwrites it.
+        """
         if not self.glossary_changed:
             return
         data = self._doc(self.glang)
         phrases = {}
+        fillers = []
         for r in range(self.tbl.rowCount()):
             cells = []
-            for c in range(3):
+            for c in range(1, 4):
                 it = self.tbl.item(r, c)
                 cells.append(it.text().strip() if it else "")
-            phrase = cells[0].lstrip("★").strip()
+            phrase = cells[0]
             if not phrase:
                 continue
             reading = cells[1] or phrase
             meanings = "; ".join(x.strip() for x in cells[2].split(";") if x.strip())
             phrases[phrase] = reading + " | " + meanings if meanings else reading + " | "
+            mark = self.tbl.item(r, 0)
+            if mark is not None and mark.checkState() == Qt.CheckState.Checked:
+                forms = [x.strip() for x in cells[2].split(";") if x.strip()] or [reading]
+                fillers.append({"target": phrase, "ru": forms})
         data["phrases"] = phrases
+        data["_fillers"] = fillers
+        data["_fillers_user"] = True
         self.docs[self.glang] = data
         self.dirty.add(self.glang)
         self.glossary_changed = False
@@ -920,12 +1107,17 @@ class SettingsWindow(QDialog):
         self.tbl.blockSignals(True)
         r = self.tbl.rowCount()
         self.tbl.insertRow(r)
-        for c in range(3):
+        mark = QTableWidgetItem("")
+        mark.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled
+                      | Qt.ItemFlag.ItemIsSelectable)
+        mark.setCheckState(Qt.CheckState.Unchecked)
+        self.tbl.setItem(r, 0, mark)
+        for c in (1, 2, 3):
             self.tbl.setItem(r, c, QTableWidgetItem(""))
         self.tbl.blockSignals(False)
         self.glossary_changed = True
         self._filter_table()
-        self.tbl.editItem(self.tbl.item(r, 0))
+        self.tbl.editItem(self.tbl.item(r, 1))
 
     def _del_phrase(self):
         rows = sorted({i.row() for i in self.tbl.selectedIndexes()}, reverse=True)
@@ -1048,6 +1240,12 @@ class SettingsWindow(QDialog):
         head = QHBoxLayout()
         self.lb_slang_count = _hint("")
         self.lb_slang_count.setProperty("no_i18n", True)
+        # две короткие строки вместо одной длинной: переносить нечего, поэтому
+        # подпись не разъезжается на три строки в узком окне
+        # two short lines instead of one long one: nothing to wrap, so the label
+        # never breaks into three lines in a narrow window
+        self.lb_slang_count.setWordWrap(False)
+        self.lb_slang_count.setMinimumWidth(150)
         head.addWidget(self.lb_slang_count)
         head.addStretch(1)
         self.ed_slang_search = QLineEdit()
@@ -1133,15 +1331,14 @@ class SettingsWindow(QDialog):
         total = self.tbl_slang.rowCount()
         own = len(slang.user_entries())
         self.lb_slang_count.setText(
-            i18n.tf("показано %d из %d", shown, total) if needle
-            else i18n.tf("всего сокращений: %d · своих: %d", total, own))
+            i18n.tf("Показано: %d из %d\nСвоих: %d", shown, total, own) if needle
+            else i18n.tf("Всего: %d\nСвоих: %d", total, own))
 
     def _update_slang_ui(self):
         if hasattr(self, "lb_slang_count"):
             own = len(slang.user_entries())
             total = len(slang.entries())
-            self.lb_slang_count.setText(
-                i18n.tf("всего сокращений: %d · своих: %d", total, own))
+            self.lb_slang_count.setText(i18n.tf("Всего: %d\nСвоих: %d", total, own))
 
     def _slang_edited(self, item):
         self._slang_pending = True
@@ -1300,7 +1497,420 @@ class SettingsWindow(QDialog):
         slang.save_user({})
         self._fill_slang()
 
-    # ------------------------------------------------------------ Проверка
+    # ------------------------------------------------------------ DeepL
+    def _page_dlx(self):
+        """Локальный сервис DeepL: согласие, состояние, доступ, установка."""
+        page = QWidget()
+        page.setObjectName("page")
+        lay = QVBoxLayout(page)
+        lay.setContentsMargins(20, 18, 20, 18)
+        lay.setSpacing(14)
+
+        card, cl = _card()
+        cl.addWidget(_title("DeepL рядом (DLX)", "sec"))
+        cl.addWidget(_hint(
+            "DLX — отдельная бесплатная программа с открытым кодом (лицензия MIT), "
+            "которая работает на вашем компьютере и переводит через движок DeepL. "
+            "Она занимает около 15 МБ и запускается вместе с программой. Текст при "
+            "этом уходит на серверы DeepL — так же, как сейчас уходит в Google. "
+            "Сервис неофициальный: DeepL может ограничить запросы, и тогда перевод "
+            "автоматически вернётся к стандартным сервисам."))
+        self.chk_dlx = QCheckBox("Переводить через DeepL в первую очередь")
+        self.chk_dlx.setToolTip("Без этого флажка работает обычная цепочка сервисов")
+        cl.addWidget(self.chk_dlx)
+        self.chk_dlx_autostart = QCheckBox("Запускать сервис вместе с программой")
+        cl.addWidget(self.chk_dlx_autostart)
+        self.chk_dlx_update = QCheckBox("Проверять обновления сервиса при запуске")
+        cl.addWidget(self.chk_dlx_update)
+        lay.addWidget(card)
+
+        card, cl = _card()
+        cl.addWidget(_title("Состояние", "sec"))
+        self.lb_dlx_state = _hint("")
+        self.lb_dlx_state.setProperty("no_i18n", True)
+        self.lb_dlx_state.setWordWrap(True)
+        cl.addWidget(self.lb_dlx_state)
+        row = QHBoxLayout()
+        self.b_dlx_check = QPushButton("Проверить")
+        self.b_dlx_check.setToolTip("Короткий запрос к сервису: отвечает ли он")
+        self.b_dlx_check.clicked.connect(self._dlx_check)
+        self.b_dlx_start = QPushButton("Запустить")
+        self.b_dlx_start.clicked.connect(self._dlx_start)
+        self.b_dlx_stop = QPushButton("Остановить")
+        self.b_dlx_stop.clicked.connect(self._dlx_stop)
+        self.b_dlx_install = QPushButton("Установить")
+        self.b_dlx_install.setObjectName("primary")
+        self.b_dlx_install.setToolTip("Скачать сервис с GitHub (около 15 МБ)")
+        self.b_dlx_install.clicked.connect(self._dlx_install)
+        self.b_dlx_remove = QPushButton("Удалить сервис")
+        self.b_dlx_remove.setObjectName("danger")
+        self.b_dlx_remove.clicked.connect(self._dlx_remove)
+        for button in (self.b_dlx_check, self.b_dlx_start, self.b_dlx_stop,
+                       self.b_dlx_install, self.b_dlx_remove):
+            button.setAutoDefault(False)
+            row.addWidget(button)
+        row.addStretch(1)
+        cl.addLayout(row)
+        self.lb_dlx_path = _hint("")
+        self.lb_dlx_path.setProperty("no_i18n", True)
+        cl.addWidget(self.lb_dlx_path)
+        lay.addWidget(card)
+
+        card, cl = _card()
+        cl.addWidget(_title("Доступ к сервису", "sec"))
+        cl.addWidget(_hint(
+            "Сервис слушает только ваш компьютер. Порт выбирается свободный, а "
+            "запросы подписываются токеном, чтобы чужие программы не могли гонять "
+            "трафик через ваш DeepL."))
+        form = QFormLayout()
+        form.setHorizontalSpacing(18)
+        form.setVerticalSpacing(10)
+        self.sp_dlx_port = _small_spin(QSpinBox(), 0, 65535, "", 170)
+        self.sp_dlx_port.setToolTip("0 — выбирать свободный порт автоматически")
+        form.addRow("Порт (0 — автоматически)", _num_row(self.sp_dlx_port))
+        self.ed_dlx_token = QLineEdit()
+        self.ed_dlx_token.setReadOnly(True)
+        self.ed_dlx_token.setToolTip("Токен знает только программа; в сеть он не уходит")
+        form.addRow("Токен", self.ed_dlx_token)
+        # свой сервис вместо бинарника: локальный сервер на Node.js или
+        # развёрнутый DeepLX / a service of your own instead of the binary
+        self.ed_dlx_url = QLineEdit()
+        self.ed_dlx_url.setPlaceholderText("http://127.0.0.1:1188")
+        self.ed_dlx_url.setToolTip(
+            "Пусто — работать через dlx.exe. Адрес своего сервиса — и файл "
+            "скачивать не нужно")
+        form.addRow("Свой адрес сервиса", self.ed_dlx_url)
+        self.ed_dlx_url_token = QLineEdit()
+        self.ed_dlx_url_token.setPlaceholderText("необязательно")
+        self.ed_dlx_url_token.setToolTip(
+            "Токен, с которым запущен ваш сервис (TOKEN=…); если он не задан — пусто")
+        form.addRow("Токен своего сервиса", self.ed_dlx_url_token)
+        cl.addLayout(form)
+        # пояснение под полем адреса: откуда взяться своему сервису
+        # a remark under the address field: where such a service comes from
+        self.lb_dlx_url_note = QLabel(
+            "Свой адрес нужен, когда dlx.exe не скачивается или не запускается: "
+            "сервер из source/tools/deeplx-local (npm start) слушает 1188 и "
+            "говорит на том же языке, что и DLX. Адрес можно вставить целиком, "
+            "вместе с /translate — лишний хвост программа отрежет сама.")
+        self.lb_dlx_url_note.setWordWrap(True)
+        self.lb_dlx_url_note.setProperty("no_i18n", True)
+        self.lb_dlx_url_note.setStyleSheet("color:#8a8fa3;font-size:11px;")
+        cl.addWidget(self.lb_dlx_url_note)
+        row = QHBoxLayout()
+        self.b_dlx_token = QPushButton("Выпустить новый токен")
+        self.b_dlx_token.setAutoDefault(False)
+        self.b_dlx_token.clicked.connect(self._dlx_token)
+        row.addWidget(self.b_dlx_token)
+        row.addStretch(1)
+        cl.addLayout(row)
+        lay.addWidget(card)
+
+        card, cl = _card()
+        cl.addWidget(_title("Если DeepL не отвечает", "sec"))
+        cl.addWidget(_hint(
+            "С июня 2025 года DeepL закрыт для российских адресов: сервис DLX "
+            "работает, а DeepL отвечает отказом. Своего прокси DLX не поднимает — "
+            "он только ходит через тот, что вы укажете, и этот прокси должен "
+            "выходить не из России: адрес российского сервера DeepL так же не "
+            "примет. Cloudflare WARP и One Client тут не помогут: они не меняют "
+            "страну, ближайший узел у них в России. DNS-сервисы вроде NextDNS — "
+            "тоже: они только находят адрес по имени, а DeepL смотрит на адрес. "
+            "Годится VPN или клиент с "
+            "зарубежным выходом, поднявший локальный порт: v2rayN 10809, "
+            "Clash 7890, Hiddify 2080, Nekoray 2080. Порт 1080 — обычно SOCKS5, "
+            "и программа сама подставит socks5://, если вы написали http://. "
+            "Токен DeepL Pro региональную блокировку не снимает — он только для "
+            "владельцев подписки и снимает лимиты."))
+        form = QFormLayout()
+        form.setHorizontalSpacing(18)
+        form.setVerticalSpacing(10)
+        self.ed_dlx_proxy = QLineEdit()
+        self.ed_dlx_proxy.setPlaceholderText("http://127.0.0.1:10809")
+        self.ed_dlx_proxy.setToolTip("Пусто — идти напрямую; http, https или socks5")
+        form.addRow("HTTP-прокси", self.ed_dlx_proxy)
+        self.ed_dlx_pro = QLineEdit()
+        self.ed_dlx_pro.setEchoMode(QLineEdit.EchoMode.Password)
+        self.ed_dlx_pro.setPlaceholderText("необязательно")
+        self.ed_dlx_pro.setToolTip("OAuth-токен DeepL Pro; без него работает "
+                                   "бесплатный путь")
+        form.addRow("Токен DeepL Pro", self.ed_dlx_pro)
+        cl.addLayout(form)
+        # замечание к адресу прокси: опечатку видно сразу, до запуска сервиса
+        # a remark about the proxy address: a typo shows up before the service runs
+        self.chk_dlx_sysproxy = QCheckBox(
+            "Брать прокси из настроек Windows, если свой не задан")
+        self.chk_dlx_sysproxy.setToolTip(
+            "VPN в режиме «системный прокси» прописывает адрес в Windows — "
+            "сервис будет ходить через него")
+        cl.addWidget(self.chk_dlx_sysproxy)
+        row = QHBoxLayout()
+        self.b_dlx_proxy_check = QPushButton("Проверить выход")
+        self.b_dlx_proxy_check.setAutoDefault(False)
+        self.b_dlx_proxy_check.setToolTip(
+            "Покажет адрес и страну, из которой выходит прокси (запрос идёт через него)")
+        self.b_dlx_proxy_check.clicked.connect(self._dlx_proxy_exit)
+        row.addWidget(self.b_dlx_proxy_check)
+        row.addStretch(1)
+        cl.addLayout(row)
+        self.lb_dlx_proxy_note = QLabel("")
+        self.lb_dlx_proxy_note.setWordWrap(True)
+        self.lb_dlx_proxy_note.setProperty("no_i18n", True)
+        self.lb_dlx_proxy_note.setStyleSheet("color:#8a8fa3;font-size:11px;")
+        cl.addWidget(self.lb_dlx_proxy_note)
+        self.ed_dlx_proxy.textChanged.connect(self._dlx_proxy_note)
+        lay.addWidget(card)
+        lay.addStretch(1)
+        # прогресс скачивания приходит из потока строкой; окно читает её таймером
+        # download progress arrives from a thread as plain text; a timer reads it
+        self._dlx_progress = ""
+        self._dlx_timer = QTimer(self)
+        self._dlx_timer.setInterval(300)
+        self._dlx_timer.timeout.connect(lambda: self.lb_dlx_state.setText(
+            self._dlx_progress) if self._dlx_progress else None)
+        self._dlx_refresh()
+        return page
+
+    # ------------------------------------------------ работа с сервисом
+    def _dlx_state_text(self):
+        """Текст состояния сервиса / the service state as text."""
+        if self.dlx is None:
+            return i18n.t("Сервис не подключён к этому окну — перезапустите программу.")
+        status = self.dlx.status()
+        state = status.get("state")
+        words = {
+            "ready": i18n.tf("Работает · порт %d", status.get("port") or 0),
+            "starting": i18n.t("Запускается…"),
+            "off": i18n.t("Остановлен"),
+            "missing": i18n.t("Не установлен"),
+            "upstream": i18n.t("Работает, но DeepL не отвечает (503)"),
+            "error": i18n.tf("Ошибка: %s", status.get("reason") or ""),
+        }
+        text = words.get(state, str(state))
+        version = status.get("version")
+        if version:
+            text += i18n.tf(" · версия %s", version)
+        note = status.get("note")
+        if note:
+            text += i18n.tf(" · %s", note)
+        return text
+
+    def _dlx_refresh(self):
+        """Обновляет подписи страницы по текущему состоянию / refresh the page."""
+        if not hasattr(self, "lb_dlx_state"):
+            return
+        self.lb_dlx_state.setText(self._dlx_state_text())
+        if self.dlx is not None:
+            token = self.dlx.token
+            self.ed_dlx_token.setText(token[:8] + "…" if token else "")
+            self.lb_dlx_path.setText(i18n.tf("Файлы сервиса: %s", str(self.dlx.dir)))
+            self.b_dlx_install.setText(i18n.t("Обновить") if self.dlx.installed()
+                                       else i18n.t("Установить"))
+        for button in (self.b_dlx_start, self.b_dlx_stop, self.b_dlx_install,
+                       self.b_dlx_remove, self.b_dlx_check, self.b_dlx_token):
+            button.setEnabled(self.dlx is not None)
+
+    def _dlx_proxy_note(self):
+        """Проверяет адрес прокси на вид и подсказывает решение.
+
+        Checks the proxy address by its looks and suggests the fix: a typo in the
+        scheme or a SOCKS5 port written as http:// both end with a silent service.
+        """
+        if not hasattr(self, "lb_dlx_proxy_note"):
+            return
+        text = self.ed_dlx_proxy.text().strip()
+        if not text:
+            self.lb_dlx_proxy_note.setText("")
+            return
+        normalized = dlx_mod.normalize_proxy(text)
+        if not normalized:
+            self.lb_dlx_proxy_note.setStyleSheet("color:#ff8f8f;font-size:11px;")
+            self.lb_dlx_proxy_note.setText(i18n.t(
+                "Адрес не подходит: нужен http://, https:// или socks5:// с портом."))
+            return
+        self.lb_dlx_proxy_note.setStyleSheet("color:#8a8fa3;font-size:11px;")
+        parsed = urllib.parse.urlparse(normalized)
+        if parsed.scheme == "http" and parsed.port in (1080, 1081, 9050):
+            self.lb_dlx_proxy_note.setText(i18n.tf(
+                "Порт %d — обычно у SOCKS5; сервис сам подставит socks5://.",
+                parsed.port))
+        else:
+            self.lb_dlx_proxy_note.setText("")
+
+    def _dlx_proxy_exit(self):
+        """Проверяет, из какой страны выходит прокси / where the proxy exits.
+
+        Единственный способ убедиться, что прокси годится для DeepL: он смотрит
+        на адрес источника, поэтому смотрим и мы — через сам прокси.
+        The only way to be sure a proxy suits DeepL: it looks at the source
+        address, so we look through that very proxy.
+        """
+        text = self.ed_dlx_proxy.text().strip()
+        if not text:
+            QMessageBox.information(self, i18n.t("DeepL рядом"),
+                                    i18n.t("Прокси не задан — сервис ходит напрямую."))
+            return
+        proxy = dlx_mod.normalize_proxy(text)
+        if not proxy:
+            QMessageBox.warning(self, i18n.t("DeepL рядом"), i18n.t(
+                "Адрес не подходит: нужен http://, https:// или socks5:// с портом."))
+            return
+        verdict = {}
+
+        def job():
+            ok, line = dlx_mod.proxy_exit(proxy)
+            verdict["text"] = line
+            return ok
+
+        def done(ok, reason):
+            line = verdict.get("text") or reason or i18n.t("неизвестно")
+            self.lb_dlx_proxy_note.setStyleSheet(
+                "color:#66d18b;font-size:11px;" if ok else "color:#ff8f8f;font-size:11px;")
+            self.lb_dlx_proxy_note.setText(line)
+            if ok:
+                QMessageBox.information(self, i18n.t("DeepL рядом"),
+                                        i18n.tf("Прокси работает. Выход: %s", line))
+            else:
+                QMessageBox.warning(self, i18n.t("DeepL рядом"),
+                                    i18n.tf("Прокси не годится: %s", line))
+        self._dlx_busy(True, i18n.t("Проверяю прокси…"))
+        job_runner = DlxJob(job, self)
+        self._dlx_job = job_runner
+
+        def finish(ok, reason):
+            self._dlx_busy(False)
+            self._dlx_refresh()
+            done(ok, reason)
+        job_runner.finished.connect(finish)
+        job_runner.start()
+
+    def _dlx_guard(self):
+        """Предупреждение, если сервис не подключён / warn when there is no service."""
+        if self.dlx is None:
+            QMessageBox.warning(self, i18n.t("DeepL рядом"),
+                                i18n.t("Сервис не подключён — перезапустите программу."))
+            return False
+        return True
+
+    def _dlx_busy(self, busy, text=""):
+        """Блокирует кнопки на время работы / locks the buttons while working."""
+        if text:
+            self.lb_dlx_state.setText(text)
+        for button in (self.b_dlx_check, self.b_dlx_start, self.b_dlx_stop,
+                       self.b_dlx_install, self.b_dlx_remove, self.b_dlx_token,
+                       self.b_dlx_proxy_check):
+            button.setEnabled(not busy)
+        if busy:
+            self._dlx_progress = text
+            self._dlx_timer.start()
+        else:
+            self._dlx_timer.stop()
+
+    def _dlx_run(self, fn, busy_text, done):
+        """Выполняет действие в фоне и возвращается к окну с результатом.
+
+        Runs an action in the background and comes back to the window with the
+        result; the callback runs on the main thread.
+        """
+        self._dlx_busy(True, busy_text)
+        job = DlxJob(fn, self)
+        self._dlx_job = job          # ссылка, иначе объект соберёт сборщик мусора
+        def finish(ok, reason):
+            self._dlx_busy(False)
+            self._dlx_refresh()
+            done(ok, reason)
+        job.finished.connect(finish)
+        job.start()
+
+    def _dlx_check(self):
+        """Короткая проверка: отвечает ли сервис / a short health check."""
+        if not self._dlx_guard():
+            return
+        def done(ok, reason):
+            QMessageBox.information(
+                self, i18n.t("DeepL рядом"),
+                i18n.t("Сервис отвечает нормально.") if ok
+                else i18n.t("Сервис не отвечает. Нажмите «Запустить» или «Установить»."))
+        self._dlx_run(self.dlx.health, i18n.t("Проверяю…"), done)
+
+    def _dlx_start(self):
+        """Запуск сервиса вручную / start the service by hand."""
+        if not self._dlx_guard():
+            return
+        def done(ok, reason):
+            if not ok:
+                QMessageBox.warning(
+                    self, i18n.t("DeepL рядом"),
+                    i18n.t("Запустить не удалось: %s")
+                    % (self.dlx.status().get("reason") or reason
+                       or i18n.t("неизвестно")))
+        self._dlx_run(self.dlx.ensure, i18n.t("Запускается…"), done)
+
+    def _dlx_stop(self):
+        """Остановка сервиса / stop the service."""
+        if not self._dlx_guard():
+            return
+        self.dlx.stop()
+        self._dlx_refresh()
+
+    def _dlx_install(self):
+        """Скачивание и установка сервиса / download and install the service."""
+        if not self._dlx_guard():
+            return
+        answer = QMessageBox.question(
+            self, i18n.t("Установка сервиса"),
+            i18n.t("Скачать локальный сервис DeepL с GitHub?\n\n"
+                   "Около 15 МБ, лицензия MIT, файл кладётся рядом с программой.\n"
+                   "Текст перевода будет уходить на серверы DeepL."))
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        def job():
+            return self.dlx.install(lambda text: setattr(self, "_dlx_progress", text))
+        def done(ok, reason):
+            if not ok:
+                QMessageBox.warning(
+                    self, i18n.t("DeepL рядом"),
+                    i18n.t("Установить не удалось: %s")
+                    % (self.dlx.status().get("reason") or reason
+                       or i18n.t("неизвестно")))
+                return
+            self._dlx_refresh()
+            QMessageBox.information(self, i18n.t("DeepL рядом"),
+                                    i18n.t("Сервис установлен и готов к работе."))
+            if self.chk_dlx.isChecked():
+                # запуск тоже в фоне: ожидание готовности занимает секунды
+                # the start also runs in the background: waiting for readiness
+                # takes seconds
+                self._dlx_run(self.dlx.ensure, i18n.t("Запускается…"),
+                              lambda ok, reason: None)
+        self._dlx_run(job, i18n.t("Скачиваю…"), done)
+
+    def _dlx_remove(self):
+        """Удаление сервиса с диска / remove the service from disk."""
+        if not self._dlx_guard():
+            return
+        answer = QMessageBox.question(
+            self, i18n.t("Удаление сервиса"),
+            i18n.t("Удалить сервис DeepL с диска?\\nПрограмма вернётся к обычным "
+                   "сервисам перевода, настройки останутся."))
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self.dlx.uninstall()
+        self.chk_dlx.setChecked(False)
+        self._dlx_refresh()
+
+    def _dlx_token(self):
+        """Новый токен доступа / a new access token."""
+        if not self._dlx_guard():
+            return
+        try:
+            self.dlx.rotate_token()
+        except dlx_mod.DlxError as error:
+            QMessageBox.warning(self, i18n.t("DeepL рядом"), str(error))
+            return
+        self._dlx_refresh()
+
+    # ------------------------------------------------------------ Модули
     def _page_modules(self):
         """Страница «Модули»: что можно выключить и что от чего зависит.
 
@@ -1566,6 +2176,21 @@ class SettingsWindow(QDialog):
             cfg["ui_lang_chosen"] = True
         cfg["hotkey"] = self.ed_hotkey.text().strip().lower() or "f6"
         cfg["show_settings_on_start"] = bool(self.chk_show_settings.isChecked())
+        if hasattr(self, "chk_dlx"):
+            cfg["dlx_enabled"] = bool(self.chk_dlx.isChecked())
+            # «уже спрашивали» — только когда игрок сам включил DeepL галочкой:
+            # иначе согласие с предупреждениями так и не покажется
+            # "already asked" is set only when the player ticks DeepL here;
+            # otherwise the warning dialog would never be shown at all
+            cfg["dlx_asked"] = bool(cfg.get("dlx_asked")) or bool(cfg["dlx_enabled"])
+            cfg["dlx_autostart"] = bool(self.chk_dlx_autostart.isChecked())
+            cfg["dlx_auto_update"] = bool(self.chk_dlx_update.isChecked())
+            cfg["dlx_port"] = int(self.sp_dlx_port.value())
+            cfg["dlx_proxy"] = dlx_mod.normalize_proxy(self.ed_dlx_proxy.text())
+            cfg["dlx_use_system_proxy"] = bool(self.chk_dlx_sysproxy.isChecked())
+            cfg["dlx_url"] = self.ed_dlx_url.text().strip().rstrip("/")
+            cfg["dlx_url_token"] = self.ed_dlx_url_token.text().strip()
+            cfg["dlx_pro_token"] = self.ed_dlx_pro.text().strip()
         if hasattr(self, "sp_ui_scale"):
             cfg["ui_scale"] = round(self.sp_ui_scale.value() / 100.0, 2)
         cfg["marker_open"] = (self.ed_open.text().strip() or "+")[0]
@@ -1642,6 +2267,19 @@ class SettingsWindow(QDialog):
             box.blockSignals(True)
             box.setChecked(bool(cfg.get(key, True)))
             box.blockSignals(False)
+        if hasattr(self, "chk_dlx"):
+            self.chk_dlx.setChecked(bool(cfg.get("dlx_enabled", False)))
+            self.chk_dlx_autostart.setChecked(bool(cfg.get("dlx_autostart", True)))
+            self.chk_dlx_update.setChecked(bool(cfg.get("dlx_auto_update", True)))
+            self.sp_dlx_port.setValue(int(cfg.get("dlx_port", 0) or 0))
+            self.ed_dlx_proxy.setText(str(cfg.get("dlx_proxy") or ""))
+            self.chk_dlx_sysproxy.setChecked(
+                bool(cfg.get("dlx_use_system_proxy", True)))
+            self._dlx_proxy_note()
+            self.ed_dlx_pro.setText(str(cfg.get("dlx_pro_token") or ""))
+            self.ed_dlx_url.setText(str(cfg.get("dlx_url") or ""))
+            self.ed_dlx_url_token.setText(str(cfg.get("dlx_url_token") or ""))
+            self._dlx_refresh()
         self.header_sub.setText(i18n.tf(
             "Язык: %s · горячая клавиша: %s · частота автоперевода: каждое %d-е",
             langs.label(langs.code_of(cfg.get("target_lang", "it"))),
@@ -1661,6 +2299,69 @@ class SettingsWindow(QDialog):
         self._load_language("it", reload_table=True)
         self.footer_hint.setText(
             i18n.t("Настройки сброшены — нажмите «Сохранить», чтобы применить."))
+
+    def _is_dirty(self):
+        """Есть ли неприменённые правки / whether there are unsaved edits."""
+        try:
+            cur = dict(self.cfg)
+            self._write_widgets(cur)
+        except Exception:                                 # окно ещё не собрано целиком
+            return False
+        if cur != self.cfg:
+            return True
+        return bool(self.dirty or self.glossary_changed or self._slang_pending)
+
+    def _flash_hint(self, text=None, bad=False):
+        """Пишет в подвал, что настройки применились, и убирает через 5 секунд.
+
+        Shows in the footer that the settings were applied, then restores the
+        usual hint after five seconds.
+        """
+        self.footer_hint.setText(i18n.t(text or "Настройки сохранены и применены."))
+        self.footer_hint.setStyleSheet("color:#ff6b6b;" if bad else "color:#66d18b;")
+        if getattr(self, "_hint_timer", None) is None:
+            self._hint_timer = QTimer(self)
+            self._hint_timer.setSingleShot(True)
+            self._hint_timer.timeout.connect(self._hint_idle)
+        self._hint_timer.start(5000)
+
+    def _hint_idle(self):
+        """Возвращает подвал к обычной подсказке / restores the idle footer text."""
+        self.footer_hint.setStyleSheet("")
+        self.footer_hint.setText(i18n.t(_FOOTER_IDLE))
+
+    def _cancel(self):
+        """Закрывает окно, но не теряет правки молча.
+
+        Closes the window; unsaved edits are never dropped without asking.
+        """
+        if self._is_dirty():
+            ans = QMessageBox.question(
+                self, i18n.t("Несохранённые изменения"),
+                i18n.t("В настройках есть неприменённые изменения.\nЗакрыть окно без сохранения?"),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No)
+            if ans != QMessageBox.StandardButton.Yes:
+                return
+        super().reject()
+
+    def reject(self):
+        """Esc и крестик окна идут тем же путём, что и кнопка «Закрыть»."""
+        self._cancel()
+
+    def keyPressEvent(self, e):
+        """Enter сохраняет, Esc закрывает — без «кнопки по умолчанию».
+
+        Enter saves and Esc closes without giving any button a permanent
+        default-button look.
+        """
+        if e.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            self._save()
+            return
+        if e.key() == Qt.Key.Key_Escape:
+            self._cancel()
+            return
+        super().keyPressEvent(e)
 
     def _save(self):
         self._sync_glossary()
@@ -1689,8 +2390,26 @@ class SettingsWindow(QDialog):
         log.info("Настройки сохранены: язык %s, hotkey %s, словари %s",
                  cfg.get("target_lang"), cfg.get("hotkey"), saved_glossaries)
         self.cfg = cfg
+        self.glossary_changed = False
+        self._slang_pending = False
         self.saved.emit(cfg)
-        self.accept()
+        if self.first_run:
+            # первичная настройка закончена, но окно остаётся открытым: игрок сам
+            # решает, когда закончить, и программа не прячется в трей
+            # the first run is over, yet the window stays open: the player decides
+            # when to finish and the program never hides into the tray by itself
+            self.first_run = False
+            self.setWindowTitle(i18n.t("Настройки — RP Chat Overlay"))
+            self.header_title.setText(i18n.t("Настройки"))
+            log.info("Первичная настройка завершена, окно остаётся открытым")
+        self._flash_hint()
+        # на всякий случай возвращаем окно на экран: сохранение не должно его
+        # прятать, даже если фокус ушёл в игру
+        # bring the window back on screen just in case: saving must never hide it,
+        # even when the focus went to the game
+        self.show()
+        self.raise_()
+        self.activateWindow()
 
 
 def _pretty_hotkey(spec):
@@ -1709,9 +2428,72 @@ def _sz(w, h):
     return QSize(w, h)
 
 
-def open_settings(cfg, parent=None, first_run=False):
+class DlxConsent(QDialog):
+    """Окно согласия на локальный сервис DeepL / consent for the local DeepL service.
+
+    Показывается один раз при запуске: человек видит, что именно скачивается,
+    куда уходит текст и как это выключить, и может отказаться.
+    Shown once at start: the user sees what is downloaded, where the text goes and
+    how to switch it off, and may say no.
+    """
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("DeepL рядом (DLX)")
+        self.setStyleSheet(style_sheet(1.0))
+        self.setMinimumWidth(560)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(22, 18, 22, 16)
+        lay.setSpacing(12)
+        title = QLabel("Перевод получше: DeepL рядом")
+        title.setStyleSheet("font-size:16px;font-weight:600;")
+        lay.addWidget(title)
+        text = QLabel(
+            "Рядом с программой можно развернуть отдельный сервис перевода — "
+            "бесплатную программу DLX с открытым кодом (лицензия MIT).\n\n"
+            "· качество DeepL выше, чем у бесплатных сервисов Google;\n"
+            "· занимает около 15 МБ и запускается вместе с программой;\n"
+            "· текст перевода уходит на серверы DeepL — так же, как сейчас в Google;\n"
+            "· сервис неофициальный: DeepL может ограничить запросы, и тогда перевод "
+            "сам вернётся к стандартным сервисам;\n"
+            "· выключить можно в любой момент: Настройки → DeepL.")
+        text.setWordWrap(True)
+        lay.addWidget(text)
+        self.chk_download = QCheckBox("Скачать сервис сейчас (около 15 МБ)")
+        self.chk_download.setChecked(True)
+        lay.addWidget(self.chk_download)
+        row = QHBoxLayout()
+        row.addStretch(1)
+        self.btn_no = QPushButton("Остаться на стандартных")
+        self.btn_no.setAutoDefault(False)
+        self.btn_no.clicked.connect(self.reject)
+        self.btn_yes = QPushButton("Включить DeepL")
+        self.btn_yes.setObjectName("primary")
+        self.btn_yes.setAutoDefault(False)
+        self.btn_yes.clicked.connect(self.accept)
+        row.addWidget(self.btn_no)
+        row.addWidget(self.btn_yes)
+        lay.addLayout(row)
+
+    def wants_download(self) -> bool:
+        """Скачивать ли сервис сразу / whether to download the service now."""
+        return bool(self.chk_download.isChecked())
+
+
+def ask_dlx_consent(cfg, parent=None):
+    """Спрашивает про DLX один раз; возвращает (включён, скачать).
+
+    Asks about DLX once; returns (enabled, download). The answer is written into
+    cfg by the caller, so the question is never repeated.
+    """
+    dialog = DlxConsent(parent)
+    accepted = dialog.exec() == QDialog.DialogCode.Accepted
+    return accepted, (accepted and dialog.wants_download())
+
+
+def open_settings(cfg, parent=None, first_run=False, dlx=None):
     """Создаёт окно, загружает значения и возвращает его (без exec)."""
-    win = SettingsWindow(cfg, parent=parent, first_run=first_run)
+    win = SettingsWindow(cfg, parent=parent, first_run=first_run, dlx=dlx)
     win._load_widgets()
     win._load_language(langs.code_of(cfg.get("target_lang", "it")), reload_table=True)
     return win

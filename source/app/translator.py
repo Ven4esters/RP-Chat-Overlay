@@ -34,7 +34,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any, Callable
+from typing import Any, Callable, Final
 
 from app.config import CACHE_PATH, log, read_json, write_json
 from app.langs import code_of, get as get_lang
@@ -206,6 +206,28 @@ SERVICES: tuple[tuple[str, ServiceFunc], ...] = (
 )
 
 
+# Имя локального звена в журнале и в окне проверки / the local link's name.
+LOCAL_NAME = "DeepL рядом"
+
+# Коды DeepL отличаются от наших: es-MX у DeepL нет, зато есть PT-BR и ZH.
+# DeepL codes differ from ours: it has no es-MX but knows PT-BR and ZH.
+DLX_CODES: Final[dict[str, str]] = {
+    "ru": RU, "it": "IT", "es": "ES", "es-mx": "ES", "pt": "PT-PT", "pt-br": "PT-BR",
+    "zh": "ZH", "ja": "JA", "de": "DE", "fr": "FR", "en": "EN-US", "tr": "TR",
+    "pl": "PL", "nl": "NL", "ko": "KO", "uk": "UK", "ar": "AR", "cs": "CS",
+    "da": "DA", "fi": "FI", "el": "EL", "hu": "HU", "id": "ID", "nb": "NB",
+    "ro": "RO", "sk": "SK", "sv": "SV",
+}
+
+
+def dlx_code(code: str) -> str:
+    """Наш код языка в код DeepL / our language code in DeepL spelling."""
+    key = str(code or "").strip().lower()
+    if key in ("", "auto"):
+        return "auto"
+    return DLX_CODES.get(key, key.upper())
+
+
 def _short(errors: list[str]) -> str:
     """Короткое объяснение для окна: что именно случилось со всеми сервисами.
 
@@ -238,6 +260,9 @@ class Translator:
         self.target = "it"
         self.source = "ru"
         self.last_service = ""        # чем перевели в последний раз / last service used
+        # локальный сервис DeepL: подключается, только если модуль включён
+        # the local DeepL service: attached only while the module is enabled
+        self.local: Any = None
         self.set_target(target)
 
     # ------------------------------------------------------------------ режим
@@ -293,6 +318,23 @@ class Translator:
             _cool[name] = now + COOL
 
     # --------------------------------------------------------------- перевод
+    def _chain(self) -> list[tuple[str, ServiceFunc]]:
+        """Цепочка сервисов на этот запрос / the service chain for this request.
+
+        Если подключён локальный сервис DeepL, он идёт первым: качество выше,
+        а при любой его ошибке управление сразу переходит к обычным сервисам.
+        A connected local DeepL service goes first: it is better, and on any
+        error the regular services take over at once.
+        """
+        chain = list(SERVICES)
+        if self.local is not None:
+            chain.insert(0, (LOCAL_NAME, self._via_local))
+        return chain
+
+    def _via_local(self, text: str, target: str, source: str = RU) -> str:
+        """Перевод через локальный сервис / translation through the local service."""
+        return self.local.translate(text, dlx_code(source), dlx_code(target))
+
     def translate(self, text: str) -> str:
         """Перевести текст, идя по цепочке сервисов до первого ответа.
 
@@ -313,7 +355,7 @@ class Translator:
         with self.net_lock:                      # запросы строго по одному / one at a time
             if cache_key in self.cache:
                 return self.cache[cache_key]
-            for name, func in SERVICES:
+            for name, func in self._chain():
                 now = time.time()
                 if now - started > DEADLINE:
                     errors.append("время ожидания истекло")

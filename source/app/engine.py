@@ -378,12 +378,19 @@ def _phrase_parts(val):
 def _inject_fillers(data, pack):
     """Добавляет в словарь языка слова-паразиты: чтение и русские формы.
 
-    Вызывается при каждой загрузке, поэтому список паразитов всегда актуален,
+    Вызывается при каждой загрузке, поэтому чтение и значения всегда актуальны,
     а правки пользователя в других фразах не теряются.
+
+    Список самих паразитов приходит из встроенного словаря только до тех пор,
+    пока человек не отметил их галочками в настройках. После первой правки
+    действует его выбор (ключ «_fillers_user»), и обновление словаря его не
+    перезаписывает. Reading and meanings are refreshed on every load, but the
+    filler list comes from the built-in pack only until the user ticks the boxes
+    in the settings; after that «_fillers_user» keeps their choice in place.
     """
     phrases = data.setdefault("phrases", {})
     by_norm = {norm(k): k for k in phrases}
-    fillers = []
+    from_pack = []
     for f in pack.get("fillers") or []:
         target = str(f.get("target") or "").strip()
         if not target:
@@ -391,7 +398,7 @@ def _inject_fillers(data, pack):
         ru_forms = [str(x).strip() for x in (f.get("ru") or []) if str(x).strip()]
         if not ru_forms:
             continue
-        fillers.append({"target": target, "ru": ru_forms})
+        from_pack.append({"target": target, "ru": ru_forms})
         key = by_norm.get(norm(target))
         if key is None:
             reading = str(f.get("reading") or "").strip() or target
@@ -406,7 +413,18 @@ def _inject_fillers(data, pack):
         extra = [m for m in ru_forms if norm(m) not in have]
         if extra:
             phrases[key] = (reading or key) + " | " + "; ".join(mine + extra)
-    data["_fillers"] = fillers
+    if data.get("_fillers_user"):
+        chosen = []
+        for f in data.get("_fillers") or []:
+            if not isinstance(f, dict):
+                continue
+            target = str(f.get("target") or "").strip()
+            ru_forms = [str(x).strip() for x in (f.get("ru") or []) if str(x).strip()]
+            if target and ru_forms:
+                chosen.append({"target": target, "ru": ru_forms})
+        data["_fillers"] = chosen
+    else:
+        data["_fillers"] = from_pack
     return data
 
 

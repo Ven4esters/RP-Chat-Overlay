@@ -51,6 +51,27 @@ echo.
 if not exist "%ROOT%..\dist\RPChatOverlay.exe" goto :buildfail
 echo Done: %ROOT%..\dist\RPChatOverlay.exe
 echo.
+REM ---------- checksums of the built exe ----------
+set "EXE=%ROOT%..\dist\RPChatOverlay.exe"
+set "SHA="
+set "MD5="
+for /f "usebackq tokens=*" %%H in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "(Get-FileHash -Algorithm SHA256 -LiteralPath '%EXE%').Hash.ToLower()"`) do set "SHA=%%H"
+for /f "usebackq tokens=*" %%H in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "(Get-FileHash -Algorithm MD5 -LiteralPath '%EXE%').Hash.ToLower()"`) do set "MD5=%%H"
+if not defined SHA goto :hash_plain
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Write-Host '  SHA-256  ' -NoNewline -ForegroundColor DarkGray; Write-Host '%SHA%' -ForegroundColor Green"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Write-Host '  MD5      ' -NoNewline -ForegroundColor DarkGray; Write-Host '%MD5%' -ForegroundColor Cyan"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$f=Get-Item -LiteralPath '%EXE%'; Write-Host '  Size     ' -NoNewline -ForegroundColor DarkGray; Write-Host ('{0:N0} bytes ({1:N1} MiB)' -f $f.Length,($f.Length/1MB)) -ForegroundColor Yellow"
+goto :hash_done
+:hash_plain
+REM no PowerShell here - certutil without colour
+for /f "skip=1 delims=" %%H in ('certutil -hashfile "%EXE%" SHA256') do if not defined SHA set "SHA=%%H"
+for /f "skip=1 delims=" %%H in ('certutil -hashfile "%EXE%" MD5') do if not defined MD5 set "MD5=%%H"
+echo   SHA-256  %SHA%
+echo   MD5      %MD5%
+:hash_done
+echo.
+echo VirusTotal for this build: https://www.virustotal.com/gui/file/%SHA%
+echo.
 echo The exe is self-contained: Python and PySide6 are inside.
 echo Give players only RPChatOverlay.exe - no installation needed.
 echo First start creates data\ and logs\ next to the exe.

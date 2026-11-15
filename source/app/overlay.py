@@ -30,7 +30,8 @@ from app.config import log, save_config
 from app.engine import (Engine, Result, has_fillers, has_markers, is_counted_command,
                       load_glossary, strip_markers)
 from app.hotkey import HotkeyThread
-from app.settings_ui import open_settings
+from app import dlx as dlx_mod
+from app.settings_ui import ask_dlx_consent, open_settings
 from app.translator import Translator
 
 STYLE = """
@@ -50,6 +51,7 @@ class Bridge(QObject):
     translated = Signal(int, object, str)    # номер запроса, Result | None, ошибка
     sent = Signal(bool, str)
     game_chat_opened = Signal(bool, int)    # чат игры открыт?, hwnd игры
+    dlx_text = Signal(str, bool)            # сообщение сервиса DLX, ошибка? / DLX message, is it an error
 
 
 class Worker(threading.Thread):
@@ -464,6 +466,14 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     app.setStyleSheet(STYLE)
+    # сторож главного потока: если окно замрёт, в журнал ошибок попадёт стек всех
+    # потоков, и причину будет видно / a main-thread watchdog: a frozen window
+    # leaves every thread stack in the error log, so the cause is visible
+    try:
+        from app import errorlog
+        errorlog.watch_main_thread(20.0, parent=app)
+    except Exception:
+        log.exception("Не удалось включить сторож главного потока")
 
     # язык интерфейса: при первом запуске спрашиваем, дальше берём из настроек
     if not cfg.get("ui_lang_chosen"):
@@ -472,6 +482,19 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
         cfg["ui_lang_chosen"] = True
         save_config(cfg)
     i18n.set_lang(cfg.get("ui_lang", "ru"))
+
+    # согласие на локальный сервис DeepL — один раз и до окон, чтобы вопрос не
+    # всплывал поверх настроек; скачивание начнётся позже, в фоне
+    # consent for the DeepL service — once and before the windows, so the question
+    # never pops up over the settings; the download starts later, in the background
+    pending_download = {"value": False}
+    if not cfg.get("dlx_asked"):
+        accepted, want = ask_dlx_consent(cfg)
+        cfg["dlx_asked"] = True
+        cfg["dlx_enabled"] = bool(accepted)
+        pending_download["value"] = bool(accepted and want)
+        save_config(cfg)
+        log.info("DLX: согласие=%s, скачивать=%s", accepted, want)
 
     lang = langs.code_of(cfg.get("target_lang", "it"))
     translator = Translator(lang)
@@ -483,6 +506,33 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
     win.hwnd = int(win.winId())
     state = {"dlg": None, "hk": None, "menu": None}
 
+    # ---------- локальный сервис DeepL ----------
+    def dlx_event(kind, text):
+        """Сообщение от сервиса: остановился, поднялся снова / a service message.
+
+        Вызывается из потока наблюдения, поэтому в интерфейс попадает только
+        сигналом: виджеты Qt трогать из фонового потока нельзя.
+        Called from the watchdog thread, so it reaches the interface through a
+        signal only: Qt widgets must not be touched from a background thread.
+        """
+        log.info("DLX: %s", text)
+        bridge.dlx_text.emit(i18n.t(text), kind == "stopped")
+
+    bridge.dlx_text.connect(lambda text, error: win.notify(text, error),
+                            Qt.ConnectionType.QueuedConnection)
+
+    dlx = dlx_mod.service_for(cfg, on_event=dlx_event)
+    state["dlx"] = dlx
+
+    def attach_local():
+        """Подключает или отключает локальное звено перевода / wire the local link."""
+        use = bool(cfg.get("dlx_enabled")) and modules.is_enabled(cfg, "dlx")
+        translator.local = dlx if use else None
+        if not use and dlx.installed():
+            dlx.stop()
+
+    attach_local()
+
     # ---------- применение настроек ----------
     def apply_settings(newcfg):
         """Пересобирает движок, горячую клавишу и меню после сохранения настроек."""
@@ -491,6 +541,19 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
         code = langs.code_of(cfg.get("target_lang", "it"))
         translator.set_target(code)
         translator.set_direction(cfg.get("direction", "out"))
+        attach_local()
+        # включили DeepL в настройках — поднимаем сервис в фоне, не задерживая окно
+        # DeepL was switched on in the settings — start the service in the
+        # background instead of holding the window
+        if (cfg.get("dlx_enabled") and modules.is_enabled(cfg, "dlx")
+                and dlx.installed() and not dlx.status().get("running")):
+            dlx_job()
+        elif dlx.needs_restart():
+            # прокси или токен поменяли — сервис перезапускаем с новыми ключами
+            # the proxy or the token changed, so restart with the new flags
+            log.info("DLX: параметры запуска изменились, перезапуск")
+            threading.Thread(target=dlx.restart, name="dlx-restart",
+                             daemon=True).start()
         win.engine = Engine(cfg, load_glossary(code), translator)
         win.plan = AutoPlan(cfg)              # новая серия под новые параметры
         restart_hotkey()
@@ -517,7 +580,7 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
             state["dlg"].raise_()
             state["dlg"].activateWindow()
             return
-        dlg = open_settings(cfg, parent=None, first_run=first_run)
+        dlg = open_settings(cfg, parent=None, first_run=first_run, dlx=dlx)
         dlg.saved.connect(apply_settings)
         dlg.finished.connect(lambda *_: state.update(dlg=None))
         state["dlg"] = dlg
@@ -602,11 +665,88 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
     bridge.fail.connect(lambda m: win.notify(m, True), Qt.ConnectionType.QueuedConnection)
     start_hotkey()
     app.aboutToQuit.connect(lambda: state["hk"] and state["hk"].stop())
+    app.aboutToQuit.connect(dlx.shutdown)
 
     game = i18n.t("найдена") if tracker.get(True) else i18n.t("не найдена")
     key = cfg["hotkey"] if modules.is_enabled(cfg, "hotkey") else i18n.t("не назначена")
     win.notify(i18n.tf("Клавиша: %s. Язык: %s. Игра: %s.", key,
                        langs.label(langs.code_of(cfg.get("target_lang", "it"))), game))
+
+    def dlx_say(text, error=False):
+        """Сообщение игроку из любого потока / a message to the player from any thread."""
+        bridge.dlx_text.emit(text, error)
+
+    def dlx_job(download=False):
+        """Сеть и процесс — в фоновом потоке / network and process in a worker thread.
+
+        Всё, что может занять секунды — скачивание, запуск, проверка обновлений, —
+        живёт здесь, чтобы окно не замирало. Интерфейс трогаем только сигналами.
+        Everything that can take seconds (download, start, update check) lives here
+        so the window never freezes. The interface is touched through signals only.
+        """
+        def work():
+            try:
+                # файла нет или он оказался битым — скачиваем заново: согласие
+                # игрока уже получено / the file is missing or broken, so download
+                # again: the player's consent was given already
+                if download or not dlx.installed():
+                    dlx_say(i18n.t("Скачиваю локальный сервис DeepL…"))
+                    if not dlx.install():
+                        dlx_say(i18n.tf("Сервис DeepL не установился: %s",
+                                        dlx.status().get("reason") or ""), True)
+                        return
+                if not dlx.installed():
+                    dlx_say(i18n.t("Сервис DeepL не установлен — работаю через "
+                                   "стандартные сервисы."), True)
+                    return
+                if dlx.ensure():
+                    # свой сервис по адресу живёт сам: обновлять нечего
+                    # a service of your own lives outside, nothing to update
+                    if dlx.external_url():
+                        dlx_say(i18n.t("Своя служба DeepL отвечает — перевожу "
+                                       "через неё."))
+                        return
+                    dlx_say(i18n.t("DeepL рядом готов — перевожу через него."))
+                elif dlx.status().get("state") == "upstream":
+                    dlx_say(i18n.t("Сервис DeepL запущен, но DeepL не отвечает "
+                                   "(503). Помогает прокси: Настройки → DeepL."), True)
+                else:
+                    dlx_say(i18n.tf("Сервис DeepL не запустился (%s) — перевожу через "
+                                    "стандартные сервисы.",
+                                    dlx.status().get("reason") or ""), True)
+                if cfg.get("dlx_auto_update", True):
+                    newest = dlx.check_update()
+                    if newest:
+                        dlx_say(i18n.tf("Для сервиса DeepL есть версия %s: "
+                                        "Настройки → DeepL → Обновить.", newest))
+            except Exception:
+                log.exception("DLX: сбой при запуске сервиса")
+                dlx_say(i18n.tf("Сервис DeepL не запустился (%s) — работаю через "
+                                "стандартные сервисы.", "см. logs/errors.log"), True)
+        threading.Thread(target=work, name="dlx-boot", daemon=True).start()
+
+    def dlx_boot():
+        """Запуск сервиса после старта — только решения, без диалогов.
+
+        The service start after launch: decisions only, no dialogs. Ответ игрока
+        уже получен до окон; здесь остаётся скачивание (если он согласился),
+        запуск с health-check и предложение обновиться.
+        The player's answer was taken before the windows; what is left is the
+        download (when agreed), the start with a health check and an update offer.
+        """
+        if not cfg.get("dlx_enabled"):
+            return
+        attach_local()
+        if pending_download["value"] and not dlx.installed():
+            pending_download["value"] = False
+            dlx_job(download=True)
+            return
+        if not cfg.get("dlx_autostart", True):
+            log.info("DLX: автозапуск выключен в настройках")
+            return
+        dlx_job()
+
+    QTimer.singleShot(1200, dlx_boot)
 
     if open_settings_on_start or not cfg.get("setup_done") or cfg.get("show_settings_on_start"):
         QTimer.singleShot(250, lambda: open_settings_window(

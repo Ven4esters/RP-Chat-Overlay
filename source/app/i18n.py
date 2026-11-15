@@ -326,10 +326,28 @@ STRINGS = {
     "Импорт…": "Import…",
     "Экспорт…": "Export…",
     "Вернуть встроенный словарь": "Restore built-in glossary",
-    "Фразы-паразиты отмечены «★» — они переводятся в каждом сообщении. Значения — "
-    "это то, что вы печатаете по-русски; «е/ё» и «и/й» считаются одной буквой.":
-        "Filler phrases are marked with «★» — they are translated in every message. "
-        "Meanings are what you type in Russian; «е/ё» and «и/й» count as one letter.",
+    "Паразит": "Filler",
+    "Переводить эту фразу в каждом сообщении":
+        "Translate this phrase in every message",
+    "Галочка в первой колонке — слово-паразит: фраза переводится в каждом "
+    "сообщении, даже когда автоперевод ещё не сработал. Выбор сохраняется "
+    "вместе со словарём. Значения — это то, что вы печатаете по-русски; "
+    "«е/ё» и «и/й» считаются одной буквой.":
+        "The checkbox in the first column marks a filler word: the phrase is "
+        "translated in every message, even before auto-translation kicks in. Your "
+        "choice is saved with the glossary. Meanings are what you type in Russian; "
+        "«е/ё» and «и/й» count as one letter.",
+    "Уменьшить значение": "Decrease the value",
+    "Увеличить значение": "Increase the value",
+    "Настройки сохранены и применены.": "Settings saved and applied.",
+    "Несохранённые изменения": "Unsaved changes",
+    "В настройках есть неприменённые изменения.\nЗакрыть окно без сохранения?":
+        "There are unsaved changes.\nClose the window without saving them?",
+    "Закрыть": "Close",
+    "Закрыть окно: сохранять для этого не нужно":
+        "Close the window: saving first is not needed",
+    "Применить настройки (Ctrl+S); окно остаётся открытым":
+        "Apply the settings (Ctrl+S); the window stays open",
     "всего фраз: %d": "phrases in total: %d",
     "показано %d из %d": "shown %d of %d",
     " · встроенного словаря нет": " · no built-in glossary",
@@ -366,7 +384,8 @@ STRINGS = {
         "used when the service returns Latin letters. A Cyrillic abbreviation "
         "(«мнепох») works the other way, into the server language. Empty columns "
         "switch the abbreviation off.",
-    "всего сокращений: %d · своих: %d": "abbreviations: %d · yours: %d",
+    "Всего: %d\nСвоих: %d": "Total: %d\nOwn: %d",
+    "Показано: %d из %d\nСвоих: %d": "Shown: %d of %d\nOwn: %d",
     "В файле не нашлось сокращений.": "No abbreviations found in the file.",
     "Вернуть встроенный список сокращений?\nВаши добавления будут потеряны.":
         "Restore the built-in abbreviation list?\nYour additions will be lost.",
@@ -439,6 +458,190 @@ STRINGS = {
         "The key «%s» is already taken by the game or the system.",
     "Импорт": "Import",
     "Экспорт": "Export",
+    # ---------------- DeepL рядом (DLX) ----------------
+    "DeepL рядом (DLX)": "DeepL alongside (DLX)",
+    "DLX — отдельная бесплатная программа с открытым кодом (лицензия MIT), "
+    "которая работает на вашем компьютере и переводит через движок DeepL. "
+    "Она занимает около 15 МБ и запускается вместе с программой. Текст при "
+    "этом уходит на серверы DeepL — так же, как сейчас уходит в Google. "
+    "Сервис неофициальный: DeepL может ограничить запросы, и тогда перевод "
+    "автоматически вернётся к стандартным сервисам.":
+        "DLX is a separate free open-source program (MIT license) that runs on your "
+        "computer and translates through the DeepL engine. It takes about 15 MB and "
+        "starts together with the app. The text goes to DeepL servers, the same way "
+        "it currently goes to Google. The service is unofficial: DeepL may rate-limit "
+        "it, and then translation falls back to the standard services automatically.",
+    "Переводить через DeepL в первую очередь":
+        "Translate through DeepL first",
+    "Без этого флажка работает обычная цепочка сервисов":
+        "Without this checkbox the regular service chain is used",
+    "Запускать сервис вместе с программой":
+        "Start the service together with the app",
+    "Проверять обновления сервиса при запуске":
+        "Check for service updates at startup",
+    "Состояние": "State",
+    "Проверить": "Check",
+    "Запустить": "Start",
+    "Остановить": "Stop",
+    "Установить": "Install",
+    "Обновить": "Update",
+    "Удалить сервис": "Remove the service",
+    "Короткий запрос к сервису: отвечает ли он":
+        "A short request to the service: does it answer",
+    "Скачать сервис с GitHub (около 15 МБ)":
+        "Download the service from GitHub (about 15 MB)",
+    "Доступ к сервису": "Access to the service",
+    "Сервис слушает только ваш компьютер. Порт выбирается свободный, а "
+    "запросы подписываются токеном, чтобы чужие программы не могли гонять "
+    "трафик через ваш DeepL.":
+        "The service listens on your computer only. The port is chosen free and "
+        "requests carry a token, so other programs cannot push traffic through "
+        "your DeepL.",
+    "Порт (0 — автоматически)": "Port (0 means automatic)",
+    "0 — выбирать свободный порт автоматически":
+        "0 — pick a free port automatically",
+    "Токен": "Token",
+    "Токен знает только программа; в сеть он не уходит":
+        "Only the app knows the token; it never leaves the machine",
+    "Выпустить новый токен": "Issue a new token",
+    "Работает · порт %d": "Running · port %d",
+    "Запускается…": "Starting…",
+    "Остановлен": "Stopped",
+    "Не установлен": "Not installed",
+    "Ошибка: %s": "Error: %s",
+    " · версия %s": " · version %s",
+    "Сервис не подключён к этому окну — перезапустите программу.":
+        "The service is not attached to this window — restart the app.",
+    "Файлы сервиса: %s": "Service files: %s",
+    "Сервис не подключён — перезапустите программу.":
+        "The service is not attached — restart the app.",
+    "Сервис отвечает нормально.": "The service answers normally.",
+    "Сервис не отвечает. Нажмите «Запустить» или «Установить».":
+        "The service does not answer. Press Start or Install.",
+    "Запустить не удалось: %s": "Could not start: %s",
+    "неизвестно": "unknown",
+    "Установка сервиса": "Installing the service",
+    "Скачать локальный сервис DeepL с GitHub?\n\n"
+    "Около 15 МБ, лицензия MIT, файл кладётся рядом с программой.\n"
+    "Текст перевода будет уходить на серверы DeepL.":
+        "Download the local DeepL service from GitHub?\n\n"
+        "About 15 MB, MIT license, the file is placed next to the app.\n"
+        "Translation text will go to DeepL servers.",
+    "Скачиваю…": "Downloading…",
+    "Проверяю…": "Checking…",
+    "Проверить выход": "Check the exit",
+    "Свой адрес сервиса": "Your own service address",
+    "Токен своего сервиса": "Your own service token",
+    "Своя служба DeepL отвечает — перевожу через неё.":
+        "Your own DeepL service answers — translating through it.",
+    "Брать прокси из настроек Windows, если свой не задан":
+        "Take the proxy from the Windows settings when none is set",
+    "VPN в режиме «системный прокси» прописывает адрес в Windows — "
+    "сервис будет ходить через него":
+        "A VPN in system-proxy mode writes its address into Windows; the service "
+        "will go through it",
+    "Покажет адрес и страну, из которой выходит прокси (запрос идёт через него)":
+        "Shows the address and the country the proxy exits from (the request goes "
+        "through it)",
+    "Проверяю прокси…": "Checking the proxy…",
+    "Прокси не задан — сервис ходит напрямую.":
+        "No proxy set — the service goes direct.",
+    "Прокси работает. Выход: %s": "The proxy works. Exit: %s",
+    "Прокси не годится: %s": "The proxy is not usable: %s",
+    "Адрес не подходит: нужен http://, https:// или socks5:// с портом.":
+        "The address does not fit: http://, https:// or socks5:// with a port is "
+        "needed.",
+    "Порт %d — обычно у SOCKS5; сервис сам подставит socks5://.":
+        "Port %d usually belongs to SOCKS5; the service will swap socks5:// in.",
+    "Если DeepL не отвечает": "When DeepL does not answer",
+    "С июня 2025 года DeepL закрыт для российских адресов: сервис DLX "
+    "работает, а DeepL отвечает отказом. Своего прокси DLX не поднимает — "
+    "он только ходит через тот, что вы укажете, и этот прокси должен "
+    "выходить не из России: адрес российского сервера DeepL так же не "
+    "примет. Cloudflare WARP и One Client тут не помогут: они не меняют "
+    "страну, ближайший узел у них в России. DNS-сервисы вроде NextDNS — "
+    "тоже: они только находят адрес по имени, а DeepL смотрит на адрес. "
+    "Годится VPN или клиент с "
+    "зарубежным выходом, поднявший локальный порт: v2rayN 10809, "
+    "Clash 7890, Hiddify 2080, Nekoray 2080. Порт 1080 — обычно SOCKS5, "
+    "и программа сама подставит socks5://, если вы написали http://. "
+    "Токен DeepL Pro региональную блокировку не снимает — он только для "
+    "владельцев подписки и снимает лимиты.":
+        "Since June 2025 DeepL is closed for Russian addresses: the DLX service "
+        "runs, but DeepL refuses. DLX does not raise a proxy of its own: it only "
+        "goes through the one you name, and that proxy has to exit outside Russia — "
+        "a Russian server address is refused just the same. Cloudflare WARP and One "
+        "Client do not help here: they do not change your country and their nearest "
+        "node sits in Russia. DNS services such as NextDNS do not help either: they "
+        "only look up an address by name, while DeepL looks at the address itself. A VPN or a client with a foreign exit and a local port "
+        "is what works: v2rayN 10809, Clash 7890, Hiddify 2080, Nekoray 2080. Port "
+        "1080 usually means SOCKS5, and the program swaps socks5:// in by itself "
+        "when you typed http://. A DeepL Pro token does not lift the regional "
+        "block; it only removes rate limits for subscribers.",
+    "HTTP-прокси": "HTTP proxy",
+    "Токен DeepL Pro": "DeepL Pro token",
+    "Пусто — подключаться напрямую": "Empty means a direct connection",
+    "Пусто — идти напрямую; http, https или socks5":
+        "Empty means go direct; http, https or socks5",
+    "необязательно": "optional",
+    "OAuth-токен DeepL Pro; без него работает бесплатный путь":
+        "A DeepL Pro OAuth token; the free route works without it",
+    "Работает, но DeepL не отвечает (503)": "Running, but DeepL answers 503",
+    "Сервис DeepL запущен, но DeepL не отвечает "
+    "(503). Помогает прокси: Настройки → DeepL.":
+        "The DeepL service runs, but DeepL answers 503. A proxy helps: "
+        "Settings → DeepL.",
+    "Сервис установлен и готов к работе.":
+        "The service is installed and ready.",
+    "Установить не удалось: %s": "Could not install: %s",
+    "Удаление сервиса": "Removing the service",
+    "Удалить сервис DeepL с диска?\nПрограмма вернётся к обычным "
+    "сервисам перевода, настройки останутся.":
+        "Remove the DeepL service from disk?\nThe app returns to the regular "
+        "translation services, your settings stay.",
+    "Перевод получше: DeepL рядом": "Better translation: DeepL alongside",
+    "Рядом с программой можно развернуть отдельный сервис перевода — "
+    "бесплатную программу DLX с открытым кодом (лицензия MIT).\n\n"
+    "· качество DeepL выше, чем у бесплатных сервисов Google;\n"
+    "· занимает около 15 МБ и запускается вместе с программой;\n"
+    "· текст перевода уходит на серверы DeepL — так же, как сейчас в Google;\n"
+    "· сервис неофициальный: DeepL может ограничить запросы, и тогда перевод "
+    "сам вернётся к стандартным сервисам;\n"
+    "· выключить можно в любой момент: Настройки → DeepL.":
+        "You can deploy a separate translation service next to the app — the free "
+        "open-source program DLX (MIT license).\n\n"
+        "· DeepL quality is higher than the free Google services;\n"
+        "· about 15 MB, it starts together with the app;\n"
+        "· translation text goes to DeepL servers, as it now goes to Google;\n"
+        "· the service is unofficial: DeepL may rate-limit it, and translation then "
+        "falls back to the standard services;\n"
+        "· you can switch it off at any moment: Settings → DeepL.",
+    "Скачать сервис сейчас (около 15 МБ)":
+        "Download the service now (about 15 MB)",
+    "Остаться на стандартных": "Stay with the standard ones",
+    "Включить DeepL": "Enable DeepL",
+    "Скачиваю локальный сервис DeepL…": "Downloading the local DeepL service…",
+    "Сервис DeepL не установился: %s": "The DeepL service was not installed: %s",
+    "Сервис DeepL не установлен — работаю через "
+    "стандартные сервисы.":
+        "The DeepL service is not installed — using the standard services.",
+    "DeepL рядом готов — перевожу через него.":
+        "DeepL alongside is ready — translating through it.",
+    "Сервис DeepL не запустился (%s) — перевожу через "
+    "стандартные сервисы.":
+        "The DeepL service did not start (%s) — using the standard services.",
+    "Для сервиса DeepL есть версия %s: "
+    "Настройки → DeepL → Обновить.":
+        "A newer DeepL service is available: %s — "
+        "Settings → DeepL → Update.",
+    "Локальный сервис DeepL остановлен — перевожу "
+    "через стандартные сервисы. Вернуть: "
+    "Настройки → DeepL → Запустить.":
+        "The local DeepL service has stopped — using the standard services. "
+        "To bring it back: Settings → DeepL → Start.",
+    "Локальный сервис DeepL снова работает.":
+        "The local DeepL service runs again.",
+
     # ---------- окно настроек: страница «Модули» ----------
     "Модули": "Modules",
     "Каждую часть программы можно выключить. Данные при этом "

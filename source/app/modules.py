@@ -111,6 +111,19 @@ MODULES: Final[tuple[Module, ...]] = (
         settings_page=2,
     ),
     Module(
+        key="dlx",
+        title_ru="DeepL рядом (DLX)",
+        title_en="DeepL alongside (DLX)",
+        desc_ru="Локальный сервис DeepL как первый переводчик. Требует согласия и "
+                "около 15 МБ на диске; без него работает обычная цепочка сервисов.",
+        desc_en="A local DeepL service used as the first translator. It needs consent "
+                "and about 15 MB on disk; without it the regular service chain runs.",
+        config_key="dlx_enabled",
+        default=False,
+        requires=("translator",),
+        settings_page=7,
+    ),
+    Module(
         key="hotkey",
         title_ru="Глобальная клавиша",
         title_en="Global hotkey",

@@ -62,11 +62,12 @@
 | **Автоперевод** | каждое N-е сообщение, доля текста, приоритет словаря; `/to /lto /l /wt /s /st` считаются наравне с обычными сообщениями |
 | **Маркеры `+…+`** | принудительный перевод фрагмента, даже когда автоперевод выключен |
 | **Действия `*…*`** | переводятся целиком, служебные команды `/me`, `/do`, `/to` и ники — нет |
-| **Слова-паразиты** | `Senti`, `Ma dai`, `Oye`, `那个` — в **каждом** сообщении, независимо от счётчика |
+| **Слова-паразиты** | `Senti`, `Ma dai`, `Oye`, `那个` — в **каждом** сообщении, независимо от счётчика; включаются галочкой у фразы в словаре |
 | **Отправка в игру** | чат открывается сам (`T`), текст вставляется и отправляется по Enter; три настраиваемые задержки |
 | **Язык интерфейса** | при первом запуске выбор **Русский / English**, меняется в настройках сразу, без перезапуска |
 | **Адаптивное окно** | размер подгоняется под экран (не больше 94 % рабочей области), разделы прокручиваются, масштаб 80–180 % |
 | **Проверка перевода** | оба направления, «Русский → выбранный язык перевода» и «Ваш язык → русский»: видно, что именно уйдёт в чат |
+| **DeepL рядом (DLX)** | по желанию: локальный сервис DeepL (~15 МБ, MIT) как первый переводчик; при сбое — автоматический откат на Google и остальные |
 | **Несколько сервисов перевода** | Google gtx → Google clients5 → Google web → MyMemory → Lingva → LibreTranslate: если один ответил «429», берётся следующий |
 | **Трей** | четыре строки: статус, направление перевода, «Настройки…», «Выход»; двойной клик — оверлей |
 | **Модули** | каждую часть программы можно выключить в разделе «Модули» — см. ниже |
@@ -83,6 +84,7 @@
 | Модуль | Что даёт | Если выключить |
 | --- | --- | --- |
 | **Перевод по сети** | цепочка Google → MyMemory → Lingva → LibreTranslate | работают только встроенные словари, без сети |
+| **DeepL рядом (DLX)** | локальный сервис DeepL первым в цепочке | перевод идёт через Google и остальные сервисы |
 | **Словарь** | готовые фразы, русская запись, слова-паразиты | фразы переводятся сервисами, без подсказки «как читается» |
 | **Сленг и сокращения** | `brb`, `afk`, `gg`, `спс` раскрываются до перевода | сокращения уходят как есть |
 | **Автоперевод** | каждое N-е сообщение переводится само | перевод только по `+маркерам+` и вручную |
@@ -137,6 +139,146 @@ RP Chat Overhaul/
 
 ---
 
+## 🧠 DeepL рядом (DLX)
+
+Хотите перевод получше — рядом с программой можно развернуть **отдельный
+локальный сервис перевода**: бесплатную программу **DLX** с открытым кодом
+(лицензия MIT). Она работает на вашем компьютере и переводит через движок DeepL.
+
+**Что важно знать до включения:**
+
+- сервис занимает около **15 МБ** и скачивается с GitHub **только с вашего
+  согласия** — при первом запуске программа спрашивает и объясняет, что к чему;
+- текст перевода уходит **на серверы DeepL** — так же, как сейчас уходит в Google;
+- сервис **неофициальный**: DeepL может ограничить запросы, и тогда перевод
+  **сам вернётся** к стандартным сервисам — программа не сломается;
+- выключить можно в любой момент: **Настройки → DeepL**, там же «Остановить»
+  и «Удалить сервис».
+
+**Что программа делает сама:**
+
+- скачивает и обновляет сервис, следит за ним и перезапускает, если он упал;
+- проверяет готовность коротким запросом при запуске и говорит, чем переводит;
+- держит сервис на `127.0.0.1`: свободный порт выбирается автоматически, запросы
+  подписываются токеном, чужие программы доступа не получают;
+- гасит сервис вместе с программой, в том числе при аварийном завершении —
+  «сирот» в системе не остаётся, а зависший процесс с прошлого запуска
+  закрывается при старте;
+- сам выбирает рабочий порт: если 1188 занят чужой программой или не отвечает,
+  берётся свободный рядом, и это видно в состоянии;
+- сам лечится, если файл сервиса скачался битым: выбрасывает его и скачивает
+  заново;
+- если сервис почему-то остановлен, в трее появляется сообщение, что часть
+  функционала ограничена, и как это вернуть.
+
+**Откуда берётся сервис.** Программа скачивает готовый бинарник с официальных
+релизов проекта — `github.com/OwO-Network/DLX` (в июле 2026 года проект
+переименовали из DeepLX в DLX из-за претензии по торговой марке, файлы в релизах
+по-прежнему называются `deeplx_*`). Ничего своего мы не собираем и не
+переупаковываем: файл кладётся как есть, лицензия MIT — рядом с ним
+(`data/dlx/LICENSE-DLX.txt`).
+
+**Если DeepL отвечает отказом 503.** С июня 2025 года DeepL закрыт для
+российских адресов, и тогда сам сервис DLX работает, а DeepL не пускает запрос.
+Программа не молчит: в трее появится сообщение, а на странице «DeepL» будет
+состояние «Работает, но DeepL не отвечает (503)». Помогает только выход не из
+России — на той же странице есть два поля:
+
+- **HTTP-прокси** — например `http://127.0.0.1:10809` (v2rayN), `http://127.0.0.1:7890`
+  (Clash), `socks5://127.0.0.1:1080`; если прокси требует логин и пароль, они
+  пишутся в самом адресе: `socks5://user:pass@127.0.0.1:1080`;
+- **галочка «Брать прокси из настроек Windows»** — если VPN работает в режиме
+  «системный прокси», адрес берётся оттуда автоматически: сам DLX реестр не
+  читает, а без этого DeepL видел бы российский адрес при включённом VPN;
+- **кнопка «Проверить выход»** показывает адрес и страну, из которой выходит
+  прокси. Проверка идёт через сам прокси (запрос к `ipinfo.io`), поэтому видно не
+  ваш адрес, а его: «136.86.224.66 (US · The Dalles, Google LLC)» — годится,
+  «(RU …) — выход из России» — DeepL откажет, меняйте сервер в клиенте;
+- протокол программа определяет сама по ответу прокси: если на `http://…:1080`
+  отвечает SOCKS5, адрес автоматически превращается в `socks5://…:1080`
+  (в состоянии появится «прокси распознан как socks5»), а недоступный прокси
+  виден сразу — «прокси … недоступен», без восьми секунд ожидания;
+- **токен DeepL Pro** — если у вас есть подписка DeepL Pro, её токен снимает
+  проблему с бесплатным путём.
+
+**Своего прокси DLX не поднимает** — это переводческий сервер, а не туннель: он
+лишь отправляет свои запросы через тот прокси, который вы указали. Поэтому:
+
+- если ваш VPN заворачивает весь трафик системы (TUN-режим) и выходит за границу —
+  поле оставьте пустым, DLX пойдёт через туннель как обычная программа;
+- если VPN открывает локальный порт — впишите его (порт смотрите в своём клиенте);
+- **Cloudflare WARP / Cloudflare One Client не подойдут**: они не меняют страну,
+  трафик выходит через ближайший узел Cloudflare, а он у нас в России. Выбор
+  страны выхода у них есть только в платном Enterprise (dedicated egress IPs);
+- **токен DeepL Pro региональную блокировку не снимает** — он для владельцев
+  подписки и снимает лимиты, но не обходит запрет по стране.
+
+Оба поля необязательные. Пока они пусты и DeepL отказывает, перевод идёт через
+Google и остальные сервисы, как раньше; чтобы не тратить запросы впустую, снимите
+галочку «Переводить через DeepL в первую очередь».
+
+### Свой сервис по адресу — вместо файла
+
+Если `dlx.exe` не скачивается или не запускается, сервис можно держать отдельно:
+в **Настройки → DeepL** есть поля **«Свой адрес сервиса»** и **«Токен своего
+сервиса»**. Пока адрес пуст, программа работает как раньше, со своим файлом.
+Как только адрес задан, файл не нужен вовсе: программа проверяет адрес, шлёт
+переводы туда и показывает в состоянии «свой сервис 127.0.0.1:1188».
+Адрес можно вставлять целиком, вместе с `/translate` или `/api/translate` —
+лишний хвост программа отрежет сама.
+
+Готовый сервер лежит в `source/tools/deeplx-local` (Node.js 18+, лицензия MIT):
+он говорит на том же языке, что и DLX — те же адреса, тот же формат ответа,
+тот же необязательный токен.
+
+```bash
+cd source/tools/deeplx-local
+npm install
+npm start                 # слушает 0.0.0.0:1188
+```
+
+Зачем он: старые сборки DeepLX 2024 года (в том числе
+`bropines/Deeplx-vercel` → `LegendLeo/deeplx-serverless`, на который ссылаются
+как на «локальный DeepLX») ходят на `www2.deepl.com/jsonrpc` и представляются
+клиентом DeepL для iOS версии 2.9.1. Сегодня DeepL отвечает на такой запрос
+текстом «You're using an older version of DeepL» **вместо перевода** — сервер
+формально работает, но переводит служебной фразой. В `deeplx-local` используется
+актуальный путь `oneshot-free.www.deepl.com/v1/translate`, а версия клиента
+берётся из открытого App Store lookup, как это делает сам DLX.
+
+Свой сервис можно и не держать у себя: тот же код разворачивается на Vercel
+(бесплатно, без своего компьютера) и переводит с зарубежного адреса — пошаговая
+инструкция лежит в `source/tools/deeplx-local/VERCEL.md`. После развёртывания в
+поле «Свой адрес сервиса» вписывается адрес вида
+`https://имя-проекта.vercel.app`, а в «Токен своего сервиса» — тот токен, с
+которым вы его развернули.
+
+Важно: сервер в `deeplx-local` — это тот же DeepL, а не обход блокировки. Если
+DeepL закрыт для российских адресов, локальный сервер получит тот же отказ, что
+и `dlx.exe`; помогают только прокси с зарубежным выходом (см. выше) или сервис,
+развёрнутый за границей.
+
+Лицензия сервиса кладётся рядом с ним (`data/dlx/LICENSE-DLX.txt`), файлы сервиса
+лежат в `data/dlx/` рядом с программой. Сервис слушает только `127.0.0.1`.
+
+---
+
+## 🗂 Журналы
+
+Программа ведёт два файла в папке `logs/` рядом с собой:
+
+| Файл | Что внутри |
+| --- | --- |
+| `app.log` | обычный ход работы: запуск, смена настроек, переключение сервисов |
+| `errors.log` | ошибки: необработанные исключения, сбои в фоновых потоках, сообщения Qt, стеки при аварийном завершении и при зависании окна |
+
+Если что-то сломалось — приложите к сообщению оба файла (или хотя бы
+`errors.log`): по стеку видно, что именно случилось, без догадок. Порог
+зависания — 20 секунд: если окно перестало отвечать, в журнал попадут стеки
+всех потоков.
+
+---
+
 ## 🚀 Быстрый старт
 
 | Шаг | Действие |
@@ -174,6 +316,7 @@ RP Chat Overhaul/
 |--------|-------------------|
 | 🧩 **Основные** | Язык перевода · «что уходит в чат» (русская запись или текст на языке) · **язык интерфейса** · горячая клавиша с ловлей нажатия · открывать окно при запуске · **масштаб интерфейса 80–180 %** · скобки перевода · лимит символов · задержка перевода · **раскрытие сленга и сокращений** |
 | 🔁 **Автоперевод** | включение · частота «каждое N-е» · какое сообщение в серии · число и длина фрагментов · приоритет словаря · **слова-паразиты «всегда»** + их список |
+| 💾 **Сохранение** | «Сохранить» (Ctrl+S) применяет настройки и **не закрывает окно**; «Закрыть» предупредит о несохранённых правках |
 | 🎮 **Чат игры** | вставлять в чат · **сначала открывать чат (T)** · отправлять сразу (Enter) · клавиша чата · три задержки |
 | 📚 **Словарь** | таблица «фраза · русская запись · русские значения» с поиском · добавить/удалить · **Импорт JSON/CSV** · **Экспорт** · вернуть встроенный словарь |
 | ★ **Сокращения** | свои сокращения по образцу словаря: сокращение · разворот · русский вариант · поиск · импорт/экспорт · вернуть встроенные |
@@ -303,7 +446,9 @@ Che bello;ке белло;как красиво; класс; супер
 
 > Импорт **дополняет**: новые фразы добавляются, у существующих дописываются значения,
 > ваши транскрипции не меняются. Файлы словарей: `data/glossaries/<код>.json` рядом с exe.
-> Фразы со звёздочкой **★** — слова-паразиты, переводятся в каждом сообщении.
+> Галочка в первой колонке таблицы делает фразу **словом-паразитом**: она переводится
+> в каждом сообщении, даже когда автоперевод ещё не сработал. Выбор сохраняется вместе
+> со словарём и не сбрасывается обновлением встроенных фраз.
 
 ---
 
@@ -465,11 +610,12 @@ player types in their own language and the chat receives Russian.
 | **Auto-translation** | every N-th message, share of the text, glossary priority; `/to /lto /l /wt /s /st` count as ordinary messages |
 | **Markers `+…+`** | force translation of a fragment even when auto-translation is off |
 | **Actions `*…*`** | translated as a whole; service commands `/me`, `/do`, `/to` and nicknames are not |
-| **Filler words** | `Senti`, `Ma dai`, `Oye`, `那个` — in **every** message, regardless of the counter |
+| **Filler words** | `Senti`, `Ma dai`, `Oye`, `那个` — in **every** message, regardless of the counter; switched on with a checkbox next to the phrase |
 | **Sending to the game** | the chat is opened automatically (`T`), the text is pasted and submitted with Enter; three adjustable delays |
 | **Interface language** | first run asks **Русский / English**, switchable in Settings instantly, no restart |
 | **Adaptive window** | fits the screen (at most 94 % of the work area), sections scroll, interface scale 80–180 % |
 | **Translation check** | both directions, "Russian → selected translation language" and "Your language → Russian", shows exactly what the chat will receive |
+| **DeepL alongside (DLX)** | optional: a local DeepL service (~15 MB, MIT) as the first translator, with an automatic fallback to Google |
 | **Several translation services** | Google gtx → Google clients5 → Google web → MyMemory → Lingva → LibreTranslate: if one answers 429, the next one is used |
 | **Tray** | four lines only: status, translation direction, "Settings…", "Exit"; double click opens the overlay |
 
@@ -491,6 +637,101 @@ abbreviations, settings) is lost.
 
 Dependencies are honoured automatically: with online translation off,
 auto-translation is off as well, because it cannot work without a network.
+
+## DeepL alongside (DLX)
+
+For better quality a separate **local translation service** can be deployed next
+to the app: the free open-source program **DLX** (MIT). It runs on your machine
+and translates through the DeepL engine.
+
+- about **15 MB**, downloaded from GitHub **only with your consent** — the app
+  asks once at the first start and explains what happens;
+- translated text goes **to DeepL servers**, exactly as it now goes to Google;
+- the service is **unofficial**: DeepL may rate-limit it, and translation then
+  **falls back** to the regular services on its own — the program keeps working;
+- switch it off any time: **Settings → DeepL**, where you can also stop or remove it.
+
+**Where the service comes from.** The program downloads a ready-made binary from
+the official releases of the project — `github.com/OwO-Network/DLX` (in July 2026
+it was renamed from DeepLX to DLX after a trademark notice; the release files are
+still called `deeplx_*`). Nothing is rebuilt or repacked: the file is stored as is
+and the MIT license sits next to it in `data/dlx/LICENSE-DLX.txt`.
+
+**When DeepL refuses with 503.** The service itself is running, DeepL just will not
+take the request — a common situation from Russia. The program does not stay
+silent: the tray says so and the DeepL page shows "Running, but DeepL answers
+503". Two optional fields on the same page fix it: **HTTP proxy**
+(`http://127.0.0.1:10809` for v2rayN, `http://127.0.0.1:7890` for Clash,
+`socks5://127.0.0.1:1080`) and a **DeepL Pro token** if you have a subscription.
+**DLX does not raise a proxy of its own** — it is a translation server, not a
+tunnel, and only sends its requests through the proxy you name. So: a system-wide
+VPN (TUN) that exits abroad needs nothing, a client with a local port needs that
+port. **Cloudflare WARP / One Client will not do**: they do not change your
+country, the traffic leaves through the nearest Cloudflare node which sits in
+Russia, and a choice of exit country exists only in paid Enterprise (dedicated
+egress IPs). A **DeepL Pro token does not lift the regional block** either; it
+only removes rate limits for subscribers. While the fields are empty and DeepL refuses,
+translation goes through Google as before; untick "Translate through DeepL first"
+to stop spending requests for nothing. While both are empty and DeepL refuses,
+translation goes through Google and the rest as before. The service listens on
+`127.0.0.1` only.
+
+### A service of your own instead of the file
+
+When `dlx.exe` cannot be downloaded or will not start, the service can live
+elsewhere: **Settings → DeepL** has **"Your own service address"** and **"Your own
+service token"**. While the address is empty the program behaves as before, with
+its own file. Once it is set, no file is needed at all: the program checks the
+address, sends translations there and shows "your own service 127.0.0.1:1188" as
+the state. The address may be pasted whole, `/translate` or `/api/translate`
+included — the extra tail is trimmed.
+
+A ready server lives in `source/tools/deeplx-local` (Node.js 18+, MIT): it speaks
+the DLX language — same routes, same answer shape, same optional token.
+
+```bash
+cd source/tools/deeplx-local
+npm install
+npm start                 # listens on 0.0.0.0:1188
+```
+
+Why it exists: 2024-era DeepLX builds (including `bropines/Deeplx-vercel` →
+`LegendLeo/deeplx-serverless`, commonly linked as "local DeepLX") call
+`www2.deepl.com/jsonrpc` and introduce themselves as DeepL for iOS 2.9.1. Today
+DeepL answers that with "You're using an older version of DeepL" **instead of a
+translation** — the server runs, but it translates into a service message.
+`deeplx-local` uses the current `oneshot-free.www.deepl.com/v1/translate` path and
+resolves the client version from Apple's open lookup, the way DLX itself does.
+
+The service can live off your machine as well: the same code deploys to Vercel
+(free, no computer of your own) and translates from a foreign address — the
+step-by-step guide is `source/tools/deeplx-local/VERCEL.md`. Afterwards put
+`https://your-project.vercel.app` into "Your own service address" and the token
+you deployed with into "Your own service token".
+
+Note: the `deeplx-local` server is the same DeepL, not a way around the block. If
+DeepL is closed for Russian addresses, a local server gets the same refusal as
+`dlx.exe`; only a proxy with a foreign exit (see above) or a service deployed
+abroad helps.
+
+The app downloads and updates the service, watches it, restarts it after a crash,
+checks it with a short request at startup, keeps it on `127.0.0.1` with a free
+port and an access token, and stops it together with the app — no orphan
+processes. Its MIT license is stored next to the binary in `data/dlx/`.
+
+## Logs
+
+The program keeps two files in the `logs/` folder next to itself:
+
+| File | Contents |
+| --- | --- |
+| `app.log` | the normal flow: start, settings changes, service switching |
+| `errors.log` | errors: unhandled exceptions, failures in background threads, Qt messages, stacks on a hard crash and on a frozen window |
+
+When something breaks, attach both files to your report (or at least
+`errors.log`): the stack shows exactly what happened, with no guessing. The stall
+threshold is 20 seconds: when the window stops answering, the stacks of every
+thread land in the log.
 
 ## Quick start
 
