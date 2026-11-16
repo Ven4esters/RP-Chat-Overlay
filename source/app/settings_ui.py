@@ -39,11 +39,89 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox,
                                QVBoxLayout, QWidget)
 
 from app import dlx as dlx_mod
-from app import anims, i18n, langs, modules, morph, slang
-from app.config import DATA, DEFAULT_CONFIG, log, save_config
+from app import anims, history, i18n, langs, modules, morph, slang
+from app.config import (CONFIG_PATH, DATA, DEFAULT_CONFIG, log, read_json,
+                        save_config)
 from app.engine import (Engine, Glossary, glossary_path, load_glossary_data,
                         reset_glossary, save_glossary_data)
 from app.translator import TranslateError, Translator
+
+def _table_state(table):
+    """Содержимое таблицы для снимка: текст, галочки, виджеты-ячейки.
+
+    A table's contents for a snapshot: text, check marks, cell widgets.
+
+    Комбобоксы в ячейках («Режим», «Формы») тоже входят: их выбор — такая же
+    правка, как набранный текст.
+    The combo boxes inside cells ("Mode", "Forms") count too: choosing there is an
+    edit just like typed text.
+    """
+    rows = []
+    for row in range(table.rowCount()):
+        cells = []
+        for column in range(table.columnCount()):
+            item = table.item(row, column)
+            widget = table.cellWidget(row, column) if hasattr(table, "cellWidget") else None
+            cells.append((
+                item.text() if item is not None else None,
+                item.checkState() if item is not None and hasattr(item, "checkState") else None,
+                (widget.currentIndex(), widget.count()) if widget is not None
+                and hasattr(widget, "currentIndex") else None,
+            ))
+        rows.append(tuple(cells))
+    return tuple(rows)
+
+
+def _restore_table(table, rows):
+    """Вернуть таблицу к снимку, не порождая новых правок.
+
+    Put the table back to a snapshot without creating new edits.
+    """
+    if rows is None:
+        return
+    table.blockSignals(True)
+    try:
+        if len(rows) != table.rowCount() or any(
+                len(cells) != table.columnCount() for cells in rows):
+            table.setRowCount(len(rows))
+            table.setColumnCount(len(rows[0]) if rows else table.columnCount())
+        for row, cells in enumerate(rows):
+            for column, (text, check, combo) in enumerate(cells):
+                item = table.item(row, column)
+                if item is not None and text is not None and item.text() != text:
+                    item.setText(text)
+                if item is not None and check is not None and hasattr(item, "checkState"):
+                    item.setCheckState(check)
+                widget = table.cellWidget(row, column) if hasattr(table, "cellWidget") else None
+                if combo is not None and widget is not None and hasattr(widget, "setCurrentIndex"):
+                    widget.setCurrentIndex(combo[0])
+    finally:
+        table.blockSignals(False)
+
+
+def _read_disk_state():
+    """Что сейчас записано на диск: config.json и словари.
+
+    What is on the disk right now: config.json and the glossaries.
+
+    Нужно для отмены после сохранения: файл обязан вернуться в прежнее
+    состояние, иначе игра продолжит играть отменённую анимацию.
+    Needed for undo after a save: the file has to go back to its previous state,
+    otherwise the game keeps playing the animation that was undone.
+    """
+    cfg = read_json(CONFIG_PATH, {})
+    docs = {}
+    try:
+        from app.engine import glossary_path
+        folder = glossary_path("it").parent
+        for path in sorted(folder.glob("*.json")):
+            data = read_json(path, None)
+            if isinstance(data, dict):
+                docs[path.stem] = data
+    except Exception:
+        log.exception("Отмена: не удалось прочитать файлы словарей")
+    return {"cfg": cfg if isinstance(cfg, dict) else {}, "docs": docs}
+
 
 STYLE = """
 QDialog, QWidget#page { background: #14141a; color: #f2f2f2; }
@@ -678,6 +756,16 @@ class SettingsWindow(QDialog):
         self.glossary_changed = False
         self.first_run = first_run
         self._busy = False
+        # Отмена и повтор: история своя у каждого раздела, снимки несут и то,
+        # что уже записано на диск.
+        # Undo and redo: a history per section, snapshots include what already
+        # reached the disk.
+        self._hist = history.History()
+        self._hist_applying = False     # сейчас применяем снимок / applying a snapshot
+        self._hist_busy = False         # запись шага идёт / recording a step
+        self._last_save_key = None      # состояние того, что сохранено на диск
+        self._hist_field = {}           # поле -> последнее значение / field metadata
+        self._disk_cache = {"cfg": {}, "docs": {}}   # диск на момент снимка / disk view
 
         self.setWindowTitle("Настройки — RP Chat Overlay")
         self.setStyleSheet(style_sheet(self._ui_scale()))
@@ -740,6 +828,9 @@ class SettingsWindow(QDialog):
         # окно собрано: с этого места смена режима может дёргать проверку перевода
         # the window is built, so a mode change may now trigger the preview
         self._mode_ready = True
+        # окно заполнено — с этого места начинается история правок
+        # the window is filled in, so the edit history starts here
+        self._reset_history()
         self._preview_timer = QTimer(self)
         self._preview_timer.setSingleShot(True)
         self._preview_timer.timeout.connect(self._do_preview)
@@ -806,8 +897,16 @@ class SettingsWindow(QDialog):
         for b in (self.btn_reset, self.btn_cancel, self.btn_save):
             b.setCursor(Qt.CursorShape.PointingHandCursor)
             b.setAutoDefault(False)
+        # подпись отмены живёт рядом с общей подсказкой: она короткая и
+        # появляется только когда отменять действительно есть что
+        # the undo caption sits next to the shared hint: it is short and appears
+        # only when there is something to take back
+        self.lb_hist = QLabel("")
+        self.lb_hist.setProperty("no_i18n", True)
+        self.lb_hist.setObjectName("hint")
         lay.addWidget(self.btn_reset)
         lay.addWidget(self.footer_hint, 1)
+        lay.addWidget(self.lb_hist)
         lay.addWidget(self.btn_cancel)
         lay.addWidget(self.btn_save)
         return w
@@ -1466,6 +1565,9 @@ class SettingsWindow(QDialog):
                                else i18n.tf("всего фраз: %d", total))
 
     def _table_edited(self, item):
+        row = item.row() if item is not None else -1
+        col = item.column() if item is not None else -1
+        self._mark(f"glossary:{self.glang}:{row}:{col}")
         self.glossary_changed = True
         self._collect_glossary()
 
@@ -1507,6 +1609,7 @@ class SettingsWindow(QDialog):
         self.glossary_changed = False
 
     def _move_glossary_row(self, source, target):
+        self._hist_shadow = self._hist_state()   # состояние до перетаскивания
         """Перетащили строку словаря / a glossary row was dragged.
 
         Порядок фраз сохраняется вместе со словарём и значит больше, чем кажется:
@@ -1780,6 +1883,9 @@ class SettingsWindow(QDialog):
             self.lb_slang_count.setText(i18n.tf("Всего: %d\nСвоих: %d", total, own))
 
     def _slang_edited(self, item):
+        row = item.row() if item is not None else -1
+        col = item.column() if item is not None else -1
+        self._mark(f"slang:{self.glang}:{row}:{col}")
         self._slang_pending = True
         self._collect_slang()
 
@@ -1813,6 +1919,7 @@ class SettingsWindow(QDialog):
         return rows
 
     def _move_slang_row(self, source, target):
+        self._hist_shadow = self._hist_state()
         """Перетащили строку сокращений / a slang row was dragged.
 
         Порядок запоминается в настройках (``slang_order``): без этого таблица
@@ -2854,6 +2961,7 @@ class SettingsWindow(QDialog):
             self._del_anim()
 
     def _merge_anim(self, row, others=None):
+        self._hist_shadow = self._hist_state()
         """«Объединить правило с…»: два правила становятся одним.
 
         "Merge the rule with...": two rules become one.
@@ -2932,6 +3040,7 @@ class SettingsWindow(QDialog):
         return [int(chosen.data())]
 
     def _anim_props(self, row, force_variants=False):
+        self._hist_shadow = self._hist_state()
         """Окно свойств анимации для строки таблицы.
 
         The animation properties dialog for a table row.
@@ -2966,6 +3075,7 @@ class SettingsWindow(QDialog):
                  rule.keywords[:30], len(rule.variant_list()))
 
     def _duplicate_anim(self, row):
+        self._hist_shadow = self._hist_state()
         """Скопировать правило в новую строку под ним / copy a rule below itself."""
         rules = self._collect_anims()
         if not 0 <= row < len(rules):
@@ -3099,6 +3209,9 @@ class SettingsWindow(QDialog):
 
     def _anims_edited(self, item=None):
         """Правка ячейки: проверяем длительность и обновляем подсказки."""
+        row = item.row() if item is not None else -1
+        col = item.column() if item is not None else -1
+        self._mark(f"anims:{row}:{col}")
         if item is not None and item.column() == 5:
             text = (item.text() or "").strip()
             if text and not text.lstrip("-").isdigit():
@@ -3283,6 +3396,7 @@ class SettingsWindow(QDialog):
         self._anims_changed()
 
     def _del_anim(self):
+        self._hist_shadow = self._hist_state()
         """Удаляет выбранные правила / remove the selected rules."""
         rows = sorted({index.row() for index in
                        self.tbl_anims.selectionModel().selectedRows()}, reverse=True)
@@ -3670,6 +3784,270 @@ class SettingsWindow(QDialog):
         finally:
             self._module_switching = False
         self._sync_module_pages()
+
+    # ------------------------------------------------ отмена и повтор
+    HIST_MAIN = "main"
+
+    def _section_key(self):
+        """История какого раздела сейчас работает / which section's history applies.
+
+        Открытая страница — это и есть раздел: словарь помнит свои шаги, таблица
+        сокращений свои, правила анимаций свои. На «Основных» и прочих страницах
+        без таблиц история общая, потому что правки там — отдельные поля.
+
+        The open page is the section: the glossary keeps its own steps, the
+        abbreviations theirs, the animation rules theirs. On the pages without
+        tables the history is shared, because the edits there are single fields.
+        """
+        row = self.nav.currentRow() if hasattr(self, "nav") else 0
+        return {row: self.HIST_MAIN,
+                3: "glossary",       # страница «Словарь»
+                4: "slang",          # страница «Сокращения»
+                7: "anims"}.get(row, self.HIST_MAIN)
+
+    def _hist_state(self):
+        """Текущее состояние всего, что правят в окне, вместе с диском.
+
+        The current state of everything the window edits, the disk included.
+
+        В снимок входит и то, что уже сохранено в config.json: отмена после
+        сохранения обязана вернуть файл, иначе игра продолжит делать то, что
+        игрок только что отменил.
+        The snapshot also carries what already reached config.json: undo after a
+        save must put the file back, otherwise the game keeps doing what the
+        player has just undone.
+        """
+        fields = {}
+        for key, widget in self._hist_widgets():
+            fields[key] = self._hist_read(widget)
+        docs = {code: dict(data) for code, data in self.docs.items()}
+        return {
+            "fields": fields,
+            "tables": {name: _table_state(table)
+                       for name, table in self._hist_tables()},
+            "docs": docs,
+            "self_cfg": dict(self.cfg),
+            # Диск берётся из кэша: снимок делается на каждое нажатие клавиши, а
+            # чтение всех файлов словарей на каждую букву — это рывки ввода.
+            # The disk part comes from the cache: a snapshot is taken on every
+            # keystroke, and reading every glossary file per letter makes typing
+            # stutter.
+            "disk": self._disk_cache,
+        }
+
+    def _hist_tables(self):
+        """Таблицы раздела, которые входят в историю / the section's tables.
+
+        Таблицы входят в снимок целиком: правка ячейки меняет не поле настроек,
+        а строку, и без этого отмена не видела бы разницы.
+        Tables are snapshotted whole: an edited cell changes a row rather than a
+        settings field, and without this the undo would see no difference.
+        """
+        return [(name, getattr(self, name)) for name in
+                ("tbl", "tbl_slang", "tbl_anims") if hasattr(self, name)]
+
+    def _hist_widgets(self):
+        """Поля, которые входят в историю: ключ -> виджет.
+
+        The fields that take part in the history: key to widget.
+        """
+        names = ("cb_lang", "cb_mode", "cb_send_mode", "cb_ui_lang", "ed_hotkey",
+                 "ed_open", "ed_close", "sp_max", "sp_debounce", "ed_chatkey",
+                 "sp_focus", "sp_opendelay", "sp_ui_scale", "chk_show_settings",
+                 "chk_filler", "chk_prefer", "sp_every", "cb_pos", "sp_frag",
+                 "sp_min", "sp_maxw", "chk_slang", "chk_auto", "chk_send",
+                 "chk_submit", "chk_dlx", "ed_dlx_pro", "ed_dlx_proxy",
+                 "ed_dlx_url", "ed_dlx_url_token", "sp_dlx_port")
+        return [(name, getattr(self, name)) for name in names
+                if hasattr(self, name)]
+
+    @staticmethod
+    def _hist_read(widget):
+        """Значение поля для снимка / a widget's value for the snapshot."""
+        for getter, kind in (("isChecked", "bool"), ("value", "int"),
+                             ("currentData", "data"), ("text", "text")):
+            method = getattr(widget, getter, None)
+            if callable(method):
+                try:
+                    value = method()
+                except Exception:
+                    return None
+                return value
+        return None
+
+    @staticmethod
+    def _hist_write(widget, value):
+        """Вернуть полю значение из снимка / restore a widget from a snapshot."""
+        if value is None:
+            return
+        if hasattr(widget, "setChecked") and isinstance(value, bool):
+            widget.setChecked(value)
+        elif hasattr(widget, "setValue") and isinstance(value, int):
+            widget.setValue(value)
+        elif hasattr(widget, "setCurrentIndex") and hasattr(widget, "findData"):
+            index = widget.findData(value)
+            if index >= 0:
+                widget.setCurrentIndex(index)
+        elif hasattr(widget, "setText") and isinstance(value, str):
+            widget.setText(value)
+
+    def _mark(self, tag, force=False):
+        """Запомнить шаг: состояние до и после правки.
+
+        Remember a step: the state before and after the edit.
+
+        ``tag`` — подпись правила. Правки одного поля с одной подписью склеиваются,
+        поэтому ввод слова в таблицу — один шаг, а не десять.
+
+        ``tag`` labels the edit. Edits with the same tag are coalesced, so typing a
+        word into a table is one step and not ten.
+        """
+        if self._hist_applying or self._hist_busy:
+            return
+        now = time.monotonic()
+        before = getattr(self, "_hist_shadow", None)
+        if before is None:
+            before = self._hist_state()
+            self._hist_shadow = before
+            return
+        after = self._hist_state()
+        if after == before:
+            return
+        section = self._hist.section(self._section_key())
+        self._hist_busy = True
+        try:
+            if force:
+                # действие целиком (сохранение, объединение правил) не склеивается
+                # с соседними правками: это отдельный шаг
+                # a whole action (a save, a merge) never coalesces with a
+                # neighbouring edit: it is a step of its own
+                added = section.record(before, after, tag)
+            else:
+                added = section.record_field(before, after, tag, now)
+            self._hist_shadow = after
+        finally:
+            self._hist_busy = False
+        if added:
+            self._hist_field[tag] = True
+        self._hist_note()
+
+    def _refresh_disk(self):
+        """Перечитать диск — только там, где он правда мог измениться.
+
+        Re-read the disk, but only where it may really have changed: at the start
+        and after every write.
+        """
+        self._disk_cache = _read_disk_state()
+
+    def _reset_history(self):
+        """Новый отсчёт: окно только что загрузилось / a fresh start after loading."""
+        self._refresh_disk()
+        self._hist.reset()
+        self._hist_shadow = self._hist_state()
+        self._hist_note()
+
+    def _hist_note(self):
+        """Подпись в подвале: что можно отменить / the footer caption."""
+        for name in ("lb_hist",):
+            label = getattr(self, name, None)
+            if label is None:
+                continue
+            key = self._section_key()
+            if self._hist.can_undo(key):
+                label.setText(i18n.t("Ctrl+Z — отменить правку в разделе · "
+                                     "Ctrl+Y — вернуть"))
+            else:
+                label.setText("")
+
+    def _undo(self):
+        """Ctrl+Z: шаг назад в текущем разделе / one step back in this section."""
+        self._apply_history(undo=True)
+
+    def _redo(self):
+        """Ctrl+Y: шаг вперёд после отмены / reapply after an undo."""
+        self._apply_history(undo=False)
+
+    def _apply_history(self, undo):
+        """Применить снимок и записать его на диск.
+
+        Apply a snapshot and write it to the disk.
+
+        Диск пишется сразу: иначе отмена осталась бы только на экране, а игра
+        продолжала бы делать отменённое.
+        The disk is written at once: otherwise the undo would stay on screen only,
+        while the game kept doing what was undone.
+        """
+        section = self._hist.section(self._section_key())
+        can, step = (section.can_undo, section.undo) if undo else \
+            (section.can_redo, section.redo)
+        if not can():
+            return False
+        state = step()
+        if state is None:
+            return False
+        self._hist_applying = True
+        try:
+            self._restore_state(state)
+            self._write_disk_state(state)
+            # после записи диск равен этому снимку — кэш обновляем без чтения
+            # after the write the disk equals this snapshot, so the cache is set
+            # without reading it back
+            self._disk_cache = dict(state.get("disk") or {"cfg": {}, "docs": {}})
+        finally:
+            self._hist_applying = False
+        self._hist_shadow = self._hist_state()
+        self._hist_note()
+        self._flash_hint()
+        return True
+
+    def _restore_state(self, state):
+        """Вернуть интерфейс и память окна к снимку / restore the window to a snapshot."""
+        for key, value in (state.get("fields") or {}).items():
+            widget = getattr(self, key, None)
+            if widget is not None:
+                self._hist_write(widget, value)
+        for name, rows in (state.get("tables") or {}).items():
+            table = getattr(self, name, None)
+            if table is not None:
+                _restore_table(table, rows)
+        self.docs = {code: dict(data) for code, data in (state.get("docs") or {}).items()}
+        self.cfg = dict(state.get("self_cfg") or self.cfg)
+        # таблицы перерисовываются из восстановленных данных, а не наоборот
+        # the tables are redrawn from the restored data, not the other way round
+        try:
+            self._fill_tables_from_state()
+        except Exception:
+            log.exception("Не удалось восстановить таблицы после отмены")
+
+    def _fill_tables_from_state(self):
+        """Перерисовать таблицы из восстановленного состояния.
+
+        Redraw the tables from the restored state.
+
+        Молча, без записи шага: отмена не должна порождать новую правку.
+        Quietly, without recording a step: an undo must not create a new edit.
+        """
+        self.glossary_changed = True
+        self._load_language(self.glang, reload_table=True)
+        self._fill_slang()
+        if hasattr(self, "tbl_anims"):
+            self._fill_anims()
+
+    @staticmethod
+    def _write_disk_state(state):
+        """Записать на диск то, что несёт снимок / write the snapshot's disk part."""
+        disk = state.get("disk") or {}
+        cfg = disk.get("cfg")
+        if isinstance(cfg, dict):
+            try:
+                save_config(cfg)
+            except OSError:
+                log.exception("Отмена: не удалось записать config.json")
+        for code, data in (disk.get("docs") or {}).items():
+            try:
+                save_glossary_data(code, data)
+            except OSError:
+                log.exception("Отмена: не удалось записать словарь %s", code)
 
     def _mirror_own_flag(self, key, checked):
         """Флажок на странице модуля изменился — обновить «Модули».
@@ -4249,6 +4627,18 @@ class SettingsWindow(QDialog):
         if e.key() == Qt.Key.Key_Escape:
             self._cancel()
             return
+        # Отмена и повтор — по разделам. Qt.KeyboardModifier проверяется, чтобы
+        # Ctrl+Z работал и с русской раскладкой, где приходит та же клавиша.
+        # Undo and redo are per section. The modifier check keeps Ctrl+Z working
+        # with a non-Latin layout, where the very same key arrives.
+        mods = e.modifiers()
+        control = bool(mods & Qt.KeyboardModifier.ControlModifier)
+        if control and e.key() == Qt.Key.Key_Z:
+            self._undo()
+            return
+        if control and e.key() == Qt.Key.Key_Y:
+            self._redo()
+            return
         super().keyPressEvent(e)
 
     def _save(self):
@@ -4294,6 +4684,18 @@ class SettingsWindow(QDialog):
             return
         log.info("Настройки сохранены: язык %s, hotkey %s, словари %s",
                  cfg.get("target_lang"), cfg.get("hotkey"), saved_glossaries)
+        # Сохранение — тоже шаг истории: иначе Ctrl+Z после «Сохранить» не вернул
+        # бы файл, а игра продолжила бы делать отменённое. Состояние «до» берём
+        # как есть, а новое состояние диска становится кэшем.
+        # A save is a history step too: otherwise Ctrl+Z after "Save" would not
+        # put the file back and the game would keep doing what was undone.
+        before = self._hist_state()
+        self._disk_cache = {"cfg": dict(cfg), "docs": {
+            code: dict(self.docs.get(code) or {}) for code in saved_glossaries}}
+        after = self._hist_state()
+        self._hist.section(self._section_key()).record(before, after, "save")
+        self._hist_shadow = after
+        self._hist_note()
         self.cfg = cfg
         self.glossary_changed = False
         self._slang_pending = False

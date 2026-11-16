@@ -5,6 +5,27 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
+## 1.15.0 — 15.11.2026
+
+**Этап 4: Ctrl+Z и Ctrl+Y по разделам.**
+
+- **Отмена теперь есть, и она по разделам.** В словаре Ctrl+Z отменяет правки
+  словаря, в сокращениях — сокращений, в анимациях — правил. Общий Ctrl+Z,
+  вернувший три таблицы сразу, заставлял бы искать, что именно изменилось.
+- **История помнит 40 шагов** (требовалось не меньше десяти).
+- **Ввод одного поля склеивается в один шаг.** Набрали слово в таблице — это
+  одна отмена, а не десять; пауза больше секунды начинает новый шаг.
+- **Ctrl+Y возвращает отменённое**, и работает до тех пор, пока не сделана
+  новая правка: как в любом редакторе, новая правка после отмены начинает
+  новую ветку.
+- **Отмена снимает правку и с диска, а не только с экрана.** Это главное:
+  сохранили настройки, отменили, закрыли окно — игра делает то, что было до
+  сохранения, а не отменённое. Снимок несёт и config.json, и файлы словарей,
+  поэтому отмена работает даже после закрытия и повторного открытия раздела.
+- **Сохранение само стало шагом истории**: Ctrl+Z после «Сохранить» возвращает
+  и файл, и поля.
+- Подпись в подвале говорит, когда отменять есть что.
+
 ## 1.14.0 — 15.11.2026
 
 **Этап 3: «Объединить правило с…» и «Варианты и свойства».**
@@ -884,6 +905,28 @@ English version below: [Changelog (English)](#-changelog-english).
 ---
 
 # 📌 Changelog (English)
+
+## 1.15.0 — 15 Nov 2026
+
+**Stage 4: per-section Ctrl+Z and Ctrl+Y.**
+
+- **Undo now exists, and it is per section.** In the glossary Ctrl+Z takes back
+  glossary edits, in the abbreviations abbreviation edits, in the animations rule
+  edits. One global Ctrl+Z restoring three tables at once would leave the player
+  hunting for what actually changed.
+- **The history keeps 40 steps** (ten was the minimum).
+- **Typing in one field coalesces into a single step.** A word typed into a table
+  is one undo, not ten; a pause over a second starts a new step.
+- **Ctrl+Y reapplies what was undone**, for as long as no new edit is made: as in
+  any editor, an edit after an undo starts a new branch.
+- **Undo takes the change off the disk, not just off the screen.** This is the
+  important part: save the settings, undo, close the window — and the game does
+  what was in place before the save, not what was undone. The snapshot carries
+  config.json and the glossary files, so undo works even after the section was
+  closed and opened again.
+- **Saving is a history step of its own**: Ctrl+Z after "Save" puts back both the
+  file and the fields.
+- A caption in the footer says when there is something to undo.
 
 ## 1.14.0 — 15 Nov 2026
 
