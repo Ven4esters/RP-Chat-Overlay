@@ -607,14 +607,14 @@ class Overlay(QWidget):
 # Подписи режимов: одна таблица на уведомление, меню и подсказку.
 # Mode captions: one table shared by the notification, the menu and the tooltip.
 MODE_TITLES = (("full", "Режим: всё сообщение на язык перевода"),
-               ("partial", "Режим: только отмеченные куски"),
+               ("partial", "Режим: только выделенные слова и фразы"),
                ("to_ru", "Режим: ваш язык → русский"))
 
 MODE_HINTS = {
     "full": "Всё сообщение уходит на языке перевода. Автоперевод и слова-паразиты "
             "не участвуют.",
-    "partial": "Переводятся только куски в +скобках+, плюс автоперевод по счётчику "
-               "и слова-паразиты.",
+    "partial": "Переводятся только выделенные +слова и фразы+, плюс автоперевод "
+               "по счётчику и слова-паразиты.",
     "to_ru": "Пишете на своём языке — в чат уходит русский текст.",
 }
 
@@ -1023,7 +1023,8 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
         elif mode == "full":
             status = QAction(i18n.tf("Статус: всё сообщение → %s", label), menu)
         else:
-            status = QAction(i18n.tf("Статус: отмеченные куски → %s", label), menu)
+            status = QAction(i18n.tf("Статус: выделенные слова и фразы → %s", label),
+                             menu)
         status.setEnabled(False)
         menu.addAction(status)
         menu.addSeparator()
@@ -1031,7 +1032,8 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
         group = QActionGroup(menu)
         group.setExclusive(True)
         for value, text in (("full", i18n.tf("Всё сообщение → %s", label)),
-                            ("partial", i18n.tf("Только отмеченные куски → %s", label)),
+                            ("partial", i18n.tf(
+                                "Только выделенные слова и фразы → %s", label)),
                             ("to_ru", i18n.t("Ваш язык → русский"))):
             act = QAction(text, menu)
             act.setCheckable(True)

@@ -206,6 +206,25 @@ QScrollBar:vertical { background: #14141a; width: 10px; margin: 0; }
 QScrollBar::handle:vertical { background: #33333f; border-radius: 5px; min-height: 30px; }
 QScrollBar::add-line, QScrollBar::sub-line { height: 0; }
 QToolTip { background: #23232e; color: #f2f2f2; border: 1px solid #3a3a48; padding: 4px; }
+/* Раздел с выключенным модулем: содержимое уходит в серый, карточки и рамки
+   гаснут, а подсказка сверху (QLabel#moduleOff) остаётся своего цвета — её и
+   надо прочитать. A section with its module off goes grey: fields, cards and
+   frames fade, while the hint on top (QLabel#moduleOff) keeps its own colour,
+   because that is the line to read. */
+QWidget#page[moduleOff="true"] QLabel,
+QWidget#page[moduleOff="true"] QCheckBox { color: #6b6b79; }
+QWidget#page[moduleOff="true"] QFrame#card { background: #17171d; border: 1px solid #24242d; }
+QWidget#page[moduleOff="true"] QLineEdit,
+QWidget#page[moduleOff="true"] QSpinBox,
+QWidget#page[moduleOff="true"] QComboBox { background: #101014; border: 1px solid #2b2b36;
+                                           color: #6b6b79; }
+QWidget#page[moduleOff="true"] QTableWidget { background: #101014; border: 1px solid #2b2b36;
+                                              gridline-color: #202028; color: #6b6b79; }
+QWidget#page[moduleOff="true"] QHeaderView::section { background: #17171d; color: #6b6b79; }
+QWidget#page[moduleOff="true"] QPushButton { background: #191920; border: 1px solid #2b2b36;
+                                             color: #6b6b79; }
+QWidget#page[moduleOff="true"] QPushButton#primary { background: #262f42; border: 1px solid #2c3548;
+                                                     color: #7c8496; }
 QScrollArea#scroll { background: transparent; border: none; }
 QScrollArea#scroll > QWidget > QWidget { background: #14141a; }
 QScrollBar:horizontal { background: #14141a; height: 10px; margin: 0; }
@@ -372,6 +391,28 @@ def _title(text, size=None):
     elif size == "sec":
         lab.setStyleSheet("font-size:14px;font-weight:600;color:#dfe3ff;")
     return lab
+
+
+# Цвета, которые в погашенном разделе становятся серыми: и в styleSheet виджета,
+# и в правилах таблицы стилей. Один список, чтобы «серый» был одним и тем же.
+# Colours that turn grey inside a dimmed section, both in a widget stylesheet and
+# in the shared rules. One list, so that "grey" stays the same grey.
+_DIM_COLOR = "#6b6b79"
+_DIM_SOURCES = ("#dfe3ff", "#9aa0b4", "#8a8fa3", "#8a8a96", "#b9c4ff", "#f2f2f2", "#e9e9f2")
+
+
+def _dimmed_css(css):
+    """Стиль виджета с серыми цветами / a widget stylesheet with grey colours.
+
+    Меняются только цвета: размеры, веса и всё остальное остаются как были, иначе
+    заголовок карточки на погашенном разделе поехал бы по размеру.
+    Only colours change: sizes, weights and the rest stay as they were, or a card
+    title would change size on a dimmed section.
+    """
+    out = str(css or "")
+    for colour in _DIM_SOURCES:
+        out = out.replace(colour, _DIM_COLOR).replace(colour.upper(), _DIM_COLOR)
+    return out
 
 
 def _hint(text):
@@ -813,6 +854,7 @@ class SettingsWindow(QDialog):
         self.stack = QStackedWidget()
         self.stack.setObjectName("page")
         self._views = []                 # страницы в прокрутке, по порядку
+        self._page_rows = {}             # имя страницы -> строка в списке слева
         self._anims_row = 0               # номер строки «Анимации» в списке разделов
         pages = (("Основные", "page_main", self._page_main),
                  ("Автоперевод", "page_auto", self._page_auto),
@@ -829,6 +871,7 @@ class SettingsWindow(QDialog):
             self.nav.addItem(item)
             if attr == "page_anims":
                 self._anims_row = page_index
+            self._page_rows[attr] = page_index
             page = maker()
             self._add_module_banner(page, attr)
             setattr(self, attr, page)
@@ -1035,12 +1078,13 @@ class SettingsWindow(QDialog):
         self.cb_mode = QComboBox()
         self.cb_mode.setMinimumWidth(340)
         for val, text in (("full", "Всё сообщение — на язык перевода"),
-                          ("partial", "Только отмеченные куски (обычный режим)"),
+                          ("partial", "Только выделенные слова и фразы (обычный режим)"),
                           ("to_ru", "Ваш язык → русский")):
             self.cb_mode.addItem(text, val)
         self.cb_mode.setToolTip(
             "Полный: в чат уходит весь текст на языке перевода.\n"
-            "Частичный: переводятся только куски в +скобках+, остальное — как написали.\n"
+            "Частичный: переводятся только выделенные +слова и фразы+, "
+            "остальное — как написали.\n"
             "Обратный: пишете на своём языке, в чат уходит русский текст.")
         self.cb_mode.currentIndexChanged.connect(self._mode_changed)
         row_mode = QHBoxLayout()
@@ -1298,8 +1342,8 @@ class SettingsWindow(QDialog):
         else:
             self.lb_mode.setText(i18n.t(
                 "Обычный режим: в чат уходит ваш русский текст, а переведёнными — только "
-                "куски в +скобках+ и то, что выбрал автоперевод. Работают слова-паразиты "
-                "и выбор «что уходит в чат»."))
+                "выделенные +слова и фразы+ и то, что выбрал автоперевод. Работают "
+                "слова-паразиты и выбор «что уходит в чат»."))
 
     def _mode(self):
         """Текущий режим из списка / the mode chosen in the list."""
@@ -1852,8 +1896,9 @@ class SettingsWindow(QDialog):
         self.cb_slang_lang.setMinimumWidth(150)
         self.cb_slang_lang.setMaximumWidth(220)
         self.cb_slang_lang.setToolTip(
-            "Сокращения своего языка разворачиваются перед переводом на русский. "
-            "«Русский» — обратное направление: из русского текста в текст на языке сервера.")
+            "Сокращения языка сервера разворачиваются перед переводом на русский. "
+            "Русские сокращения («спс», «мб») работают всегда и в списке не нужны: "
+            "это обратное направление.")
         self.cb_slang_lang.currentIndexChanged.connect(self._slang_lang_changed)
         lang_row.addWidget(self.cb_slang_lang)
         self.lb_slang_lang_hint = _hint("")
@@ -2019,12 +2064,9 @@ class SettingsWindow(QDialog):
             total = len(slang.entries(self._slang_lang))
             self.lb_slang_count.setText(i18n.tf("Всего: %d\nСвоих: %d", total, own))
         if hasattr(self, "lb_slang_lang_hint"):
-            hint = i18n.t("Таблица языка сервера: разворот уходит в переводчик "
-                          "до перевода.")
-            if self._slang_lang == "ru":
-                hint = i18n.t("Обратное направление: русское сокращение "
-                              "разворачивается в полную русскую запись.")
-            self.lb_slang_lang_hint.setText(hint)
+            self.lb_slang_lang_hint.setText(
+                i18n.t("Таблица языка сервера: разворот уходит в переводчик "
+                       "до перевода."))
 
     def _slang_edited(self, item):
         """Правка ячейки сокращений / an abbreviation cell was edited.
@@ -3921,6 +3963,10 @@ class SettingsWindow(QDialog):
             return
         banner = QLabel("")
         banner.setObjectName("moduleOff")
+        # своя рамка и свои цвета: на погашенном разделе подсказка обязана
+        # остаться читаемой, поэтому она не участвует в общем затухании
+        # its own frame and colours: on a dimmed section the hint has to stay
+        # readable, so it takes no part in the shared fade
         banner.setWordWrap(True)
         banner.setProperty("no_i18n", True)
         banner.setStyleSheet(
@@ -4429,6 +4475,75 @@ class SettingsWindow(QDialog):
                         module.title_en if i18n.is_en() else module.title_ru))
             if view is not None:
                 view.setProperty("moduleOff", not active or other_mode)
+            # Содержимое гаснет целиком — общей полупрозрачностью, а не цветом
+            # каждого вида виджетов: у части подписей свой цвет в styleSheet
+            # (заголовки карточек), и селектор до них не достаёт. Баннер остаётся
+            # непрозрачным: это единственное, что здесь надо прочитать.
+            # The content fades as a whole through one shared opacity rather than
+            # through per-widget colours: some captions carry their own colour in
+            # a styleSheet (card titles), which no selector reaches. The banner
+            # stays fully opaque: it is the one line to read here.
+            self._fade_page(page, view, not active or other_mode)
+            # строка в списке разделов тоже гаснет: по одному серому содержимому
+            # не всегда ясно, что дело в выключенном модуле, а не в самом разделе
+            # the row in the section list fades too: grey content alone does not
+            # always say whether the module is off or the section itself is dull
+            self._dim_nav_row(module.page_key, not active or other_mode)
+
+    def _fade_page(self, page, view, off):
+        """Погасить содержимое раздела / fade a section's content.
+
+        Одних правил таблицы стилей мало: у подписей карточек свой цвет прямо в
+        ``styleSheet`` («Клавиша остановки зацикливания» и другие заголовки), и
+        селектор предка до него не достаёт. Поэтому такие цвета подменяются на
+        серый, а исходный текст стиля запоминается в свойстве виджета — при
+        включении модуля он возвращается байт в байт, без пересборки раздела.
+        Stylesheet rules alone are not enough: card captions carry their colour in
+        a widget ``styleSheet`` ("Loop stop key" and the other card titles), which
+        an ancestor selector cannot reach. Those colours are replaced with grey
+        while the original text is kept in a widget property, so switching the
+        module back on restores it byte for byte without rebuilding the section.
+        """
+        for child in (page.findChildren(QWidget) if page is not None else []):
+            own = child.styleSheet()
+            if off:
+                if not own or child.objectName() == "moduleOff":
+                    continue
+                if child.property("_dim_css") is None:
+                    child.setProperty("_dim_css", own)
+                child.setStyleSheet(_dimmed_css(own))
+            else:
+                saved = child.property("_dim_css")
+                if saved is not None:
+                    child.setStyleSheet(str(saved))
+                    child.setProperty("_dim_css", None)
+        for widget in (page, view, getattr(view, "viewport", lambda: None)()):
+            if widget is None:
+                continue
+            widget.style().unpolish(widget)
+            widget.style().polish(widget)
+            widget.update()
+
+    def _dim_nav_row(self, page_key, off):
+        """Погасить строку раздела в списке слева / fade a section row.
+
+        Цвет ставится самой строке, а не через таблицу стилей: у QListWidget нет
+        селектора по свойству строки, а ``setForeground`` работает и на выбранной
+        строке, и на обычной.
+        The colour is set on the row itself rather than through the stylesheet: a
+        QListWidget has no selector for a row property, while ``setForeground``
+        covers both the selected and the plain row.
+        """
+        row = getattr(self, "_page_rows", {}).get(page_key)
+        if row is None or not hasattr(self, "nav"):
+            return
+        item = self.nav.item(row)
+        if item is None:
+            return
+        if bool(item.data(Qt.ItemDataRole.UserRole + 1)) == bool(off):
+            return
+        item.setData(Qt.ItemDataRole.UserRole + 1, bool(off))
+        item.setForeground(QColor("#757583") if off else QColor("#c8c8d2"))
 
     def _view_of(self, page):
         """Обёртка с прокруткой для страницы / the scroll wrapper of a page."""
@@ -4451,7 +4566,8 @@ class SettingsWindow(QDialog):
         row_dir.addWidget(QLabel("Направление:"))
         self.cb_test_dir = QComboBox()
         self.cb_test_dir.addItem("Всё сообщение → выбранный язык", "full")
-        self.cb_test_dir.addItem("Только отмеченные куски → выбранный язык", "partial")
+        self.cb_test_dir.addItem("Только выделенные слова и фразы → выбранный язык",
+                                 "partial")
         self.cb_test_dir.addItem("Ваш язык → русский", "to_ru")
         self.cb_test_dir.setMinimumWidth(200)
         self.cb_test_dir.setToolTip(
@@ -4539,12 +4655,12 @@ class SettingsWindow(QDialog):
             if hasattr(self, "lb_test_hint"):
                 self.lb_test_hint.setText(i18n.t(
                     "Введите фразу по-русски — увидите, что уйдёт в игру в обычном "
-                    "режиме: переводятся только куски в +скобках+ и паразиты."))
+                    "режиме: переводятся только выделенные слова и фразы и паразиты."))
             self.ed_test.setPlaceholderText(
                 i18n.t("например: Слушай, брат, мне срочно нужна помощь"))
             self.lb_test_dir.setText(i18n.t(
                 "Проверяем обычный режим: в чат уйдёт ваш текст, а переведёнными — "
-                "только отмеченные куски."))
+                "только выделенные слова и фразы."))
             if not silent:
                 self._do_preview()
             return

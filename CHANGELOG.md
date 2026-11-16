@@ -5,7 +5,36 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
+## 1.16.2 — 16.11.2026
+
+**Сокращения без «русского» пункта, серый раздел у выключенного модуля, новая формулировка режима.**
+
+- **Русского языка больше нет в списке таблиц сокращений.** Русские сокращения —
+  это не чужая таблица, а обратное направление: «спс» → «спасибо» перед переводом
+  на язык сервера. Они работают всегда, и отдельной строкой в списке только
+  сбивали с толку: игрок выбирал «Русский» в надежде найти там «brb» и не находил.
+  Теперь в списке пять языков серверов: английский, немецкий, французский,
+  испанский, арабский.
+- **Из русской таблицы убраны 152 записи, которые не были сокращениями.**
+  «аванс» → «аванс», «автобус» → «автобус», «машина» → «машина»: слово, записанное
+  само в себя, ничего не разворачивает, зато засоряло таблицу и счётчик
+  «Всего: 353». Осталось 201 настоящее сокращение — те, что действительно
+  раскрываются, и все они продолжают работать.
+- **Старый выбор «Русский» в настройках не ломает программу:** при чтении
+  настроек такой язык заменяется на английский, ошибок не возникает.
+- **Раздел с выключенным модулем стал заметно серым.** Поля, кнопки, таблицы,
+  карточки и заголовки гаснут, а строка раздела в списке слева тоже становится
+  серой. Подсказка о выключенном модуле остаётся своего цвета — её и надо
+  прочитать. Свои цвета подписей (заголовки карточек) запоминаются и
+  возвращаются байт в байт, когда модуль включают снова.
+- **Режим «Только отмеченные куски» переименован в «Только выделенные слова и
+  фразы»** — так понятнее, что маркеры `+…+` выделяют именно слова и фразы.
+  Новое название стоит везде: в списке режимов, в подсказках на странице
+  «Проверка», в меню трея и в строке состояния. Английский вариант —
+  «Only the selected words and phrases».
+
 ## 1.16.1 — 15.11.2026
+
 
 **Ревизия кода: линтер, мёртвый код, двуязычные комментарии, замеры.**
 
@@ -997,7 +1026,36 @@ English version below: [Changelog (English)](#-changelog-english).
 
 # 📌 Changelog (English)
 
+## 1.16.2 — 16 Nov 2026
+
+**No "Russian" entry among the abbreviation tables, a grey section for a disabled module, a clearer mode name.**
+
+- **Russian is gone from the abbreviation table list.** Russian abbreviations are
+  not somebody else's table but the reverse direction: «спс» → «спасибо» before
+  translating into the server language. They always work, and a separate list
+  entry only misled: the player picked "Russian" hoping to find "brb" there and
+  did not. The list now holds the five server languages: English, German,
+  French, Spanish, Arabic.
+- **152 entries that were not abbreviations left the Russian table.** "аванс" →
+  "аванс", "автобус" → "автобус", "машина" → "машина": a word written as itself
+  expands to nothing, yet it cluttered the table and the "Total: 353" counter.
+  201 real abbreviations are left — the ones that do expand, and all of them keep
+  working.
+- **An old "Russian" choice in the settings breaks nothing:** such a language is
+  replaced with English when the settings are read, and no error appears.
+- **A section with its module off is now clearly grey.** Fields, buttons, tables,
+  cards and titles fade, and the section's row in the left list turns grey too.
+  The hint about the disabled module keeps its own colour — it is the line to
+  read. Captions with their own colour (card titles) are remembered and restored
+  byte for byte when the module is switched back on.
+- **The mode "Only the marked fragments" is renamed to "Only the selected words
+  and phrases"** — it says more clearly that the `+…+` markers select words and
+  phrases. The new name is everywhere: the mode list, the hints on the "Check"
+  page, the tray menu and the status line. Russian: «Только выделенные слова и
+  фразы».
+
 ## 1.16.1 — 15 Nov 2026
+
 
 **Code review: the linter, dead code, bilingual comments, measurements.**
 

@@ -945,15 +945,12 @@ STRINGS = {
     "Таблица языка сервера: разворот уходит в переводчик до перевода.":
         "The server language's table: the expansion goes to the translator "
         "before translation.",
-    "Обратное направление: русское сокращение разворачивается в полную "
-    "русскую запись.":
-        "The reverse direction: a Russian abbreviation is expanded into the full "
-        "Russian phrase.",
-    "Сокращения своего языка разворачиваются перед переводом на русский. "
-    "«Русский» — обратное направление: из русского текста в текст на языке сервера.":
-        "Abbreviations of your server's language are expanded before translating "
-        "into Russian. \"Russian\" is the reverse direction: from Russian into the "
-        "server's language.",
+    "Сокращения языка сервера разворачиваются перед переводом на русский. "
+    "Русские сокращения («спс», «мб») работают всегда и в списке не нужны: "
+    "это обратное направление.":
+        "Abbreviations of the server language are expanded before translating into "
+        "Russian. Russian ones (\"спс\", \"мб\") always work and are not listed: "
+        "they are the reverse direction.",
     "Вернуть встроенный список сокращений для языка «%s»?\n"
     "Ваши добавления на этом языке будут потеряны, остальные языки не изменятся.":
         "Bring back the built-in list for \"%s\"?\nYour additions in that language "
@@ -961,7 +958,8 @@ STRINGS = {
     # --- режимы перевода / translation modes ---
     "Режим перевода": "Translation mode",
     "Всё сообщение — на язык перевода": "The whole message into the target language",
-    "Только отмеченные куски (обычный режим)": "Only the marked fragments (regular mode)",
+    "Только выделенные слова и фразы (обычный режим)":
+        "Only the selected words and phrases (regular mode)",
     "Что переводить:": "What to translate:",
     "Режим переводчика: пишете на своём языке — в чат уходит русский текст. "
     "Переводится каждое сообщение целиком, включая действия *...*; команды "
@@ -979,17 +977,17 @@ STRINGS = {
         "auto-translation take no part, and +...+ markers are not needed — "
         "everything is translated.",
     "Обычный режим: в чат уходит ваш русский текст, а переведёнными — только "
-    "куски в +скобках+ и то, что выбрал автоперевод. Работают слова-паразиты "
-    "и выбор «что уходит в чат».":
-        "Regular mode: your Russian text goes to the chat, and only the fragments "
-        "in +brackets+ plus whatever auto-translation picked are translated. "
+    "выделенные +слова и фразы+ и то, что выбрал автоперевод. Работают "
+    "слова-паразиты и выбор «что уходит в чат».":
+        "Regular mode: your Russian text goes to the chat, and only the selected "
+        "+words and phrases+ plus whatever auto-translation picked are translated. "
         "Fillers and the \"what goes to the chat\" choice are active.",
     "Режим: всё сообщение на язык перевода": "Mode: whole message into the target language",
-    "Режим: только отмеченные куски": "Mode: marked fragments only",
+    "Режим: только выделенные слова и фразы": "Mode: selected words and phrases only",
     "Всё сообщение → %s": "Whole message → %s",
-    "Только отмеченные куски → %s": "Marked fragments only → %s",
+    "Только выделенные слова и фразы → %s": "Selected words and phrases only → %s",
     "Статус: всё сообщение → %s": "Status: whole message → %s",
-    "Статус: отмеченные куски → %s": "Status: marked fragments → %s",
+    "Статус: выделенные слова и фразы → %s": "Status: selected words and phrases → %s",
     "ваш язык → русский": "your language into Russian",
     "всё на %s": "everything into %s",
     "по маркерам → %s": "by markers → %s",

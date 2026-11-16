@@ -247,12 +247,12 @@ def builtin(code=None):
 
     The built-in entries of one language.
 
-    Русский язык — это обратное направление, и второй колонки у него нет.
-    Russian is the reverse direction and has no second column.
+    Русской таблицы в списке нет: ``RUSSIAN`` — обратная сторона, её собирает
+    :func:`_russian_side`, и второй колонки у неё не бывает.
+    Russian is not in the list: ``RUSSIAN`` is the reverse side built by
+    :func:`_russian_side`, and it never has a second column.
     """
     code = _norm(code or _lang)
-    if code == "ru":
-        return {token: (expand, "") for token, expand in slang_data.RUSSIAN.items()}
     return {token: (expand, slang_data.RU_SHORT.get(token.lower(), ""))
             for token, expand in slang_data.table(code).items()}
 
@@ -350,6 +350,13 @@ def languages():
     """Языки, у которых есть встроенная таблица: [(код, подпись)].
 
     The languages with a built-in table: (code, caption).
+
+    Русского в списке нет: русские сокращения — обратное направление, они
+    раскрываются перед переводом на язык сервера и в таблице чужих сокращений
+    не показываются (иначе игрок искал бы там «спс» и не находил).
+    Russian is not offered: Russian abbreviations are the reverse direction,
+    expanded before translating into the server language, and they are not shown
+    among the foreign tables — otherwise the player would look for "спс" there.
     """
     return [(code, slang_data.LANG_TITLES.get(code, code.upper()))
             for code in slang_data.BY_LANG]
