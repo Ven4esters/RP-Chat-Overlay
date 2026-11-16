@@ -876,6 +876,46 @@ STRINGS = {
     "или в разделе «Модули».":
         "The “%s” module is off — the settings here are unavailable. Switch it on "
         "here or in the Modules section.",
+    # --- режимы перевода / translation modes ---
+    "Режим перевода": "Translation mode",
+    "Всё сообщение — на язык перевода": "The whole message into the target language",
+    "Только отмеченные куски (обычный режим)": "Only the marked fragments (regular mode)",
+    "Ваш язык → русский": "Your language into Russian",
+    "Что переводить:": "What to translate:",
+    "Режим переводчика: пишете на своём языке — в чат уходит русский текст. "
+    "Переводится каждое сообщение целиком, включая действия *...*; команды "
+    "/… остаются как есть. Автоперевод, слова-паразиты и выбор «что уходит "
+    "в чат» здесь не работают.":
+        "Interpreter mode: you type in your own language and Russian goes to the "
+        "chat. Every message is translated whole, actions *...* included; /commands "
+        "stay as they are. Auto-translation, fillers and the \"what goes to the "
+        "chat\" choice do not apply here.",
+    "Полный перевод: в чат уходит всё сообщение на языке перевода. Словарь "
+    "важнее сервисов, слова-паразиты и автоперевод не участвуют, скобки "
+    "+…+ не нужны — переводится всё.":
+        "Full translation: the whole message goes to the chat in the target "
+        "language. The glossary wins over the services, fillers and "
+        "auto-translation take no part, and +...+ markers are not needed — "
+        "everything is translated.",
+    "Обычный режим: в чат уходит ваш русский текст, а переведёнными — только "
+    "куски в +скобках+ и то, что выбрал автоперевод. Работают слова-паразиты "
+    "и выбор «что уходит в чат».":
+        "Regular mode: your Russian text goes to the chat, and only the fragments "
+        "in +brackets+ plus whatever auto-translation picked are translated. "
+        "Fillers and the \"what goes to the chat\" choice are active.",
+    "Режим: всё сообщение на язык перевода": "Mode: whole message into the target language",
+    "Режим: только отмеченные куски": "Mode: marked fragments only",
+    "Режим: ваш язык → русский": "Mode: your language into Russian",
+    "Всё сообщение → %s": "Whole message → %s",
+    "Только отмеченные куски → %s": "Marked fragments only → %s",
+    "Статус: всё сообщение → %s": "Status: whole message → %s",
+    "Статус: отмеченные куски → %s": "Status: marked fragments → %s",
+    "ваш язык → русский": "your language into Russian",
+    "всё на %s": "everything into %s",
+    "по маркерам → %s": "by markers → %s",
+    "всё на язык": "all into the language",
+    "по маркерам": "by markers",
+    "на русский": "into Russian",
     "Группа": "Group",
     "Группа…": "Group…",
     "Группа вариантов": "Variant group",

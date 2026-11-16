@@ -45,6 +45,9 @@ class Module:
                    the settings section where it is switched on, or None
     page_key       имя страницы настроек для блокировки, когда модуль выключен
                    the settings page name to dim when the module is off
+    modes          режимы перевода, в которых модуль вообще нужен; пусто —
+                   нужен во всех / translation modes that need this module; empty
+                   means it is needed in every mode
     """
 
     key: str
@@ -57,6 +60,7 @@ class Module:
     requires: tuple[str, ...] = ()
     settings_page: int | None = None
     page_key: str = ""
+    modes: tuple[str, ...] = ()
 
 
 # Порядок в таблице = порядок в окне настроек.
@@ -106,6 +110,11 @@ MODULES: Final[tuple[Module, ...]] = (
         requires=("translator",),
         settings_page=1,
         page_key="page_auto",
+        # автоперевод существует только в частичном режиме: в полном переводится
+        # всё сообщение, в обратном — весь чужой текст, и выбирать там нечего
+        # auto-translation only exists in partial mode: full mode translates the
+        # whole message and reverse mode all foreign text, so there is no choice
+        modes=("partial",),
     ),
     Module(
         key="game_send",
@@ -202,6 +211,20 @@ def apply_defaults(cfg: dict[str, Any]) -> dict[str, Any]:
     for module in MODULES:
         cfg.setdefault(module.config_key, module.default)
     return cfg
+
+
+def needed_in_other_mode(cfg: Mapping[str, Any], key: str) -> bool:
+    """Модуль не нужен в текущем режиме, но нужен в другом / needed elsewhere only.
+
+    Так «Сокращения» и «Автоперевод» честно гаснут в режимах, где их нет,
+    с подсказкой: в этом режиме модуль не нужен, в другом — нужен.
+    This is how Auto-translation dims in the modes that do not use it, with a
+    tooltip saying it belongs to another mode.
+    """
+    module = BY_KEY.get(key)
+    if module is None or not module.modes:
+        return False
+    return str(cfg.get("mode") or "partial") not in module.modes
 
 
 def blockers(cfg: Mapping[str, Any], key: str) -> list[str]:

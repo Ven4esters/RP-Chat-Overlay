@@ -5,6 +5,36 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
+## 1.13.0 — 15.11.2026
+
+**Этап 2: три режима перевода.**
+
+- **Один список «Режим перевода» вместо галочки «переводить на русский».** Три
+  режима, и различаются они не украшением, а тем, что уходит в чат:
+  - **Всё сообщение → язык перевода.** Переводится целиком, словарь важнее
+    сервисов, без слов-паразитов, без автоперевода и без скобок +…+.
+  - **Только отмеченные куски (обычный режим).** Как раньше: в чат уходит ваш
+    русский текст, а переведёнными — куски в +скобках+ и то, что выбрал
+    автоперевод. Это режим по умолчанию.
+  - **Ваш язык → русский.** Пишете на своём языке — в чат уходит русский.
+- **В режимах «всё» и «ваш язык → русский» лишние настройки убраны с глаз.**
+  Автоперевод, слова-паразиты и выбор «что уходит в чат» прячутся: там
+  переводится всё сообщение, и выбирать нечего.
+- **Автоперевод гаснет в «Модулях» с честной подсказкой.** В режимах, где он не
+  нужен, флажок погашен и подписан: модуль работает только в частичном режиме.
+  Настройки не пропадают — они вернутся при возврате режима.
+- **Режим переключается из меню трея**, тремя пунктами с подсказками: это
+  решение на один вечер, и лазить за ним в настройки посреди боя незачем.
+  В подсказке значка теперь видно режим.
+- **Проверка перевода проверяет выбранный режим** (а не только направление):
+  три варианта в списке, пример текста под каждый. Проверка идёт тем же путём,
+  что и рабочая отправка, — иначе она успокаивала бы зря.
+- **Словарь действительно главнее слов-паразитов**, как и было обещано раньше:
+  фраза из словаря, попавшая в список паразитов, переводится целиком, а не
+  разваливается на куски. Настраивать это по-прежнему не нужно.
+- Старый ключ `direction` в config.json читается: `in` — это режим «ваш язык →
+  русский», `out` — частичный. Файлы прежних версий работают без правки руками.
+
 ## 1.12.0 — 15.11.2026
 
 **Этап 1: модули, блокировка разделов, токен DeepL Pro.**
@@ -836,6 +866,39 @@ English version below: [Changelog (English)](#-changelog-english).
 ---
 
 # 📌 Changelog (English)
+
+## 1.13.0 — 15 Nov 2026
+
+**Stage 2: three translation modes.**
+
+- **One "Translation mode" list instead of the "translate into Russian" checkbox.**
+  Three modes, and the difference is what leaves for the chat:
+  - **The whole message into the target language.** Everything is translated, the
+    glossary wins over the services, with no fillers, no auto-translation and no
+    +...+ markers.
+  - **Only the marked fragments (regular mode).** As before: your Russian text goes
+    to the chat, and only the fragments in +brackets+ plus whatever
+    auto-translation picked are translated. This is the default.
+  - **Your language into Russian.** You type in your own language and Russian goes
+    to the chat.
+- **In the "whole message" and "your language into Russian" modes the redundant
+  settings are out of sight.** Auto-translation, fillers and the "what goes to the
+  chat" choice are hidden: the whole message is translated, so there is nothing to
+  choose.
+- **Auto-translation dims in Modules with an honest tooltip.** In the modes that do
+  not use it the checkbox is dimmed and labelled: the module only works in partial
+  mode. Nothing is lost — the settings come back with the mode.
+- **The mode is switched from the tray menu**, with three explained items: it is a
+  per-evening decision, and digging into the settings for it mid-fight is
+  pointless. The tray tooltip now shows the mode.
+- **The translation test checks the chosen mode**, not just the direction: three
+  variants in the list, with a sample text for each. The test runs the very same
+  path as the real send, otherwise it would reassure for nothing.
+- **The glossary really does win over fillers**, as promised earlier: a glossary
+  phrase that also appears in the filler list is translated whole instead of
+  falling apart. There is still nothing to configure.
+- The legacy `direction` key in config.json is honoured: `in` means "your language
+  into Russian", `out` means partial. Files from earlier versions work untouched.
 
 ## 1.12.0 — 15 Nov 2026
 

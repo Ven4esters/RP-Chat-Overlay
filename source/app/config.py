@@ -21,7 +21,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Final, Mapping
 
 from app import APP_NAME, modules
 
@@ -98,8 +98,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "target_lang": "it",                # язык перевода / target language code
     "send_mode": "reading",             # "reading" = русская запись, "native" = текст на языке
                                         # "reading" sends the Russian reading, "native" the foreign text
-    "direction": "out",                 # "out" = русский → язык, "in" = любой язык → русский
-                                        # "out" = Russian into the target language, "in" = anything into Russian
+    # Режим перевода — один ключ на три режима. Старый "direction" читается
+    # как раньше: "in" — это режим 3, "out" — частичный (режим 2).
+    # One key for three modes. The old "direction" key is still honoured:
+    # "in" means mode 3, "out" means partial (mode 2).
+    "mode": "partial",                  # "full" | "partial" | "to_ru"
+    "direction": "out",                 # устаревший дубль режима / legacy copy of mode
+                                        # "out" = русский → язык, "in" = любой язык → русский
 
     # --- интерфейс / interface ---
     "ui_lang": "ru",                    # язык интерфейса: "ru" | "en" / UI language
@@ -255,8 +260,29 @@ def load_config() -> dict[str, Any]:
         if not isinstance(cfg.get(key), str) or not cfg[key]:
             cfg[key] = DEFAULT_CONFIG[key]
     modules.apply_defaults(cfg)
+    cfg["mode"] = _mode_of(cfg)
+    cfg["direction"] = "in" if cfg["mode"] == "to_ru" else "out"
     save_config(cfg)
     return cfg
+
+
+MODES: Final[dict[str, str]] = {"full": "full", "partial": "partial", "to_ru": "to_ru"}
+
+
+def _mode_of(cfg: Mapping[str, Any]) -> str:
+    """Режим перевода из конфигурации, с оглядкой на старый ключ.
+
+    The translation mode from the configuration, honouring the legacy key.
+
+    Старый ``direction`` читается только если файл пришёл без ``mode``:
+    иначе два ключа начнут спорить, и меню трея разойдётся с настройками.
+    The legacy ``direction`` is only read when the file has no ``mode``;
+    otherwise the two keys argue and the tray menu disagrees with the settings.
+    """
+    mode = cfg.get("mode")
+    if mode in MODES:
+        return mode
+    return "to_ru" if str(cfg.get("direction") or "").lower() in ("in", "reverse") else "partial"
 
 
 def save_config(cfg: dict[str, Any]) -> bool:

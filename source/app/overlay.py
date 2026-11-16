@@ -189,8 +189,7 @@ class Overlay(QWidget):
         self.timer.timeout.connect(self._fire)
         self.input.textChanged.connect(self.on_text)
         self.input.returnPressed.connect(self.on_enter)
-        self.worker = Worker(lambda j: (self.engine.process_in(j[1]) if j[4]
-                                      else self.engine.process(j[1], j[2], j[3])),
+        self.worker = Worker(lambda j: self._run_engine(j),
                              lambda j, r, e: self.bridge.translated.emit(j[0], r, str(e) if e else ""))
         self.worker.start()
         bridge.translated.connect(self.on_done, Qt.ConnectionType.QueuedConnection)
@@ -354,6 +353,25 @@ class Overlay(QWidget):
             self.close_overlay(refocus=False)
 
     # ----- ввод и перевод -----
+    def _run_engine(self, job):
+        """Перевод одного задания в режиме, который выбран сейчас.
+
+        One job translated in the mode chosen right now.
+
+        Режимов три, и различаются они не украшением, а тем, что уходит в чат:
+        полный — всё сообщение на языке перевода, частичный — только +...+ или
+        выбранные счётчиком куски, обратный — весь чужой текст по-русски.
+        Three modes, and the difference is what leaves for the chat: full mode
+        translates everything, partial mode only the marked fragments, and
+        reverse mode turns all foreign text into Russian.
+        """
+        rid, text, auto, seed, _rev = job
+        if self._rev():
+            return self.engine.process_in(text)
+        if self._full():
+            return self.engine.process_full(text)
+        return self.engine.process(text, auto, seed)
+
     def _pick(self, res: Result) -> str:
         """Что именно отправить в чат: русскую запись или текст на языке.
 
@@ -362,22 +380,30 @@ class Overlay(QWidget):
         """
         if self._rev():
             return res.text or res.native     # в обратном режиме показываем русский
+        if self._full():
+            return res.native or res.text     # в полном — только текст на языке
         mode = str(self.cfg.get("send_mode", "reading")).lower()
         if mode in ("native", "lang", "text", "target"):
             return res.native or res.text
         return res.text or res.native
 
     def _rev(self):
-        """True, если включён режим «ваш язык → русский»."""
-        return str(self.cfg.get("direction", "out")).lower() in ("in", "reverse", "to_ru")
+        """True для режима «ваш язык → русский» (режим 3)."""
+        return self.cfg.get("mode") == "to_ru"
+
+    def _full(self):
+        """True для полного перевода всего сообщения (режим 1)."""
+        return self.cfg.get("mode") == "full"
 
     def _lang_tag(self):
         code = str(self.cfg.get("target_lang", "it")).split("-")[0]
         return code.upper() or "IT"
 
     def _auto_now(self, text):
-        if self._rev():
-            return True          # в режиме переводчика переводится всё, что попало в поле
+        if self._rev() or self._full():
+            # в этих режимах переводится всё, что попало в поле, и счётчик не нужен
+            # both modes translate everything in the field, so no counter is needed
+            return False
         # /to /lto /l /wt /s /st участвуют в счётчике наравне с обычным текстом
         # the counted commands take part in the series like ordinary messages
         if text.lstrip().startswith("/") and not is_counted_command(text):
@@ -393,8 +419,12 @@ class Overlay(QWidget):
     def _count(self):
         n, mx = len(self.input.text()), int(self.cfg.get("max_chars", 256))
         game = i18n.t("найдена") if self.game_hwnd else i18n.t("НЕ найдена")
-        where = i18n.t("перевод входящего → русский") if self._rev() \
-            else langs.label(self.cfg.get("target_lang", "it"))
+        if self._rev():
+            where = i18n.t("ваш язык → русский")
+        elif self._full():
+            where = i18n.tf("всё на %s", langs.label(self.cfg.get("target_lang", "it")))
+        else:
+            where = i18n.tf("по маркерам → %s", langs.label(self.cfg.get("target_lang", "it")))
         parts = [f"{n}/{mx}", where, i18n.tf("игра: %s", game)]
         auto = self.plan.label()
         if auto:
@@ -406,6 +436,13 @@ class Overlay(QWidget):
         self.out.setStyleSheet("color:#ff6b6b;" if err else "")
         self.out.setText(out)
         self.out.setVisible(bool(out))
+        if self._full():
+            # в полном режиме обе строки совпадают: показывать нечего
+            # in full mode both lines are the same, so there is nothing to show
+            self.it.setText("")
+            self.it.setVisible(False)
+            self.adjustSize()
+            return
         tag = i18n.t("оригинал") if self._rev() else self._lang_tag()
         self.it.setText((tag + ": " + other) if other else "")
         self.it.setVisible(bool(other))
@@ -420,7 +457,8 @@ class Overlay(QWidget):
         if not text.strip():
             self._show_result("", "")
         elif (self._auto_now(text) or has_markers(text, self.cfg)
-                or (self.cfg.get("filler_always", True)
+                or self._full()          # полный режим: переводим всё, без условий
+                or (self._partial_fillers()
                     and has_fillers(text, self.cfg, self.engine.g))):
             # слова-паразиты переводятся всегда, вне зависимости от счётчика серии
             self._show_result("перевожу…", "")
@@ -428,6 +466,14 @@ class Overlay(QWidget):
         else:
             self.cur = Result(text.strip(), "", False)
             self._show_result("", "")
+
+    def _partial_fillers(self):
+        """Слова-паразиты участвуют только в частичном режиме (режим 2).
+
+        Fillers only take part in partial mode (mode 2); full and reverse mode
+        translate everything and have no fillers of their own.
+        """
+        return self.cfg.get("mode") == "partial" and bool(self.cfg.get("filler_always", True))
 
     def _fire(self):
         text = self.input.text()
@@ -546,6 +592,21 @@ class Overlay(QWidget):
     def notify(self, msg, warn=False):
         icon = QSystemTrayIcon.MessageIcon.Warning if warn else QSystemTrayIcon.MessageIcon.Information
         self.tray.showMessage(APP_NAME, msg, icon, 6000)
+
+
+# Подписи режимов: одна таблица на уведомление, меню и подсказку.
+# Mode captions: one table shared by the notification, the menu and the tooltip.
+MODE_TITLES = (("full", "Режим: всё сообщение на язык перевода"),
+               ("partial", "Режим: только отмеченные куски"),
+               ("to_ru", "Режим: ваш язык → русский"))
+
+MODE_HINTS = {
+    "full": "Всё сообщение уходит на языке перевода. Автоперевод и слова-паразиты "
+            "не участвуют.",
+    "partial": "Переводятся только куски в +скобках+, плюс автоперевод по счётчику "
+               "и слова-паразиты.",
+    "to_ru": "Пишете на своём языке — в чат уходит русский текст.",
+}
 
 
 def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
@@ -845,13 +906,28 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
         win.notify(i18n.tf("Настройки сохранены. Язык: %s, клавиша: %s.",
                            langs.label(code), cfg["hotkey"]))
 
-    def set_direction(direction):
-        """Переключение режима из меню трея: обычный / перевод входящего."""
-        cfg["direction"] = "in" if str(direction).lower() in ("in", "reverse") else "out"
+    def set_mode(mode):
+        """Переключение режима перевода из меню трея.
+
+        Switches the translation mode from the tray menu.
+
+        Старое имя ``set_direction`` осталось ради совместимости: оно понимает
+        и ``in``/``out``, чтобы старые ярлыки и скрипты не сломались.
+        The old ``set_direction`` name is kept for compatibility and understands
+        ``in``/``out`` so that old shortcuts and scripts keep working.
+        """
+        mode = {"in": "to_ru", "reverse": "to_ru", "out": "partial"}.get(mode, mode)
+        if mode not in ("full", "partial", "to_ru"):
+            mode = "partial"
+        cfg["mode"] = mode
+        cfg["direction"] = "in" if mode == "to_ru" else "out"
         save_config(cfg)
         apply_settings(dict(cfg))
-        win.notify(i18n.t("Режим: ваш язык → русский") if cfg["direction"] == "in"
-                   else i18n.t("Режим: русский → выбранный язык перевода"))
+        win.notify(i18n.t(dict(MODE_TITLES)[mode]))
+
+    def set_direction(direction):
+        """Устаревшее имя переключателя режима / legacy name for set_mode."""
+        set_mode("to_ru" if str(direction).lower() in ("in", "reverse") else "partial")
 
     # ---------- окно настроек ----------
     def open_settings_window(first_run=False):
@@ -898,30 +974,43 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
 
     # ---------- меню трея ----------
     def build_menu():
-        """Короткое меню трея: статус переводчика, направление, настройки, выход.
+        """Короткое меню трея: статус переводчика, режим, настройки, выход.
 
         Всё остальное (язык, автоперевод, отправка в игру, слова-паразиты)
         настраивается в окне «Настройки…».
+
+        Режим переключается здесь, потому что это решение на один вечер: сегодня
+        играю на итальянском сервере, завтра на русском. Лазить за этим в
+        настройки — лишние три клика посреди боя.
+        The mode is switched right here because it is a per-evening decision:
+        an Italian server today, a Russian one tomorrow. Digging into the
+        settings for that is three extra clicks in the middle of a fight.
         """
         menu = QMenu()
-        mode_in = str(cfg.get("direction", "out")).lower() in ("in", "reverse")
+        mode = cfg.get("mode") or "partial"
         code = langs.code_of(cfg.get("target_lang", "it"))
-
-        status = QAction(i18n.t("Статус: ваш язык → русский") if mode_in
-                         else i18n.tf("Статус: русский → %s", langs.label(code)), menu)
+        label = langs.label(code)
+        if mode == "to_ru":
+            status = QAction(i18n.t("Статус: ваш язык → русский"), menu)
+        elif mode == "full":
+            status = QAction(i18n.tf("Статус: всё сообщение → %s", label), menu)
+        else:
+            status = QAction(i18n.tf("Статус: отмеченные куски → %s", label), menu)
         status.setEnabled(False)
         menu.addAction(status)
         menu.addSeparator()
 
         group = QActionGroup(menu)
         group.setExclusive(True)
-        for value, text in (("in", i18n.t("Ваш язык → русский")),
-                            ("out", i18n.tf("Русский → %s", langs.label(code)))):
+        for value, text in (("full", i18n.tf("Всё сообщение → %s", label)),
+                            ("partial", i18n.tf("Только отмеченные куски → %s", label)),
+                            ("to_ru", i18n.t("Ваш язык → русский"))):
             act = QAction(text, menu)
             act.setCheckable(True)
-            act.setChecked((value == "in") == mode_in)
+            act.setChecked(value == mode)
+            act.setToolTip(MODE_HINTS[value])
             act.triggered.connect(
-                lambda _c=False, v=value: set_direction(v) if (v == "in") != mode_in else None)
+                lambda _c=False, v=value: set_mode(v) if v != mode else None)
             group.addAction(act)
             menu.addAction(act)
 
@@ -933,8 +1022,10 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
 
         state["menu"] = menu
         tray.setContextMenu(menu)
+        short = {"full": i18n.t("всё на язык"), "partial": i18n.t("по маркерам"),
+                 "to_ru": i18n.t("на русский")}[mode]
         key = cfg["hotkey"] if modules.is_enabled(cfg, "hotkey") else "без клавиши"
-        tray.setToolTip(f"{APP_NAME} · {key} · {langs.label(code)}")
+        tray.setToolTip(f"{APP_NAME} · {key} · {short} · {label}")
 
     build_menu()
     # двойной клик по значку в трее открывает оверлей (пункта в меню нет)

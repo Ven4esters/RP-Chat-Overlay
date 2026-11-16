@@ -737,6 +737,9 @@ class SettingsWindow(QDialog):
         # первый расчёт: какие разделы погашены при текущих флагах модулей
         # the first pass: which sections are dimmed with the current flags
         self._sync_module_pages()
+        # окно собрано: с этого места смена режима может дёргать проверку перевода
+        # the window is built, so a mode change may now trigger the preview
+        self._mode_ready = True
         self._preview_timer = QTimer(self)
         self._preview_timer.setSingleShot(True)
         self._preview_timer.timeout.connect(self._do_preview)
@@ -883,6 +886,33 @@ class SettingsWindow(QDialog):
         lay.setContentsMargins(20, 18, 20, 18)
         lay.setSpacing(14)
 
+        # режим перевода — первое, что видит игрок: от него зависит, какие
+        # карточки ниже вообще работают
+        # the translation mode comes first: it decides which cards below matter
+        card, cl = _card()
+        cl.addWidget(_title("Режим перевода", "sec"))
+        self.cb_mode = QComboBox()
+        self.cb_mode.setMinimumWidth(340)
+        for val, text in (("full", "Всё сообщение — на язык перевода"),
+                          ("partial", "Только отмеченные куски (обычный режим)"),
+                          ("to_ru", "Ваш язык → русский")):
+            self.cb_mode.addItem(text, val)
+        self.cb_mode.setToolTip(
+            "Полный: в чат уходит весь текст на языке перевода.\n"
+            "Частичный: переводятся только куски в +скобках+, остальное — как написали.\n"
+            "Обратный: пишете на своём языке, в чат уходит русский текст.")
+        self.cb_mode.currentIndexChanged.connect(self._mode_changed)
+        row_mode = QHBoxLayout()
+        row_mode.addWidget(QLabel("Что переводить:"))
+        row_mode.addWidget(self.cb_mode)
+        row_mode.addStretch(1)
+        cl.addLayout(row_mode)
+        self.lb_mode = QLabel("")
+        self.lb_mode.setProperty("no_i18n", True)
+        self.lb_mode.setWordWrap(True)
+        cl.addWidget(self.lb_mode)
+        lay.addWidget(card)
+
         # язык перевода
         card, cl = _card()
         cl.addWidget(_title("Язык перевода", "sec"))
@@ -905,6 +935,12 @@ class SettingsWindow(QDialog):
         self.lb_lang_note.setWordWrap(True)
         cl.addWidget(self.lb_lang_note)
         row = QHBoxLayout()
+        # строка целиком прячется, когда выбора нет: полный и обратный режим
+        # отправляют в чат один-единственный вариант
+        # the whole row hides when there is no choice: full and reverse mode send
+        # exactly one variant
+        self.w_send_mode = QWidget()
+        self.w_send_mode.setLayout(row)
         row.addWidget(QLabel("Что уходит в чат:"))
         self.cb_send_mode = QComboBox()
         self.cb_send_mode.addItem("Русская запись — как это читается", "reading")
@@ -916,7 +952,7 @@ class SettingsWindow(QDialog):
         self.cb_send_mode.currentIndexChanged.connect(lambda *_: self._do_preview())
         row.addWidget(self.cb_send_mode)
         row.addStretch(1)
-        cl.addLayout(row)
+        cl.addWidget(self.w_send_mode)
 
         row = QHBoxLayout()
         row.addWidget(QLabel("Язык интерфейса"))
@@ -930,25 +966,6 @@ class SettingsWindow(QDialog):
         row.addStretch(1)
         cl.addLayout(row)
         cl.addWidget(_hint("Язык кнопок, подсказок и меню. Применяется сразу."))
-        lay.addWidget(card)
-
-        # режим переводчика: входящий текст → русский
-        card, cl = _card()
-        cl.addWidget(_title("Перевод входящего текста", "sec"))
-        cl.addWidget(_hint("Режим для иностранного игрока на русскоязычном сервере: пишете "
-                           "в оверлее на своём языке — в чат уходит перевод на русский. "
-                           "Переводится каждое сообщение целиком, включая действия *...*; "
-                           "служебные команды (/me, /to и другие) остаются без перевода."))
-        self.chk_reverse = QCheckBox("Переводить на русский (режим переводчика)")
-        self.chk_reverse.setToolTip("Ваш язык → русский. Enter отправляет перевод в чат игры.\n"
-                                    "Служебные команды через / не переводятся.")
-        self.chk_reverse.stateChanged.connect(self._reverse_changed)
-        cl.addWidget(self.chk_reverse)
-        self.lb_reverse = QLabel("")
-        self.lb_reverse.setProperty("no_i18n", True)
-        self.lb_reverse.setObjectName("warn")
-        self.lb_reverse.setWordWrap(True)
-        cl.addWidget(self.lb_reverse)
         lay.addWidget(card)
 
         # сленг и сокращения
@@ -1112,17 +1129,60 @@ class SettingsWindow(QDialog):
             log.exception("Не удалось обновить подписи после смены языка")
 
     def _reverse_changed(self, *_):
-        """Подсказка под галочкой обратного режима."""
-        if not hasattr(self, "lb_reverse"):
+        """Подсказка под списком режимов: что именно уйдёт в чат.
+
+        The hint under the mode list: what exactly leaves for the chat.
+        """
+        if not hasattr(self, "lb_mode"):
             return
-        if self.chk_reverse.isChecked():
-            self.lb_reverse.setText(i18n.t(
-                "Включено: пишете на своём языке — Enter отправляет перевод на русский "
-                "в чат игры. Команды /… не переводятся."))
+        mode = self._mode()
+        if mode == "to_ru":
+            self.lb_mode.setText(i18n.t(
+                "Режим переводчика: пишете на своём языке — в чат уходит русский текст. "
+                "Переводится каждое сообщение целиком, включая действия *...*; команды "
+                "/… остаются как есть. Автоперевод, слова-паразиты и выбор «что уходит "
+                "в чат» здесь не работают."))
+        elif mode == "full":
+            self.lb_mode.setText(i18n.t(
+                "Полный перевод: в чат уходит всё сообщение на языке перевода. Словарь "
+                "важнее сервисов, слова-паразиты и автоперевод не участвуют, скобки "
+                "+…+ не нужны — переводится всё."))
         else:
-            self.lb_reverse.setText(i18n.t(
-                "Выключено: обычный режим — русский текст переводится на выбранный "
-                "язык перевода."))
+            self.lb_mode.setText(i18n.t(
+                "Обычный режим: в чат уходит ваш русский текст, а переведёнными — только "
+                "куски в +скобках+ и то, что выбрал автоперевод. Работают слова-паразиты "
+                "и выбор «что уходит в чат»."))
+
+    def _mode(self):
+        """Текущий режим из списка / the mode chosen in the list."""
+        if hasattr(self, "cb_mode"):
+            return self.cb_mode.currentData() or "partial"
+        return self.cfg.get("mode") or "partial"
+
+    def _mode_changed(self, *_):
+        """Смена режима: гасим то, что в этом режиме не работает.
+
+        The mode changed: dim whatever does not work in it.
+
+        В полном и обратном режиме нет ни автоперевода, ни слов-паразитов, ни
+        выбора «что уходит в чат»: там переводится всё сообщение, и выбирать
+        нечего. Прятать их совсем — хуже: игрок решит, что настройки пропали.
+        Full and reverse mode have no auto-translation, no fillers and no
+        "what goes to the chat" choice: the whole message is translated, so there
+        is nothing to choose. Hiding them would be worse: the settings would look
+        lost.
+        """
+        mode = self._mode()
+        partial = mode == "partial"
+        for widget in (getattr(self, "gb_auto", None), getattr(self, "gb_filler", None)):
+            if widget is not None:
+                widget.setVisible(partial)
+        if hasattr(self, "w_send_mode"):
+            self.w_send_mode.setVisible(partial)
+        self._reverse_changed()
+        self._sync_module_pages()
+        if getattr(self, "_mode_ready", False):
+            self._do_preview()
 
     def _hotkey_changed(self, text=None):
         ok, warn = check_hotkey(self.ed_hotkey.text())
@@ -1189,6 +1249,7 @@ class SettingsWindow(QDialog):
         lay.setSpacing(14)
 
         card, cl = _card()
+        self.gb_auto = card
         cl.addWidget(_title("Автоперевод", "sec"))
         cl.addWidget(_hint("Перевод вставляется в обычную русскую речь, чтобы она выглядела живой. "
                            "Например: «мне срочно нужна помощь» → «мне срочно нужна Aiutami»."))
@@ -1229,6 +1290,7 @@ class SettingsWindow(QDialog):
         lay.addWidget(card)
 
         card, cl = _card()
+        self.gb_filler = card
         cl.addWidget(_title("Слова-паразиты", "sec"))
         self.chk_filler = QCheckBox("Переводить всегда, вне зависимости от частоты")
         self.chk_filler.setToolTip("Слова-паразиты из PDF переводятся в каждом сообщении")
@@ -3474,6 +3536,11 @@ class SettingsWindow(QDialog):
             box = self.chk_modules.get(module.config_key)
             if box is not None:
                 cfg[module.config_key] = bool(box.isChecked())
+        # режим — тоже часть текущего состояния: от него зависит, какие разделы
+        # считать ненужными в этом режиме
+        # the mode is part of the current state too: it decides which sections
+        # count as unnecessary right now
+        cfg["mode"] = self._mode()
         return cfg
 
     def _set_module_flag(self, key, value):
@@ -3487,6 +3554,12 @@ class SettingsWindow(QDialog):
             return
         self._module_switching = True
         try:
+            # Сам флаг пишется в cfg, а не только в флажок: `_cfg_now` берёт
+            # флажки из `chk_modules`, но остальное состояние — отсюда.
+            # The flag goes into cfg as well as into the checkbox: `_cfg_now`
+            # reads the checkboxes from `chk_modules`, and the rest of the state
+            # from here.
+            self.cfg[module.config_key] = bool(value)
             box = self.chk_modules.get(module.config_key)
             if box is not None:
                 box.setChecked(bool(value))
@@ -3525,6 +3598,18 @@ class SettingsWindow(QDialog):
             self._module_switching = False
         self._sync_module_pages()
 
+    def _mode_flag_tip(self, key):
+        """Подсказка для флажка, который в этом режиме не нужен.
+
+        The tooltip of a checkbox the current mode does not need.
+        """
+        module = modules.get(key)
+        if module is None or not modules.needed_in_other_mode(self._cfg_now(), key):
+            return ""
+        return i18n.tf("«%s» нужен только в частичном режиме перевода. "
+                       "В других режимах он ничего не делает.",
+                       module.title_en if i18n.is_en() else module.title_ru)
+
     def _own_module_box(self, key):
         """Флажок модуля на его собственной странице / the module's own checkbox."""
         return {
@@ -3549,6 +3634,12 @@ class SettingsWindow(QDialog):
         """
         cfg = self._cfg_now()
         for module in modules.MODULES:
+            pair = getattr(self, "_module_by_key", {}).get(module.key)
+            box = pair[0] if pair else None
+            if box is not None:
+                tip = self._mode_flag_tip(module.key)
+                box.setToolTip(tip or i18n.t("Включает и выключает модуль."))
+                box.setProperty("modeOff", bool(tip))
             if not module.page_key:
                 continue
             page = getattr(self, module.page_key, None)
@@ -3556,23 +3647,34 @@ class SettingsWindow(QDialog):
             if page is None:
                 continue
             active = modules.is_enabled(cfg, module.key)
+            # третье состояние: модуль исправен, но в этом режиме не нужен —
+            # так гаснет автоперевод в полном и обратном режиме
+            # the third state: the module is fine but this mode does not use it,
+            # which is how auto-translation dims in full and reverse mode
+            other_mode = modules.needed_in_other_mode(cfg, module.key)
             for child in page.findChildren(QWidget):
                 # подсказку о выключенном модуле не гасим — её и надо прочитать
                 # the disabled-module hint stays readable: it is what to read
                 if child.objectName() == "moduleOff":
                     continue
-                child.setEnabled(active)
-            page.setProperty("moduleOff", not active)
+                child.setEnabled(active and not other_mode)
+            page.setProperty("moduleOff", not active or other_mode)
             banner = page.findChild(QLabel, "moduleOff")
             if banner is not None:
-                banner.setVisible(not active)
-                if not active:
+                banner.setVisible(not active or other_mode)
+                if other_mode:
+                    banner.setText(i18n.tf(
+                        "Модуль «%s» в этом режиме не нужен: он работает только в "
+                        "частичном режиме. Переключите режим на странице «Основные» — "
+                        "настройки вернутся.",
+                        module.title_en if i18n.is_en() else module.title_ru))
+                elif not active:
                     banner.setText(i18n.tf(
                         "Модуль «%s» выключен — настройки раздела недоступны. "
                         "Включите его здесь или в разделе «Модули».",
                         module.title_en if i18n.is_en() else module.title_ru))
             if view is not None:
-                view.setProperty("moduleOff", not active)
+                view.setProperty("moduleOff", not active or other_mode)
 
     def _view_of(self, page):
         """Обёртка с прокруткой для страницы / the scroll wrapper of a page."""
@@ -3594,8 +3696,9 @@ class SettingsWindow(QDialog):
         row_dir = QHBoxLayout()
         row_dir.addWidget(QLabel("Направление:"))
         self.cb_test_dir = QComboBox()
-        self.cb_test_dir.addItem("Русский → выбранный язык перевода", "out")
-        self.cb_test_dir.addItem("Ваш язык → русский", "in")
+        self.cb_test_dir.addItem("Всё сообщение → выбранный язык", "full")
+        self.cb_test_dir.addItem("Только отмеченные куски → выбранный язык", "partial")
+        self.cb_test_dir.addItem("Ваш язык → русский", "to_ru")
         self.cb_test_dir.setMinimumWidth(200)
         self.cb_test_dir.setToolTip(
             "Проверить можно оба направления. «Ваш язык → русский» показывает, что "
@@ -3653,11 +3756,41 @@ class SettingsWindow(QDialog):
                                 "\n".join(rows) or i18n.t("Для этого языка список не задан."))
 
     # --- направление проверки ---
+    def _test_mode(self):
+        """Режим, выбранный на странице проверки / the mode chosen for the test."""
+        return str(self.cb_test_dir.currentData() or "partial")
+
     def _test_reverse(self):
-        return str(self.cb_test_dir.currentData() or "out") == "in"
+        return self._test_mode() == "to_ru"
 
     def _test_dir_changed(self, *_args, silent=False):
-        """Подсказки и пример под выбранное направление."""
+        """Подсказки и пример под выбранный режим."""
+        mode = self._test_mode()
+        if mode == "full":
+            if hasattr(self, "lb_test_hint"):
+                self.lb_test_hint.setText(i18n.t(
+                    "Введите фразу по-русски — увидите, что уйдёт в игру в полном "
+                    "режиме: весь текст на языке перевода, без +скобок+."))
+            self.ed_test.setPlaceholderText(
+                i18n.t("например: Слушай, брат, мне срочно нужна помощь"))
+            self.lb_test_dir.setText(i18n.t(
+                "Проверяем полный режим: в чат уйдёт всё сообщение на языке перевода."))
+            if not silent:
+                self._do_preview()
+            return
+        if mode == "partial":
+            if hasattr(self, "lb_test_hint"):
+                self.lb_test_hint.setText(i18n.t(
+                    "Введите фразу по-русски — увидите, что уйдёт в игру в обычном "
+                    "режиме: переводятся только куски в +скобках+ и паразиты."))
+            self.ed_test.setPlaceholderText(
+                i18n.t("например: Слушай, брат, мне срочно нужна помощь"))
+            self.lb_test_dir.setText(i18n.t(
+                "Проверяем обычный режим: в чат уйдёт ваш текст, а переведёнными — "
+                "только отмеченные куски."))
+            if not silent:
+                self._do_preview()
+            return
         if self._test_reverse():
             if hasattr(self, "lb_test_hint"):
                 self.lb_test_hint.setText(i18n.t(
@@ -3681,6 +3814,8 @@ class SettingsWindow(QDialog):
     def _insert_sample(self):
         if self._test_reverse():
             self.ed_test.setText("brb, I'm afk, ty, gg")
+        elif self._test_mode() == "partial":
+            self.ed_test.setText("Слушай, +мне срочно нужна помощь+, я опоздаю")
         else:
             self.ed_test.setText("Слушай, ну что ты, я же говорил, что приду позже")
 
@@ -3713,11 +3848,20 @@ class SettingsWindow(QDialog):
                 lambda: self.lb_test_mode.setText(i18n.t("перевожу… (сервисы заняты)")))
         self._slow_timer.start(5000)
         threading.Thread(target=self._preview_job,
-                         args=(cfg, code, text, self._test_reverse()),
+                         args=(cfg, code, text, self._test_mode()),
                          daemon=True).start()
 
-    def _preview_job(self, cfg, code, text, reverse=False):
-        """Прогон через движок: обычное направление или «язык → русский»."""
+    def _preview_job(self, cfg, code, text, mode="partial"):
+        """Прогон через движок в том же режиме, что выбран в списке проверки.
+
+        The text goes through the engine in the very mode picked for the test.
+
+        Проверка обязана повторять рабочий путь: если показывать одно, а в чат
+        отправлять другое, проверка вредна — она успокаивает зря.
+        The test must repeat the real path: showing one thing and sending
+        another makes the test harmful, because it reassures for nothing.
+        """
+        reverse = mode == "to_ru"
         try:
             data = self._doc(code)
             gl = Glossary(data, code)
@@ -3732,12 +3876,17 @@ class SettingsWindow(QDialog):
                                   if res.native and res.native != res.text else "",
                            "note": i18n.t("Способ: переведено в чат игры") if res.translated
                                    else i18n.t("Способ: без перевода (одна команда)")}
+            elif mode == "full":
+                res = engine.process_full(text)
+                sent = res.native or res.text
+                other = ""
             else:
                 res = engine.process(text, auto=bool(cfg.get("auto_mode")), seed=1.0)
                 native = str(cfg.get("send_mode") or "reading") in (
                     "native", "lang", "text", "target")
                 sent = (res.native or res.text) if native else (res.text or res.native)
                 other = res.text if native else res.native
+            if mode != "to_ru":
                 payload = {"out": sent or "—",
                            "sub": (i18n.t("На языке: ") + other)
                                   if other and other != sent else "",
@@ -3773,7 +3922,8 @@ class SettingsWindow(QDialog):
     def _write_widgets(self, cfg):
         cfg["target_lang"] = self.cb_lang.currentData() or "it"
         cfg["send_mode"] = self.cb_send_mode.currentData() or "reading"
-        cfg["direction"] = "in" if self.chk_reverse.isChecked() else "out"
+        cfg["mode"] = self._mode()
+        cfg["direction"] = "in" if cfg["mode"] == "to_ru" else "out"
         cfg["slang"] = bool(self.chk_slang.isChecked())
         if hasattr(self, "cb_ui_lang"):
             cfg["ui_lang"] = self.cb_ui_lang.currentData() or "ru"
@@ -3843,7 +3993,12 @@ class SettingsWindow(QDialog):
         mode = str(cfg.get("send_mode", "reading")).lower()
         self.cb_send_mode.setCurrentIndex(max(0, self.cb_send_mode.findData(
             "native" if mode in ("native", "lang", "text", "target") else "reading")))
-        self.chk_reverse.setChecked(str(cfg.get("direction", "out")).lower() in ("in", "reverse"))
+        if hasattr(self, "cb_mode"):
+            mode = cfg.get("mode") or "partial"
+            self.cb_mode.blockSignals(True)
+            self.cb_mode.setCurrentIndex(max(0, self.cb_mode.findData(mode)))
+            self.cb_mode.blockSignals(False)
+        self._mode_changed()
         self.chk_slang.setChecked(bool(cfg.get("slang", True)))
         if hasattr(self, "cb_ui_lang"):
             idx = self.cb_ui_lang.findData(i18n.normalize(cfg.get("ui_lang", "ru")))
@@ -3852,8 +4007,11 @@ class SettingsWindow(QDialog):
             self.cb_ui_lang.blockSignals(False)
             i18n.set_lang(self.cb_ui_lang.currentData() or "ru")
         if hasattr(self, "cb_test_dir"):
-            self.cb_test_dir.setCurrentIndex(1 if str(cfg.get("direction", "out")).lower()
-                                             in ("in", "reverse") else 0)
+            test_mode = cfg.get("mode") or "partial"
+            self.cb_test_dir.blockSignals(True)
+            self.cb_test_dir.setCurrentIndex(
+                max(0, self.cb_test_dir.findData(test_mode)))
+            self.cb_test_dir.blockSignals(False)
             self._test_dir_changed()
         self._reverse_changed()
         self.ed_open.setText(str(cfg.get("marker_open", "+")))

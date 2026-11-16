@@ -180,6 +180,10 @@ def _filler_spans(body, g):
             if not ok:
                 continue
             frag = body[ms[i].start():ms[j].end()]
+            # Фраза словаря главнее списка паразитов: «ну, значит» переводится как
+            # готовая фраза, а не как два отдельных паразита.
+            # A glossary phrase wins over the filler list: it goes as one ready
+            # phrase instead of two separate fillers.
             if _filler_key(frag) in g.filler_keys and g.find_meaning(frag) is not None:
                 cands.append((ms[i].start(), ms[j].end(), n))
                 break  # самая длинная фраза с этой позиции уже найдена
@@ -827,6 +831,76 @@ class Engine:
             found,
         )
     # ---------- обратный режим: любой язык → русский ----------
+    # ---------- полный перевод / full translation ----------
+    def process_full(self, text: str) -> Result:
+        """Полный перевод: всё сообщение на язык перевода, без «русской записи».
+
+        Режим для тех, кто играет на сервере своего языка и хочет, чтобы в чат
+        уходил настоящий иностранный текст. Отличия от обычного режима:
+        словарь по-прежнему важнее сервисов, но слов-паразитов нет, автоперевода
+        нет (переводится всё), маркеры +...+ не нужны, а «Что уходит в чат» не
+        спрашивается — уходит текст на языке.
+
+        Everything goes to the target language, with no Russian reading. The
+        glossary still wins over the services, but there are no fillers, no
+        auto-translation (everything is translated), no +...+ markers and no
+        "what goes to the chat" choice: the target text is what is sent.
+        """
+        cfg = self.cfg
+        self._sync_direction(False)
+        src = (text or "").strip()
+        if not src:
+            return Result("", "", False)
+        prefix, body, _is_cmd, _counted = split_prefix(src)
+        ru = self._full_part(body, slang_on=self._slang_on())
+        if not ru:
+            return Result("", "", False)
+        return Result(prefix + ru, prefix + ru, True)
+
+    def _full_part(self, text: str, slang_on: bool) -> str:
+        """Один кусок текста целиком на язык перевода, с учётом словаря.
+
+        One chunk of text fully in the target language, the glossary included.
+
+        Сначала ищем в словаре самые длинные фразы: там, где словарь знает
+        фразу, сервис не спрашиваем вовсе — так результат и стабильнее, и
+        укладывается в стиль сервера. Остальное уходит в переводчик.
+        Glossary phrases are matched first and never asked from the services, so
+        the result is both stable and in the server's own style.
+        """
+        text = text or ""
+        if not text.strip():
+            return text
+        if not modules.is_enabled(self.cfg, "glossary"):
+            return self._translate(slang.expand_russian(text)[0] if slang_on else text)
+        out, pos = [], 0
+        if not CYR_WORD_RE.search(text):      # иероглифы и прочие знаки без пробелов
+            return self._translate(text)      # space-less scripts go as a whole
+        # словарные фразы и слова-паразиты — это одно и то же: паразит тоже
+        # фраза словаря, просто короче. Поэтому список один, иначе «ну, значит»
+        # разъедется на два куска.
+        # glossary phrases and fillers are one and the same thing: a filler is a
+        # glossary phrase, only shorter. One list, or a phrase breaks in two.
+        for start_, end_, key in sorted(self.g.phrase_keys(text)):
+            if start_ < pos:
+                continue
+            gap = text[pos:start_]
+            if gap.strip():
+                src = slang.expand_russian(gap)[0] if slang_on else gap
+                out.append(keep_edges(gap, self._translate(src)))
+            else:
+                out.append(gap)
+            ent = self.g.by_it.get(key)
+            out.append(ent[0] if ent else text[start_:end_])
+            pos = end_
+        tail = text[pos:]
+        if tail.strip():
+            src = slang.expand_russian(tail)[0] if slang_on else tail
+            out.append(keep_edges(tail, self._translate(src)))
+        else:
+            out.append(tail)
+        return "".join(out)
+
     def process_in(self, text: str) -> Result:
         """Режим для иностранного игрока: любой язык → русский, перевод уходит в чат.
 
