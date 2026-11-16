@@ -329,7 +329,6 @@ class ChoiceWindow(QWidget):
         # scrolls
         scroll.setMinimumHeight(150)
         lay.addWidget(scroll, 1)
-        self._scroll = scroll
         self._holder = holder
 
         bottom = QHBoxLayout()
@@ -929,7 +928,10 @@ class Chooser:
         return self._wake_q
 
     def _wake_fired(self) -> None:
-        """Пауза после закрытия вышла: показать, что накопилось."""
+        """Пауза после закрытия вышла: показать, что накопилось.
+
+        The pause after closing is over: show whatever has piled up.
+        """
         if self._bridge is not None:
             self._bridge.wake.emit()
 

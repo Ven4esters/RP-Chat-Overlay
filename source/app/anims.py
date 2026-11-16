@@ -116,10 +116,13 @@ MODE_HINTS_EN: dict[int, str] = {
 }
 
 # команды, где текст идёт после самой команды
+# commands whose text follows the command itself
 EMOTE_COMMANDS = ("/me", "/ame", "/melow", "/melong")
 # «настоящие сообщения»: обычный текст и эти команды
+# "real messages": plain text and these commands
 TALK_COMMANDS = ("/to", "/lto", "/l", "/s", "/w", "/wt")
 # у этих команд первым словом идёт получатель, его анализировать нельзя
+# these commands start with a recipient, which must not be analysed
 NICK_COMMANDS = ("/to", "/lto")
 
 # Маркеры отрицания: если такой стоит перед найденным словом, правило молчит.
@@ -473,7 +476,10 @@ class Context:
                                                            repr=False)
 
     def key_of(self, phrase: str) -> str:
-        """Ключ словаря для фразы; пусто — фразы нет в словаре."""
+        """Ключ словаря для фразы; пусто — фразы нет в словаре.
+
+        The glossary key of a phrase; empty when the glossary does not know it.
+        """
         if self.equivalent is None:
             return ""
         try:
@@ -482,7 +488,10 @@ class Context:
             return ""
 
     def phrases(self, chunk: str) -> list[tuple[int, int, str]]:
-        """Фразы словаря в куске текста, с кэшем на сообщение."""
+        """Фразы словаря в куске текста, с кэшем на сообщение.
+
+        Glossary phrases inside a chunk of text, cached per message.
+        """
         if self.text_keys is None:
             return []
         cached = self._phrases.get(chunk)
@@ -520,7 +529,10 @@ class Choice:
         return (self.title or "").strip() or (self.name or "").strip()
 
     def problem(self) -> str:
-        """Что не так с вариантом; пустая строка — всё в порядке."""
+        """Что не так с вариантом; пустая строка — всё в порядке.
+
+        What is wrong with the variant; an empty string means it is fine.
+        """
         if not (self.name or "").strip():
             return VAL_EMPTY_NAME
         if re.search(r"[\s/]", self.name.strip()):

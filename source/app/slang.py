@@ -95,7 +95,10 @@ CYR_RX = re.compile(r"[а-яё]", re.IGNORECASE)
 
 
 def is_russian_token(token):
-    """Сокращение записано кириллицей — значит, оно русское."""
+    """Сокращение записано кириллицей — значит, оно русское.
+
+    An abbreviation written in Cyrillic is a Russian one.
+    """
     return bool(CYR_RX.search(str(token or "")))
 
 
@@ -172,12 +175,19 @@ _SUBJECT_RX = re.compile(
 
 
 def _tail_form(english):
-    """Полная фраза без ведущего «I»/«I'm»/«I'll» — для контекста с подлежащим."""
+    """Полная фраза без ведущего «I»/«I'm»/«I'll» — для контекста с подлежащим.
+
+    The full phrase without a leading "I"/"I'm"/"I'll", for a context that
+    already has a subject.
+    """
     return _LEAD_RX.sub("", english)
 
 
 def _has_subject(text, pos):
-    """Есть ли прямо перед сокращением подлежащее или форма to be."""
+    """Есть ли прямо перед сокращением подлежащее или форма to be.
+
+    Whether a subject or a form of "to be" sits right before the abbreviation.
+    """
     return bool(_SUBJECT_RX.search(text[:pos]))
 
 
@@ -346,6 +356,7 @@ def languages():
 
 
 # ---------- свои сокращения игрока ----------
+# the player's own abbreviations
 def load_user():
     """Читает data/slang.json (если он есть) и применяет к таблицам."""
     global _loaded
@@ -430,27 +441,6 @@ def user_entries(code=None):
     _ensure()
     code = _norm(code or _lang)
     return {k: [v[0], v[1]] for k, v in (_user_all.get(code) or {}).items()}
-
-
-def save_user(entries, code=None):
-    """Записать свои сокращения в data/slang.json и применить их.
-
-    Write the player's own abbreviations to data/slang.json and apply them.
-
-    Файл хранит записи всех языков сразу: у каждой есть поле ``lang``, поэтому
-    переключение языка в окне ничего не стирает. Старые файлы без этого поля
-    читаются как английские — они и были английскими.
-    The file keeps every language at once: each entry carries ``lang``, so
-    switching languages in the window erases nothing. Old files without the field
-    read as English, which is what they were.
-    """
-    _set_user(entries, code)
-    try:
-        write_json(SLANG_PATH, {"custom": _dump_all()})
-    except OSError:
-        log.exception("Не удалось сохранить свои сокращения")
-    log.info("Своих сокращений сохранено: %d (%s)", len(_user), _lang)
-    return dict(_user)
 
 
 def save_languages(by_lang):
@@ -642,7 +632,11 @@ def _replace(text, rx, pick):
 
 
 def expand_foreign(text):
-    """Сокращение → полная фраза перед переводом. Возвращает (текст, замены)."""
+    """Сокращение → полная фраза перед переводом. Возвращает (текст, замены).
+
+    An abbreviation turned into its full phrase before translation. Returns the
+    new text together with the replacements made.
+    """
     if not text:
         return text, []
     _ensure()
@@ -673,7 +667,10 @@ def expand_foreign(text):
 
 
 def restore_russian(text):
-    """Оставшиеся латинские сокращения → лаконичный русский вариант."""
+    """Оставшиеся латинские сокращения → лаконичный русский вариант.
+
+    Latin abbreviations a service left as typed turn into the short Russian variant.
+    """
     if not text:
         return text, []
     _ensure()
@@ -689,7 +686,11 @@ def restore_russian(text):
 
 
 def expand_russian(text):
-    """Русское сокращение → полная русская запись (перед переводом на язык)."""
+    """Русское сокращение → полная русская запись (перед переводом на язык).
+
+    A Russian abbreviation turned into the full Russian phrase before translating
+    it into the server's language.
+    """
     if not text:
         return text, []
     _ensure()

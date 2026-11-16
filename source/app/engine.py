@@ -72,6 +72,8 @@ WORD_RE = re.compile(r"[A-Za-zÀ-ÖØ-öø-ÿ’']+")
 TAIL_RE = re.compile(r"[.!?…]+$")
 
 # служебные слова: сами по себе (и на краях фрагмента) в автоперевод не берутся
+# function words: alone, and at the edges of a fragment, they never
+# go into auto-translation
 STOP = {norm(w) for w in (
     "и в во на с со к ко у о об от по за из для при про без до не ни но а да что как это то "
     "я ты он она оно мы вы они мне тебе меня тебя ему ей нам вам их же бы ли вот вон тут там "
@@ -152,7 +154,10 @@ def keep_edges(orig: str, translated: str) -> str:
 
 
 def _filler_key(s):
-    """Ключ сравнения паразита: без регистра, ё/й, знаков и лишних пробелов."""
+    """Ключ сравнения паразита: без регистра, ё/й, знаков и лишних пробелов.
+
+    The comparison key of a filler: no case, ё/й, punctuation or extra spaces.
+    """
     return " ".join(re.sub(r"[^\w\s]", " ", norm(s)).split())
 
 
@@ -171,6 +176,7 @@ def _filler_spans(body, g):
         for n in range(min(maxw, len(ms) - i), 0, -1):
             j = i + n - 1
             # слова подряд, между ними только пробелы/запятые (без действий )
+            # consecutive words with only spaces or commas between them (no actions)
             ok = True
             for x in range(i, j):
                 sep = body[ms[x].end():ms[x + 1].start()]
@@ -291,6 +297,7 @@ def strip_markers(text: str, cfg: Mapping[str, Any]) -> str:
 
 
 # ---------- автоперевод: случайный фрагмент ----------
+# auto-translation: a random fragment
 def _int(cfg, key, default):
     try:
         return int(cfg.get(key, default))
@@ -315,6 +322,8 @@ def auto_wrap(body: str, cfg: Mapping[str, Any], glossary: "Glossary", seed: flo
             if j >= len(ms):
                 break
             # слова должны идти подряд, только через пробелы (без знаков и действий между ними)
+            # the words must follow each other through spaces only (no punctuation,
+            # no actions between them)
             if any(body[ms[x].end():ms[x + 1].start()].strip() for x in range(i, j)):
                 break
             frag = body[ms[i].start():ms[j].end()]
@@ -351,7 +360,10 @@ def glossary_path(lang: str = "it"):
 
 
 def _pack_default(pack):
-    """Встроенный пакет языка в формате файла словаря."""
+    """Встроенный пакет языка в формате файла словаря.
+
+    The built-in language pack in the glossary file format.
+    """
     return {
         "_version": int(pack.get("version", 1)),
         "phrases": dict(pack.get("phrases") or {}),
@@ -361,7 +373,10 @@ def _pack_default(pack):
 
 
 def _phrase_parts(val):
-    """«транскрипция | значение 1; значение 2» -> (транскрипция, [значения])."""
+    """«транскрипция | значение 1; значение 2» -> (транскрипция, [значения]).
+
+    "transcription | meaning 1; meaning 2" -> (transcription, [meanings]).
+    """
     ru, _, meanings = str(val).partition("|")
     return ru.strip(), [m.strip() for m in meanings.split(";") if m.strip()]
 
@@ -458,6 +473,8 @@ class Glossary:
         self.filler_max_words = max((len(k.split()) for k in self.filler_keys), default=1)
         # у слов-паразитов приоритет: их русские формы ведут именно в свою фразу,
         # даже если такая же форма встречается у другой фразы словаря
+        # fillers win: their Russian forms point at their own phrase even when
+        # the very same form belongs to another glossary phrase
         for f in self.fillers:
             key = norm(f.get("target") or "")
             if key not in self.by_it:
@@ -476,6 +493,7 @@ class Glossary:
         key = self.by_meaning.get(k)
         if key is None:
             # «ну, значит» == «ну значит»: знаки препинания внутри фразы не важны
+            # "ну, значит" equals "ну значит": punctuation inside a phrase is ignored
             key = self.by_meaning.get(_filler_key(text))
         if key is None and k.endswith("те") and len(k) > 4:
             key = self.by_meaning.get(k[:-2])
@@ -526,6 +544,8 @@ class Glossary:
         ms = list(WORD_RE.finditer(text))
         if not ms:
             # иероглифы и прочие знаки без пробелов: только точное совпадение с словарём
+            # Chinese characters and other space-less scripts: an exact match with
+            # the glossary only
             hit = self.by_it.get(norm(text))
             return hit[1] if hit else text
         out, pos, i = [], 0, 0
@@ -599,7 +619,10 @@ def merge_defaults(user: dict, default: dict) -> dict:
 
 
 def _normalize_sections(data):
-    """Старые имена разделов -> новые."""
+    """Старые имена разделов -> новые.
+
+    Old section names -> new ones.
+    """
     for new, old in (("replace", "it_replace"), ("exceptions", "translit_exceptions")):
         if old in data and new not in data:
             data[new] = data.pop(old)
@@ -662,7 +685,10 @@ def load_glossary_data(lang: str = "it") -> dict:
 
 
 def save_glossary_data(lang, data):
-    """Сохраняет словарь языка (используется окном настроек)."""
+    """Сохраняет словарь языка (используется окном настроек).
+
+    Saves a language glossary (used by the settings window).
+    """
     lang = code_of(lang)
     try:
         GLOSSARY_DIR.mkdir(parents=True, exist_ok=True)
@@ -676,7 +702,10 @@ def save_glossary_data(lang, data):
 
 
 def reset_glossary(lang="it"):
-    """Сбрасывает словарь языка к встроенному."""
+    """Сбрасывает словарь языка к встроенному.
+
+    Resets a language glossary to the built-in one.
+    """
     lang = code_of(lang)
     pack = get_pack(lang) or empty_pack(lang)
     data = {k: (dict(v) if isinstance(v, dict) else v) for k, v in _pack_default(pack).items()}
@@ -754,6 +783,7 @@ class Engine:
         g = self.g
         core, tail = split_tail(text.strip())
         # целая фраза из словаря (в т.ч. паразит «ну, значит») — не режем по запятой
+        # a whole phrase from the glossary (a filler too) is never split at a comma
         if g.find_meaning(core) is not None or g.by_it.get(norm(core)):
             parts = [core]
         else:
@@ -799,6 +829,8 @@ class Engine:
         if is_cmd and not is_counted:
             # /me, /do, /b и т.п. в авто-режиме и в паразитах не участвуют;
             # ручные +маркеры+ в них по-прежнему работают
+            # /me, /do, /b and the like take no part in auto-translation or fillers;
+            # hand-written +markers+ still work inside them
             auto = False
             filler_on = False
         else:

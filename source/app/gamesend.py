@@ -69,7 +69,8 @@ user32.SendInput.restype = wt.UINT
 user32.MapVirtualKeyW.argtypes = [wt.UINT, wt.UINT]
 kernel32.OpenProcess.argtypes = [wt.DWORD, wt.BOOL, wt.DWORD]
 kernel32.OpenProcess.restype = wt.HANDLE
-kernel32.QueryFullProcessImageNameW.argtypes = [wt.HANDLE, wt.DWORD, wt.LPWSTR, ctypes.POINTER(wt.DWORD)]
+kernel32.QueryFullProcessImageNameW.argtypes = [
+    wt.HANDLE, wt.DWORD, wt.LPWSTR, ctypes.POINTER(wt.DWORD)]
 kernel32.CloseHandle.argtypes = [wt.HANDLE]
 kernel32.GetCurrentThreadId.restype = wt.DWORD
 
@@ -131,7 +132,8 @@ def is_game(w: Win, cfg) -> bool:
     The window class, the process name and the extra processes from the
     settings are all taken into account.
     """
-    exes = {"gta5.exe", "gta5_enhanced.exe"} | {str(e).lower() for e in cfg.get("game_extra_exes", [])}
+    exes = {"gta5.exe", "gta5_enhanced.exe"} | {
+        str(e).lower() for e in cfg.get("game_extra_exes", [])}
     if w.cls == cfg.get("game_window_class", "grcWindow") or w.exe in exes:
         return True
     return w.exe.startswith(("fivem", "cfx")) and "gtaprocess" in w.exe
@@ -332,7 +334,10 @@ def _ms(cfg, key, default):
 
 
 def chat_key_vk(cfg):
-    """Виртуальный код клавиши чата (по умолчанию T)."""
+    """Виртуальный код клавиши чата (по умолчанию T).
+
+    The virtual key code of the chat key (T by default).
+    """
     key = (str(cfg.get("game_chat_key", "t")).strip().upper() or "T")[0]
     return ord(key)
 

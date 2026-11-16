@@ -42,7 +42,9 @@ def _open() -> None:
     if _handle is not None:
         return
     LOGS.mkdir(parents=True, exist_ok=True)
-    _handle = open(ERROR_PATH, "a", encoding="utf-8", buffering=1)
+    # Дескриптор нужен faulthandler до самого выхода из программы — noqa ниже.
+    # The descriptor is needed by faulthandler until the process exits.
+    _handle = open(ERROR_PATH, "a", encoding="utf-8", buffering=1)  # noqa: SIM115
     _handle.write(f"\n=== {__import__('datetime').datetime.now():%Y-%m-%d %H:%M:%S} "
                   f"старт журнала ошибок / error log started ===\n")
     _handle.flush()

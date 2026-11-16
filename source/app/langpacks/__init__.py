@@ -67,6 +67,9 @@ def get_pack(code):
 
 
 def empty_pack(code, version=1):
-    """Пустой словарь для языка без встроенного пакета."""
+    """Пустой словарь для языка без встроенного пакета.
+
+    An empty glossary for a language without a built-in pack.
+    """
     return {"code": code, "version": version, "phrases": {}, "fillers": [],
             "replace": {}, "exceptions": {}}

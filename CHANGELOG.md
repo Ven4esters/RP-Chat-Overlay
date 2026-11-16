@@ -5,7 +5,61 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
+## 1.16.1 — 15.11.2026
+
+**Ревизия кода: линтер, мёртвый код, двуязычные комментарии, замеры.**
+
+### Чистота кода
+- **`ruff` больше не находит ничего** (правила `E, F, W, B, B905, SIM115, RET504`).
+  На старте ревизии было 124 замечания. Почти все — длинные строки в файлах-данных
+  (`glossary_data.py`, `i18n.py`, `langs.py`, `slang_data.py`): это содержимое
+  словарей и переводов, и переносить его значит испортить историю правок.
+  Поэтому в корне появился **`ruff.toml`**: длина строки 100, для файлов-данных
+  `E501` отключён точечно, а не глобально. Проверить одной командой: `ruff check source`.
+- **Все остальные длинные строки разобраны по одной.** Регистрация `ctypes`-
+  прототипов в `gamesend.py`, `SendInput`, `notify()` в `overlay.py`, подсказки
+  в настройках и отладочный вывод `--selftest` разрезаны по естественным границам,
+  без изменения поведения.
+- **Три «открытых файла без `with`» оставлены осознанно** и помечены `# noqa:
+  SIM115` с пояснением: дескриптор журнала ошибок нужен `faulthandler` до самого
+  выхода из программы, а `sys.stdout`/`stderr` в оконной сборке подменяются на
+  `os.devnull` и обязаны жить всё время работы.
+- **Мёртвый код удалён:** `history.applying()` (осталась от первой версии отмены —
+  окно уже выставляет флаг само), `slang.save_user()` (после перехода на шесть
+  языков остался только `save_languages`), неиспользуемое поле `_last_save_key`
+  в окне настроек, `_scroll` в окне выбора, поле `Module.settings_page` (страницы
+  задаются через `page_key`) и `translator.last_service`.
+- **`vulture` на 60 % показывает только то, что не может быть удалено:** переопределения
+  Qt (`startDrag`, `dragEnterEvent`, `dropEvent`), поля `ctypes`-структур (`wVk`,
+  `dwFlags`, `LimitFlags`), константы `CODE` в пакетах словарей, на которые есть
+  статические импорты. Всё это — ложные срабатывания, а не мусор.
+
+### Двуязычные комментарии
+- **Каждый комментарий и докстринг теперь и по-русски, и по-английски.** Ревизия
+  нашла 98 блоков, где был только русский текст, — в основном в `settings_ui.py`,
+  `engine.py`, `slang.py`, `i18n.py`, `translit.py`, `anims.py`, `overlay.py`.
+  Английская половина дописана; проверка показала 0 оставшихся блоков.
+
+### Утечки, потоки, таймеры
+- **Открытие и закрытие окна настроек 30 раз подряд не оставляет ни одного живого
+  окна:** 0 обёрток `SettingsWindow` в памяти, RSS замирает на 87 МБ после
+  прогрева. Первый замер показал рост — виноватой оказалась сама проверка, которая
+  не давала Qt обработать очередь отложенного удаления.
+- **Все 14 мест создания потоков и 9 таймеров просмотрены заново:** потоки
+  демонические, работа с Qt идёт через сигналы, а таймеры создаются один раз с
+  родителем, живущим столько же, сколько окно-владелец.
+
+### Замеры
+- Движок: 0,10 мс на фразу (100 фраз — 11,3 мс), сокращения — 0,03 мс, перестройка
+  таблиц всех шести языков — 7,6 мс (2158 записей), создание окна настроек —
+  94 мс, переключение всех шести языков таблицы сокращений — 51 мс, полный перевод
+  интерфейса окна — 6,5 мс. Узких мест не найдено, оптимизировать нечего.
+
+### Документация
+- **`README` и `CHANGELOG` вычитаны**, структура проекта дополнена `ruff.toml`.
+
 ## 1.16.0 — 15.11.2026
+
 
 **Этап 5: сокращения на шести языках, своя таблица у каждого.**
 
@@ -943,7 +997,65 @@ English version below: [Changelog (English)](#-changelog-english).
 
 # 📌 Changelog (English)
 
+## 1.16.1 — 15 Nov 2026
+
+**Code review: the linter, dead code, bilingual comments, measurements.**
+
+### Code cleanliness
+- **`ruff` reports nothing at all** (rules `E, F, W, B, B905, SIM115, RET504`).
+  The review started with 124 findings. Almost all of them were long lines in data
+  files (`glossary_data.py`, `i18n.py`, `langs.py`, `slang_data.py`): that is the
+  contents of glossaries and translations, and reflowing it would ruin the diff
+  history. Hence a new **`ruff.toml`** at the root: line length 100, with `E501`
+  silenced per data file instead of globally. One command checks it all:
+  `ruff check source`.
+- **Every other long line was split by hand.** The `ctypes` prototype registration
+  in `gamesend.py`, `SendInput`, `notify()` in `overlay.py`, the settings tooltips
+  and the `--selftest` debug output were cut at natural boundaries with no change
+  in behaviour.
+- **Three "open file without `with`" places stay on purpose** and are marked
+  `# noqa: SIM115` with a reason: the error-log descriptor is needed by
+  `faulthandler` until the process exits, and `sys.stdout`/`stderr` are replaced
+  with `os.devnull` in a windowed build and must live as long as the program.
+- **Dead code removed:** `history.applying()` (a leftover from the first undo
+  version — the window raises the flag itself), `slang.save_user()` (only
+  `save_languages` is left after the six-language switch), the unused
+  `_last_save_key` field in the settings window, `_scroll` in the chooser,
+  `Module.settings_page` (pages are addressed through `page_key`) and
+  `translator.last_service`.
+- **`vulture` at 60 % only reports what cannot be removed:** Qt overrides
+  (`startDrag`, `dragEnterEvent`, `dropEvent`), `ctypes` structure fields (`wVk`,
+  `dwFlags`, `LimitFlags`), the `CODE` constants of the language packs that are
+  pulled in by static imports. Those are false positives, not litter.
+
+### Bilingual comments
+- **Every comment and docstring is now both Russian and English.** The review
+  found 98 blocks that were Russian only — mostly in `settings_ui.py`, `engine.py`,
+  `slang.py`, `i18n.py`, `translit.py`, `anims.py`, `overlay.py`. The English
+  halves were added; a re-check finds 0 blocks left.
+
+### Leaks, threads, timers
+- **Thirty settings windows opened and closed in a row leave nothing alive:** 0
+  `SettingsWindow` wrappers in memory, RSS settling at 87 MB after the warm-up.
+  The first measurement showed growth — the fault was in the check itself, which
+  never let Qt run its deferred-delete queue.
+- **All 14 thread sites and 9 timers were looked at again:** the threads are
+  daemons, Qt work goes through signals, and the timers are created once with a
+  parent that lives as long as the owning window.
+
+### Measurements
+- Engine: 0.10 ms per phrase (100 phrases — 11.3 ms), abbreviations — 0.03 ms,
+  rebuilding the tables of all six languages — 7.6 ms (2158 entries), creating
+  the settings window — 94 ms, switching the abbreviation table through all six
+  languages — 51 ms, a full retranslation of the window — 6.5 ms. No bottlenecks
+  were found, so there is nothing to optimise.
+
+### Documentation
+- **`README` and `CHANGELOG` were proofread**, and the project tree now mentions
+  `ruff.toml`.
+
 ## 1.16.0 — 15 Nov 2026
+
 
 **Stage 5: abbreviations in six languages, one table each.**
 

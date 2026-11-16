@@ -96,8 +96,9 @@ log: logging.Logger = logging.getLogger("app")
 DEFAULT_CONFIG: dict[str, Any] = {
     # --- язык и направление / language and direction ---
     "target_lang": "it",                # язык перевода / target language code
-    "send_mode": "reading",             # "reading" = русская запись, "native" = текст на языке
-                                        # "reading" sends the Russian reading, "native" the foreign text
+    # "reading" = русская запись, "native" = текст на языке
+    # "reading" sends the Russian reading, "native" the foreign text
+    "send_mode": "reading",
     # Режим перевода — один ключ на три режима. Старый "direction" читается
     # как раньше: "in" — это режим 3, "out" — частичный (режим 2).
     # One key for three modes. The old "direction" key is still honoured:
@@ -142,7 +143,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "marker_close": "+",
     "max_chars": 256,                   # предел длины сообщения / message length limit
     "debounce_ms": 450,                 # пауза после ввода / typing pause before translating
-    "filler_always": True,              # слова-паразиты в каждом сообщении / fillers in every message
+    "filler_always": True,              # слова-паразиты в каждом сообщении
+                                        # fillers in every message
 
     # --- автоперевод / auto-translation ---
     "auto_mode": False,                 # включён ли автоперевод / auto-translation on

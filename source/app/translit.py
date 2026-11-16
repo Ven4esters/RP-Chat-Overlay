@@ -21,11 +21,15 @@ SIMPLE = {
 SOFT = {"a": "я", "e": "е", "o": "о", "u": "ю"}
 
 # языки, для которых русская запись не делается (другая письменность)
+# languages with no Russian reading (another script)
 NO_READING = {"zh-CN", "ja", "ko", "ar"}
 
 
 def strip_accents(s):
-    """Снимает диакритику только с латиницы (кириллица, например «й», не трогается)."""
+    """Снимает диакритику только с латиницы (кириллица, например «й», не трогается).
+
+    Strips diacritics from Latin letters only (Cyrillic, «й» for one, stays).
+    """
     out = []
     for ch in s:
         d = unicodedata.normalize("NFD", ch)
@@ -52,13 +56,19 @@ def isv(ch):
 
 
 def has_reading(lang):
-    """Есть ли для языка русская запись по звучанию."""
+    """Есть ли для языка русская запись по звучанию.
+
+    Whether a language has a Russian reading by sound.
+    """
     return lang not in NO_READING
 
 
 # ---------------------------------------------------------------- таблицы
 def _scan(s, table, maxlen=5):
-    """Жадно сопоставляет самый длинный шаблон из таблицы на каждой позиции."""
+    """Жадно сопоставляет самый длинный шаблон из таблицы на каждой позиции.
+
+    Greedily matches the longest pattern of the table at every position.
+    """
     out = []
     i, n = 0, len(s)
     while i < n:
@@ -266,6 +276,7 @@ def _it(s):
 def _generic(s, table):
     res = _scan(s, table)
     # «e» в начале слова по-испански читается как «э»
+    # an "e" at the start of a Spanish word reads as "э"
     if s[:1] == "e" and res[:1] == "е":
         res = "э" + res[1:]
     return res
@@ -278,6 +289,7 @@ def _es(s):
 def _pt(s):
     res = _scan(s, PT)
     # бразильское произношение: конечные -e/-o звучат как -и/-у
+    # Brazilian pronunciation: final -e/-o sound like -и/-у
     if len(s) > 2 and s[-1] in "eo" and s[-2] not in "aeiouãõ":
         res = res[:-1] + {"e": "и", "o": "у"}[s[-1]]
     return res
@@ -319,7 +331,10 @@ FUNCS = {"it": _it, "es": _es, "es-MX": _es, "pt-BR": _pt, "de": _de, "fr": _fr,
 
 # ---------------------------------------------------------------- API
 def translit_word(word, lang="it"):
-    """Русская запись одного слова. Пустая строка — если язык без записи."""
+    """Русская запись одного слова. Пустая строка — если язык без записи.
+
+    The Russian reading of one word. An empty string for a language without one.
+    """
     fn = FUNCS.get(lang)
     if fn is None:
         return ""

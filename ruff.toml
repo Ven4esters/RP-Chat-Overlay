@@ -1,0 +1,32 @@
+# Настройки линтера для проекта / linter settings for the project.
+#
+# Запуск / run:
+#   ruff check source
+#
+# Правила подобраны под стиль проекта: длинные русские строки интерфейса и
+# словарей — это данные, их не переносим, поэтому E501 для файлов-данных
+# отключён точечно, а не глобально.
+# The rules match the project style: long Russian interface and glossary strings
+# are data, they are not reflowed, so E501 is silenced per data file instead of
+# globally.
+
+line-length = 100
+target-version = "py310"
+
+[lint]
+select = ["E", "F", "W", "B", "B905", "SIM115", "RET504"]
+
+[lint.per-file-ignores]
+# Данные: длинные строки — это содержимое, а не код.
+# Data: long lines are content, not code.
+"source/app/glossary_data.py" = ["E501"]
+"source/app/i18n.py" = ["E501"]
+"source/app/langs.py" = ["E501"]
+"source/app/slang_data.py" = ["E501"]
+"source/main.py" = ["E501"]
+# Разовые генераторы картинок и иконок: не входят в сборку, длинные строки — SVG/PNG
+# данные, а zip() там по построению берёт списки одинаковой длины.
+# One-off image and icon generators: not shipped, long lines are SVG/PNG payloads
+# and their zip() always gets lists of equal length by construction.
+"source/images/**" = ["E501", "B905"]
+"source/tools/**" = ["E501", "B905"]

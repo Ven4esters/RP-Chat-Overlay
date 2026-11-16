@@ -164,7 +164,7 @@ def write_ico(path: Path, images: dict[int, Image.Image]) -> None:
 
     offset = 6 + 16 * len(entries)
     out = bytearray(struct.pack("<HHH", 0, 1, len(entries)))
-    for (size, length), payload in zip(entries, blobs):
+    for (size, length), _payload in zip(entries, blobs):
         side = 0 if size >= 256 else size           # 256 записывается как 0
         out += struct.pack("<BBBBHHII", side, side, 0, 0, 1, 32, length, offset)
         offset += length

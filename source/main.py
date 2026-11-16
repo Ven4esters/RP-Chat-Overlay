@@ -33,10 +33,14 @@ def _silence_stdout() -> None:
     A windowed build has no console; print() goes to a bit bucket instead of
     raising on a missing stdout.
     """
+    # Дескриптор живёт до выхода из программы: закрывать его нельзя, иначе print()
+    # снова упадёт. Отсюда noqa вместо менеджера контекста.
+    # The handle must live until the process exits: closing it would make print()
+    # fail again, hence noqa instead of a context manager.
     if sys.stdout is None:
-        sys.stdout = open(os.devnull, "w", encoding="utf-8")
+        sys.stdout = open(os.devnull, "w", encoding="utf-8")  # noqa: SIM115
     if sys.stderr is None:
-        sys.stderr = open(os.devnull, "w", encoding="utf-8")
+        sys.stderr = open(os.devnull, "w", encoding="utf-8")  # noqa: SIM115
 
 
 def single_instance() -> tuple[int, bool]:
@@ -104,7 +108,8 @@ def selftest(cfg: dict) -> None:
             result = engine.process(phrase)
             flag = " [команда]" if is_counted_command(phrase) else ""
             print(f"  {phrase!r}{flag}\n     -> {result.text!r} | чтение: {result.native!r} | "
-                  f"переведено: {result.translated} | паразит: {has_fillers(phrase, cfg, glossary)}")
+                  f"переведено: {result.translated} | "
+                  f"паразит: {has_fillers(phrase, cfg, glossary)}")
 
     engine = Engine(cfg, load_glossary("it", cfg), _reverse_translator())
     print("\nРежим переводчика (язык сервера → русский):")
@@ -606,6 +611,8 @@ def selftest_anims(cfg: dict) -> None:
 
     # хвост отсчитывается от конца анимации: 400 мс анимация + 200 мс хвоста —
     # следующая команда через 0,6 с
+    # the tail is counted from the end of the animation: a 400 ms animation plus
+    # a 200 ms tail send the next command after 0.6 s
     commands, gaps = tail_run(200, 400, 1.1)
     print(f"  хвост 200 мс при анимации 400 мс: {sent}, паузы {gaps}")
     failed += 0 if (commands == ["/anim a1", "/sa", "/anim a2", "/sa"]

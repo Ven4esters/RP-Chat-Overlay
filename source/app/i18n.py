@@ -30,7 +30,10 @@ def normalize(code):
 
 
 def set_lang(code):
-    """Задать язык интерфейса и вернуть его код."""
+    """Задать язык интерфейса и вернуть его код.
+
+    Set the interface language and return its code.
+    """
     global _current
     _current = normalize(code)
     return _current
@@ -45,14 +48,20 @@ def is_en():
 
 
 def t(text):
-    """Перевод строки интерфейса на текущий язык (по умолчанию — как есть)."""
+    """Перевод строки интерфейса на текущий язык (по умолчанию — как есть).
+
+    Translate an interface string into the current language (as is by default).
+    """
     if _current == RU:
         return text
     return STRINGS.get(text, text)
 
 
 def tf(text, *args):
-    """Перевод шаблона с подстановкой: tf("всего фраз: %d", 12)."""
+    """Перевод шаблона с подстановкой: tf("всего фраз: %d", 12).
+
+    Translate a template and substitute: tf("всего фраз: %d", 12).
+    """
     out = t(text)
     try:
         return out % args if args else out
@@ -61,7 +70,10 @@ def tf(text, *args):
 
 
 def _remember(obj, attr, value):
-    """Запоминает исходный русский текст в свойстве виджета."""
+    """Запоминает исходный русский текст в свойстве виджета.
+
+    Remembers the original Russian text in a widget property.
+    """
     key = "_ru_" + attr
     stored = obj.property(key)
     if stored is None:
@@ -71,7 +83,10 @@ def _remember(obj, attr, value):
 
 
 def _set_text(obj, attr, setter, value):
-    """Ставит перевод, помня исходную строку."""
+    """Ставит перевод, помня исходную строку.
+
+    Sets the translation while remembering the original string.
+    """
     original = _remember(obj, attr, value)
     new = t(original)
     if setter is not None:
@@ -79,7 +94,10 @@ def _set_text(obj, attr, setter, value):
 
 
 def retranslate(root):
-    """Проходит по дереву виджетов и переводит все подписи на текущий язык."""
+    """Проходит по дереву виджетов и переводит все подписи на текущий язык.
+
+    Walks the widget tree and translates every caption into the current language.
+    """
     try:
         from PySide6.QtWidgets import (QAbstractSpinBox, QCheckBox, QComboBox,
                                        QGroupBox, QLabel, QLineEdit, QListWidget,
@@ -150,8 +168,13 @@ def retranslate(root):
 #
 # Ключ — русская строка из кода, значение — английский вариант.
 # Шаблоны с %d/%s переводятся целиком, подстановка идёт после перевода.
+# the dictionary
+#
+# the key is the Russian string from the code, the value is the English one.
+# %d/%s templates are translated whole, the substitution happens afterwards.
 STRINGS = {
     # ---------- окно настроек: каркас ----------
+    # settings window: the frame
     "Настройки — RP Chat Overlay": "Settings — RP Chat Overlay",
     "Настройки": "Settings",
     "Основные": "General",
@@ -173,6 +196,7 @@ STRINGS = {
         "Language: %s · hotkey: %s · auto-translation: every %d-th message",
 
     # ---------- Основные: язык перевода ----------
+    # General: the translation language
     "Язык перевода": "Target language",
     "Печатаете по-русски — в чат игры уходит текст на выбранном языке.":
         "You type in Russian — the chosen language goes to the game chat.",
@@ -191,6 +215,7 @@ STRINGS = {
         "The language of buttons, hints and menus. Applied immediately.",
 
     # ---------- Основные: режим переводчика ----------
+    # General: the interpreter mode
     "Перевод входящего текста": "Incoming text translation",
     "Режим для иностранного игрока на русскоязычном сервере: пишете в оверлее "
     "на своём языке — в чат уходит перевод на русский. Переводится каждое "
@@ -239,6 +264,7 @@ STRINGS = {
         "The other way round: спс, пж, нз, мб, крч, ща, оч, тож, збс, норм, прив.",
 
     # ---------- Основные: клавиша и текст ----------
+    # General: the hotkey and the text
     "Горячая клавиша": "Hotkey",
     "Клавиша ловит открытие оверлея. Работает только когда активна игра.":
         "The key opens the overlay. It works only while the game is active.",
@@ -386,6 +412,7 @@ STRINGS = {
         "Restore the built-in abbreviation list?\nYour additions will be lost.",
 
     # ---------- масштаб и проверка ----------
+    # scale and the test page
     "Масштаб интерфейса": "Interface scale",
     "Шрифт и отступы окна: %d %%. На маленьком экране поставьте меньше.":
         "Window font and spacing: %d %%. On a small screen choose a lower value.",
@@ -439,6 +466,7 @@ STRINGS = {
     "без перевода (только маркеры/команды)": "no translation (markers/commands only)",
 
     # ---------- сообщения о сохранении и импорте ----------
+    # messages about saving and importing
     "Сохранение": "Saving",
     "Проверьте горячую клавишу.": "Check the hotkey.",
     "Укажите клавишу.": "Set a key.",
@@ -665,6 +693,7 @@ STRINGS = {
         "The local DeepL service runs again.",
 
     # ---------- окно настроек: страница «Модули» ----------
+    # settings window: the "Modules" page
     "Модули": "Modules",
     "Каждую часть программы можно выключить. Данные при этом "
     "не теряются: словари, сокращения и настройки остаются "
@@ -710,9 +739,11 @@ STRINGS = {
         "the JSON needs an object «abbreviation: expansion»",
 
     # ---------- трей и уведомления ----------
+    # tray and notifications
     "Настройки…": "Settings…",
     "Выход": "Exit",
     # ---------- строка состояния оверлея ----------
+    # the overlay's status line
     "найдена": "found",
     "НЕ найдена": "NOT found",
     "игра: %s": "game: %s",

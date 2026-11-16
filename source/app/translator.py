@@ -260,7 +260,6 @@ class Translator:
         self.direction = "out"        # "out" | "in"
         self.target = "it"
         self.source = "ru"
-        self.last_service = ""        # чем перевели в последний раз / last service used
         self._saved_at = 0.0          # когда кэш писался на диск / last flush
         self._dirty = False           # есть несохранённое / unsaved changes
         # локальный сервис DeepL: подключается, только если модуль включён
@@ -374,7 +373,6 @@ class Translator:
                     self.last = time.time()
                     if result:
                         self._store(cache_key, result)
-                        self.last_service = name
                         log.info("Перевод через %s (%s->%s): %r -> %r",
                                  name, source, target, key, result)
                         return result

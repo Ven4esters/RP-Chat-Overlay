@@ -38,7 +38,6 @@ files.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import Any
 
 # Сколько шагов помнит раздел. Десять — минимум из требований; сорок хватает,
@@ -182,17 +181,3 @@ class History:
         self.section(key).reset()
 
 
-def applying(state: Any, restore: Callable[[Any], None]) -> None:
-    """Применить снимок, не записывая его обратно в историю.
-
-    Apply a snapshot without recording it back into the history.
-
-    Отмена — это не новая правка: без этой защиты Ctrl+Z после Ctrl+Z начал бы
-    ходить по кругу, добавляя шаг на каждое нажатие. Окно выставляет флаг
-    «сейчас применяем», и наблюдатели в это время молчат.
-
-    Undo is not a new edit: without this guard Ctrl+Z after Ctrl+Z would walk in
-    circles, adding a step per press. The window raises an "applying" flag and
-    the observers stay quiet meanwhile.
-    """
-    restore(state)

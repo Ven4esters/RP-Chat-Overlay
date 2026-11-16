@@ -137,6 +137,7 @@ RP Chat Overhaul/
 │
 ├─ .github/workflows/build-windows.yml   ← сборка exe в облаке GitHub
 ├─ CHANGELOG.md                   ← история версий (RU + EN)
+├─ ruff.toml                      ← настройки линтера (проверка: ruff check source)
 ├─ .gitignore · .gitattributes
 └─ README.md
 ```
@@ -1144,7 +1145,8 @@ restart. The window adapts to the screen and scrolls instead of squeezing widget
 can be rebuilt from `source/` with `build_exe.bat`; the ready exe is always placed in `dist/`.
 The icon (`source/icon.ico`, ten sizes from 16 to 256) is set on the window title, the taskbar
 and the tray at run time, so no blank Windows placeholder shows up; `tools/make_icon.py`
-redraws it.
+redraws it. The code is checked with `ruff check source` (settings live in `ruff.toml`:
+line length 100, `E501` silenced only in the data files) and is clean under `vulture`.
 
 ## Verification
 

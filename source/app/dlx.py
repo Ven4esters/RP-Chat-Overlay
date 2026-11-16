@@ -1198,6 +1198,7 @@ class DlxService:
         return result
 
     # ------------------------------------------------------- установка и обновление
+    # install and update
     def install(self, progress: Callable[[str], None] | None = None) -> bool:
         """Скачать сервис с GitHub (нужно согласие пользователя).
 

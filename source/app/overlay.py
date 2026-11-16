@@ -53,12 +53,16 @@ class Bridge(QObject):
     translated = Signal(int, object, str)    # номер запроса, Result | None, ошибка
     sent = Signal(bool, str)
     game_chat_opened = Signal(bool, int)    # чат игры открыт?, hwnd игры
-    dlx_text = Signal(str, bool)            # сообщение сервиса DLX, ошибка? / DLX message, is it an error
+    dlx_text = Signal(str, bool)            # сообщение сервиса DLX, ошибка?
+                                            # DLX message, is it an error
     anims_text = Signal(str, bool)          # сообщение модуля анимаций / animation module message
 
 
 class Worker(threading.Thread):
-    """Один поток перевода: берёт только самый свежий запрос, устаревшие пропускает."""
+    """Один поток перевода: берёт только самый свежий запрос, устаревшие пропускает.
+
+    One translation thread: it takes the freshest request and skips stale ones.
+    """
 
     def __init__(self, fn, on_done):
         super().__init__(daemon=True, name="translate")
@@ -144,7 +148,8 @@ def set_app_id() -> None:
 class Overlay(QWidget):
     def __init__(self, cfg, engine, tracker, bridge, tray):
         super().__init__()
-        self.cfg, self.engine, self.tracker, self.bridge, self.tray = cfg, engine, tracker, bridge, tray
+        self.cfg, self.engine = cfg, engine
+        self.tracker, self.bridge, self.tray = tracker, bridge, tray
         self.plan = AutoPlan(cfg)
         self.hwnd = 0
         self.rid = 0
@@ -189,8 +194,9 @@ class Overlay(QWidget):
         self.timer.timeout.connect(self._fire)
         self.input.textChanged.connect(self.on_text)
         self.input.returnPressed.connect(self.on_enter)
-        self.worker = Worker(lambda j: self._run_engine(j),
-                             lambda j, r, e: self.bridge.translated.emit(j[0], r, str(e) if e else ""))
+        self.worker = Worker(
+            lambda j: self._run_engine(j),
+            lambda j, r, e: self.bridge.translated.emit(j[0], r, str(e) if e else ""))
         self.worker.start()
         bridge.translated.connect(self.on_done, Qt.ConnectionType.QueuedConnection)
         bridge.sent.connect(self.on_sent, Qt.ConnectionType.QueuedConnection)
@@ -343,7 +349,8 @@ class Overlay(QWidget):
             super().keyPressEvent(e)
 
     def changeEvent(self, e):
-        if (e.type() == QEvent.Type.ActivationChange and self.isVisible() and not self.isActiveWindow()
+        if (e.type() == QEvent.Type.ActivationChange and self.isVisible()
+                and not self.isActiveWindow()
                 and not self.sending and time.time() - self.shown_at > 0.8):
             QTimer.singleShot(250, self._lost_focus)
         super().changeEvent(e)
@@ -461,6 +468,7 @@ class Overlay(QWidget):
                 or (self._partial_fillers()
                     and has_fillers(text, self.cfg, self.engine.g))):
             # слова-паразиты переводятся всегда, вне зависимости от счётчика серии
+            # fillers are translated in every message, whatever the series counter says
             self._show_result("перевожу…", "")
             self.timer.start(int(self.cfg.get("debounce_ms", 450)))
         else:
@@ -559,6 +567,7 @@ class Overlay(QWidget):
         else:
             if chat_open and hwnd:
                 # чат был открыт, а отправка в игру выключена — закрыть чат
+                # the chat was open while sending to the game is off, so close the chat
                 threading.Thread(target=self._close_chat_job, args=(hwnd,), daemon=True).start()
             self._anim_text = ""           # анимациям нужен чат игры
             h = self.prev_hwnd
@@ -590,7 +599,8 @@ class Overlay(QWidget):
                         True)
 
     def notify(self, msg, warn=False):
-        icon = QSystemTrayIcon.MessageIcon.Warning if warn else QSystemTrayIcon.MessageIcon.Information
+        kind = QSystemTrayIcon.MessageIcon
+        icon = kind.Warning if warn else kind.Information
         self.tray.showMessage(APP_NAME, msg, icon, 6000)
 
 
@@ -633,6 +643,8 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
         log.exception("Не удалось включить сторож главного потока")
 
     # язык интерфейса: при первом запуске спрашиваем, дальше берём из настроек
+    # interface language: asked once on the first run, taken from the
+    # settings afterwards
     if not cfg.get("ui_lang_chosen"):
         from app.ui_lang import ask_ui_language
         cfg["ui_lang"] = ask_ui_language(style=STYLE)
@@ -876,8 +888,12 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
     start_stop_watcher()
 
     # ---------- применение настроек ----------
+    # applying the settings
     def apply_settings(newcfg):
-        """Пересобирает движок, горячую клавишу и меню после сохранения настроек."""
+        """Пересобирает движок, горячую клавишу и меню после сохранения настроек.
+
+        Rebuilds the engine, the hotkey and the menu after the settings were saved.
+        """
         cfg.clear()
         cfg.update(newcfg)
         code = langs.code_of(cfg.get("target_lang", "it"))
@@ -1041,6 +1057,7 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
 
     build_menu()
     # двойной клик по значку в трее открывает оверлей (пункта в меню нет)
+    # a double click on the tray icon opens the overlay (there is no menu item)
     tray.activated.connect(lambda r: win.open_overlay()
                           if r == QSystemTrayIcon.ActivationReason.DoubleClick else None)
     tray.show()

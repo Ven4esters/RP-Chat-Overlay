@@ -218,6 +218,11 @@ def style_sheet(scale=1.0):
 
     Один и тот же набор правил работает и на 1366×768, и на 4K: меняется
     только базовый размер шрифта, остальное подстраивает компоновка.
+
+    The style sheet with the font scale.
+
+    The same set of rules works on 1366×768 and on 4K: only the base
+    font size changes, the layout adapts the rest.
     """
     try:
         k = float(scale or 1.0)
@@ -231,6 +236,8 @@ def style_sheet(scale=1.0):
     out = out.replace("font-size: 11px", "font-size: %dpx" % int(round(11 * k)))
     # размеры кнопок считаются от того же масштаба: на 150 % палец и мышь
     # попадают в кнопку так же уверенно, как на 100 %
+    # button sizes come from the same scale: at 150 % a finger and a mouse
+    # hit the button as surely as at 100 %
     extra = (
         "QPushButton { min-height: %dpx; padding: %dpx %dpx; }\n"
         "QToolButton#step { min-width: %dpx; min-height: %dpx; font-size: %dpx; }\n"
@@ -297,12 +304,16 @@ def check_hotkey(spec):
     if not ok_key:
         return False, f"Клавиша «{k}» не поддерживается."
     if not mods and not (k.startswith("f") or k in ALLOWED_PLAIN):
-        return False, "Одиночная буква/цифра будет мешать печати — добавьте Ctrl/Alt или выберите F-клавишу."
+        return False, ("Одиночная буква/цифра будет мешать печати — добавьте Ctrl/Alt "
+                      "или выберите F-клавишу.")
     return True, ""
 
 
 class KeyCapture(QLineEdit):
-    """Поле горячей клавиши: нажмите сочетание — оно запишется."""
+    """Поле горячей клавиши: нажмите сочетание — оно запишется.
+
+    The hotkey field: press a combination and it is recorded.
+    """
 
     changed = Signal(str)
 
@@ -371,7 +382,10 @@ def _hint(text):
 
 
 def _small_spin(spin, lo, hi, suffix="", width=170, step=None, prefix=None):
-    """Компактный счётчик: не растягивается на всю карточку."""
+    """Компактный счётчик: не растягивается на всю карточку.
+
+    A compact counter: it does not stretch across the whole card.
+    """
     spin.setRange(lo, hi)
     if suffix:
         spin.setSuffix(suffix)
@@ -777,7 +791,6 @@ class SettingsWindow(QDialog):
         self._hist = history.History()
         self._hist_applying = False     # сейчас применяем снимок / applying a snapshot
         self._hist_busy = False         # запись шага идёт / recording a step
-        self._last_save_key = None      # состояние того, что сохранено на диск
         self._hist_field = {}           # поле -> последнее значение / field metadata
         self._disk_cache = {"cfg": {}, "docs": {}}   # диск на момент снимка / disk view
 
@@ -926,8 +939,12 @@ class SettingsWindow(QDialog):
         return w
 
     # ------------------------------------------------ размер под экран
+    # fitting the screen
     def _ui_scale(self):
-        """Масштаб интерфейса из настроек: 0.8…1.8 (в окне — проценты)."""
+        """Масштаб интерфейса из настроек: 0.8…1.8 (в окне — проценты).
+
+        The interface scale from the settings: 0.8…1.8 (percent in the window).
+        """
         try:
             k = float(self.cfg.get("ui_scale", 1.0) or 1.0)
         except (TypeError, ValueError):
@@ -946,6 +963,11 @@ class SettingsWindow(QDialog):
 
         На маленьком ноутбуке окно становится меньше, на большом мониторе —
         таким же, как раньше; всё, что не влезло по высоте, прокручивается.
+
+        Fits the window to the screen: no more than 94 % of the work area.
+
+        On a small laptop the window shrinks, on a large monitor it stays as
+        before; whatever does not fit in height is scrolled.
         """
         avail = self._available()
         k = self._ui_scale()
@@ -963,14 +985,20 @@ class SettingsWindow(QDialog):
                       avail.y() + max(0, (avail.height() - h) // 2))
 
     def resizeEvent(self, e):
-        """Меню разделов подстраивается под ширину окна, а не режет подписи."""
+        """Меню разделов подстраивается под ширину окна, а не режет подписи.
+
+        The section list adapts to the window width instead of cutting captions.
+        """
         super().resizeEvent(e)
         if hasattr(self, "nav"):
             self.nav.setFixedWidth(max(132, min(int(210 * self._ui_scale()),
                                                 int(self.width() * 0.28))))
 
     def _ui_scale_changed(self, value=None):
-        """Ползунок масштаба: сразу меняет шрифт и размер окна."""
+        """Ползунок масштаба: сразу меняет шрифт и размер окна.
+
+        The scale slider: it changes the font and the window size at once.
+        """
         pct = int(value if value is not None else self.sp_ui_scale.value())
         k = min(max(pct / 100.0, 0.8), 1.8)
         self.cfg["ui_scale"] = round(k, 2)
@@ -1126,6 +1154,7 @@ class SettingsWindow(QDialog):
         cl.addWidget(self.chk_show_settings)
 
         # масштаб окна: адаптивность под маленькие и большие экраны
+        # window scale: adapting to small and large screens
         row_scale = QHBoxLayout()
         row_scale.addWidget(QLabel("Масштаб интерфейса"))
         self.sp_ui_scale = QSpinBox()
@@ -1190,7 +1219,10 @@ class SettingsWindow(QDialog):
         return page
 
     def _ui_lang_changed(self, *_):
-        """Переключение языка интерфейса прямо в окне настроек."""
+        """Переключение языка интерфейса прямо в окне настроек.
+
+        Switching the interface language right inside the settings window.
+        """
         i18n.set_lang(self.cb_ui_lang.currentData() or "ru")
         i18n.retranslate(self)
         # названия и пояснения модулей берутся из реестра, а не из таблицы
@@ -1219,7 +1251,10 @@ class SettingsWindow(QDialog):
         self._refresh_dynamic()
 
     def _refresh_dynamic(self):
-        """Обновляет подписи, которые собираются в коде (счётчики, подсказки)."""
+        """Обновляет подписи, которые собираются в коде (счётчики, подсказки).
+
+        Refreshes the captions built in code (counters, hints).
+        """
         try:
             self._update_header()
             self._reverse_changed()
@@ -1318,7 +1353,10 @@ class SettingsWindow(QDialog):
             int(self.sp_every.value())))
 
     def _load_language(self, code, reload_table=False):
-        """Показывает описание языка и (при необходимости) словарь этого языка."""
+        """Показывает описание языка и (при необходимости) словарь этого языка.
+
+        Shows the language description and, when needed, that language's glossary.
+        """
         code = langs.code_of(code)
         meta = langs.get(code)
         about = i18n.t(meta["about_en"]) if (i18n.is_en()
@@ -1343,7 +1381,10 @@ class SettingsWindow(QDialog):
             self._update_glossary_ui()
 
     def _doc(self, code):
-        """Данные словаря языка (из памяти или с диска)."""
+        """Данные словаря языка (из памяти или с диска).
+
+        The glossary data of a language (from memory or from the disk).
+        """
         code = langs.code_of(code)
         if code not in self.docs:
             try:
@@ -1429,7 +1470,8 @@ class SettingsWindow(QDialog):
         self.chk_send.toggled.connect(lambda on: self._mirror_own_flag("game_send", on))
         cl.addWidget(self.chk_send)
         self.chk_chat_first = QCheckBox("Сначала открывать чат игры (клавиша T), потом оверлей")
-        self.chk_chat_first.setToolTip("Окружающие видят, что вы печатаете, а не стоите без действия")
+        self.chk_chat_first.setToolTip(
+            "Окружающие видят, что вы печатаете, а не стоите без действия")
         cl.addWidget(self.chk_chat_first)
         self.chk_submit = QCheckBox("Отправлять сразу (Enter в игре)")
         cl.addWidget(self.chk_submit)
@@ -2416,6 +2458,7 @@ class SettingsWindow(QDialog):
         return page
 
     # ------------------------------------------------ работа с сервисом
+    # working with the service
     def _dlx_state_text(self):
         """Текст состояния сервиса / the service state as text."""
         if self.dlx is None:
@@ -2912,22 +2955,32 @@ class SettingsWindow(QDialog):
         return page
 
     # ------------------------------------------------ состояние и проверка
+    # state and checks
     def _anim_combo_hint(self, combo):
-        """Подсказка поля «Режим»: полное объяснение выбранного режима."""
+        """Подсказка поля «Режим»: полное объяснение выбранного режима.
+
+        The tooltip of the "Mode" field: a full explanation of the chosen mode.
+        """
         mode = combo.currentData()
         if mode is None:
             return
         combo.setToolTip(i18n.t(anims.describe_mode_hint(int(mode), False)))
 
     def _anim_forms_hint(self, combo):
-        """Подсказка поля «Формы»: что именно сравнивается со словом."""
+        """Подсказка поля «Формы»: что именно сравнивается со словом.
+
+        The tooltip of the "Forms" field: what exactly is compared with the word.
+        """
         forms = combo.currentData()
         if forms is None:
             return
         combo.setToolTip(i18n.t(morph.describe_forms_hint(int(forms), False)))
 
     def _anim_say(self, text, seconds=8.0):
-        """Заметка под кнопками проверки: живёт несколько секунд."""
+        """Заметка под кнопками проверки: живёт несколько секунд.
+
+        The note under the test buttons: it lives for a few seconds.
+        """
         self._anim_note = (text, time.monotonic() + seconds)
         self.lb_anim_live.setText(text)
 
@@ -3014,7 +3067,10 @@ class SettingsWindow(QDialog):
             self.lb_anim_live.setStyleSheet("color:#ff6b6b;")
 
     def _anim_halt_now(self):
-        """Остановить текущую зацикленную анимацию из настроек."""
+        """Остановить текущую зацикленную анимацию из настроек.
+
+        Stop the currently looping animation from the settings.
+        """
         api = getattr(self, "anims_api", None)
         if api is None:
             self._anim_say(i18n.t(
@@ -3370,7 +3426,10 @@ class SettingsWindow(QDialog):
         self._anims_changed()
 
     def _anims_edited(self, item=None):
-        """Правка ячейки: проверяем длительность и обновляем подсказки."""
+        """Правка ячейки: проверяем длительность и обновляем подсказки.
+
+        A cell was edited: check the duration and refresh the hints.
+        """
         row = item.row() if item is not None else -1
         col = item.column() if item is not None else -1
         if item is not None and item.column() == 5:
@@ -3506,7 +3565,10 @@ class SettingsWindow(QDialog):
                 self.lb_anims_count.text() + i18n.t(" · модуль выключен"))
 
     def _anims_toggled(self, *_):
-        """Галочка модуля: сразу видно, будет ли что-то работать."""
+        """Галочка модуля: сразу видно, будет ли что-то работать.
+
+        A module checkbox: it is at once clear whether anything will work.
+        """
         self._update_anims_ui()
 
     def _anim_stop_changed(self, *_):
@@ -3545,7 +3607,10 @@ class SettingsWindow(QDialog):
         return True
 
     def _add_anim(self):
-        """Новое правило с разумными значениями по умолчанию."""
+        """Новое правило с разумными значениями по умолчанию.
+
+        A new rule with sensible defaults.
+        """
         rule = anims.Rule(keywords="", name="", mode=anims.MODE_ALWAYS,
                           duration_ms=anims.DEFAULT_MS)
         self.tbl_anims.blockSignals(True)
@@ -3570,7 +3635,10 @@ class SettingsWindow(QDialog):
         self._anims_changed()
 
     def _move_anim(self, delta):
-        """Правило выше или ниже: порядок = порядок срабатывания."""
+        """Правило выше или ниже: порядок = порядок срабатывания.
+
+        Move a rule up or down: the order is the order of firing.
+        """
         rows = self.tbl_anims.selectionModel().selectedRows()
         if not rows:
             return
@@ -3949,6 +4017,7 @@ class SettingsWindow(QDialog):
         self._sync_module_pages()
 
     # ------------------------------------------------ отмена и повтор
+    # undo and redo
     HIST_MAIN = "main"
 
     def _section_key(self):
@@ -4449,7 +4518,10 @@ class SettingsWindow(QDialog):
         return self._test_mode() == "to_ru"
 
     def _test_dir_changed(self, *_args, silent=False):
-        """Подсказки и пример под выбранный режим."""
+        """Подсказки и пример под выбранный режим.
+
+        Hints and an example for the chosen mode.
+        """
         mode = self._test_mode()
         if mode == "full":
             if hasattr(self, "lb_test_hint"):
@@ -4505,7 +4577,10 @@ class SettingsWindow(QDialog):
             self.ed_test.setText("Слушай, ну что ты, я же говорил, что приду позже")
 
     def _preview_cfg(self):
-        """Конфиг из текущих полей (без сохранения)."""
+        """Конфиг из текущих полей (без сохранения).
+
+        The config built from the current fields (without saving).
+        """
         cfg = dict(self.cfg)
         self._write_widgets(cfg)
         return cfg
@@ -4526,6 +4601,7 @@ class SettingsWindow(QDialog):
         self.lb_test_mode.setStyleSheet("")
         self.lb_test_mode.setText(i18n.t("перевожу…"))
         # если сервисы отвечают долго — честно об этом пишем, а не молчим
+        # when the services answer slowly, say so honestly instead of staying silent
         if not hasattr(self, "_slow_timer"):
             self._slow_timer = QTimer(self)
             self._slow_timer.setSingleShot(True)
@@ -4552,6 +4628,7 @@ class SettingsWindow(QDialog):
             gl = Glossary(data, code)
             tr = Translator(code)
             # ключевое: проверка должна идти в том же направлении, что выбрано
+            # the key point: the test must run in the very direction that is chosen
             tr.set_direction("in" if reverse else "out")
             engine = Engine(cfg, gl, tr)
             if reverse:
@@ -5146,6 +5223,7 @@ class AnimProps(QDialog):
         group = getattr(self, "bt_group", None)
         if group is not None:
             # группу можно дать любой строке — даже одной
+            # a group can be given to any row, even a single one
             group.setEnabled(self.tbl.rowCount() > 0)
 
     def _assign_group(self):

@@ -41,8 +41,6 @@ class Module:
     config_key   ключ в config.json, где хранится флаг / config flag name
     default      состояние при первом запуске / state on the first run
     requires     модули, без которых этот не работает / hard dependencies
-    settings_page  раздел настроек, где включается, или None для своего флажка
-                   the settings section where it is switched on, or None
     page_key       имя страницы настроек для блокировки, когда модуль выключен
                    the settings page name to dim when the module is off
     modes          режимы перевода, в которых модуль вообще нужен; пусто —
@@ -58,7 +56,6 @@ class Module:
     config_key: str
     default: bool = True
     requires: tuple[str, ...] = ()
-    settings_page: int | None = None
     page_key: str = ""
     modes: tuple[str, ...] = ()
 
@@ -96,7 +93,6 @@ MODULES: Final[tuple[Module, ...]] = (
         desc_en="brb, afk, gg and their Russian counterparts are expanded into "
                 "full phrases before translation.",
         config_key="slang",
-        settings_page=4,
         page_key="page_slang",
     ),
     Module(
@@ -108,7 +104,6 @@ MODULES: Final[tuple[Module, ...]] = (
                 "translation.",
         config_key="auto_mode",
         requires=("translator",),
-        settings_page=1,
         page_key="page_auto",
         # автоперевод существует только в частичном режиме: в полном переводится
         # всё сообщение, в обратном — весь чужой текст, и выбирать там нечего
@@ -125,7 +120,6 @@ MODULES: Final[tuple[Module, ...]] = (
         desc_en="The overlay opens the game chat, pastes the text and presses Enter. "
                 "When off, the text is only copied to the clipboard.",
         config_key="game_send",
-        settings_page=2,
         page_key="page_game",
     ),
     Module(
@@ -139,7 +133,6 @@ MODULES: Final[tuple[Module, ...]] = (
         config_key="dlx_enabled",
         default=False,
         requires=("translator",),
-        settings_page=6,
         page_key="page_dlx",
     ),
     Module(
@@ -153,7 +146,6 @@ MODULES: Final[tuple[Module, ...]] = (
         config_key="anims_enabled",
         default=False,
         requires=("game_send",),
-        settings_page=7,
         page_key="page_anims",
     ),
     Module(
