@@ -129,6 +129,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "dlx_url_token": "",                # токен своего сервиса / token of that service
     "dlx_pro_token": "",                # токен DeepL Pro (OAuth) / DeepL Pro OAuth token
     "slang": True,                      # сленг и сокращения / slang and abbreviations
+    # Язык таблицы сокращений. Пусто — следовать за языком перевода: на немецком
+    # сервере первой работает немецкая таблица, а итальянский (своей таблицы у
+    # него нет) берёт английскую.
+    # The abbreviation table's language. Empty means "follow the translation
+    # language": a German server uses the German table first, and Italian, which
+    # has no table of its own, falls back to English.
+    "slang_lang": "",
 
     # --- текст и маркеры / text and markers ---
     "marker_open": "+",                 # маркер «переведи это» / "translate this" marker

@@ -5,6 +5,43 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
+## 1.16.0 — 15.11.2026
+
+**Этап 5: сокращения на шести языках, своя таблица у каждого.**
+
+- **Сокращений стало в разы больше: около 300 на язык.** Английский, немецкий,
+  французский, испанский, арабский и русский — у каждого своя таблица. Раньше
+  весь запас был английским (175 записей) плюс 31 русская; на немецком или
+  французском сервере программа просто не узнавала «hdl», «mdr», «kA».
+- **У каждого языка своя таблица и своя память правок.** В окне настроек над
+  таблицей появился список языков: выбрали немецкий — видите и правите только
+  немецкие сокращения, английские остаются нетронутыми.
+- **Несохранённые правки не теряются при переключении языка.** Поправили
+  французскую таблицу, посмотрели испанскую, вернулись — всё на месте. На диск
+  всё уходит по «Сохранить», одним файлом.
+- **Файл `data/slang.json` помнит язык каждой записи.** Старые файлы без этого
+  поля читаются как английские — они и были английскими, так что ничего не
+  пропало и не сломалось.
+- **Арабский записан арабской вязью**, а не латинской транслитерацией: «ههههه»,
+  «ان شاء الله», «يعطيك العافية».
+- **Смайлы не трогаются никогда.** «xD», «x)», «:)», «^^» — это выражение лица,
+  а не сокращение; в служебных чатах `/b`, `/ab`, `/f` они остаются как есть.
+  Проверка стоит над всеми таблицами сразу, поэтому новая таблица не сможет
+  принести смайл обратно.
+- **Язык таблицы следует за языком перевода**, но его можно выбрать и вручную;
+  выбор запоминается в настройках (`slang_lang`). Для языков без своей таблицы
+  (итальянский, португальский, польский и прочие) работает английская.
+- **Режим «любой язык → русский» ищет сокращение во всех таблицах сразу**:
+  собеседник мог написать и «brb», и «hdl», и «mdr» — не зная заранее, какой он
+  национальности, узнать все три нужнее, чем ошибиться.
+- **Короткий русский вариант остался общим** на все языки: он подставляется
+  после перевода, если сервис вернул латиницу.
+- Отмена и повтор теперь раздельные и у таблиц сокращений разных языков: Ctrl+Z
+  в немецкой не переписывает английскую. Отмена возвращает и сам `slang.json`.
+- Порядок правки и записи шага истории исправлен во всех трёх таблицах: раньше
+  снимок «после» мог не содержать только что введённого текста, и повтор
+  возвращал ячейку к предыдущему нажатию.
+
 ## 1.15.0 — 15.11.2026
 
 **Этап 4: Ctrl+Z и Ctrl+Y по разделам.**
@@ -905,6 +942,43 @@ English version below: [Changelog (English)](#-changelog-english).
 ---
 
 # 📌 Changelog (English)
+
+## 1.16.0 — 15 Nov 2026
+
+**Stage 5: abbreviations in six languages, one table each.**
+
+- **Far more abbreviations: about 300 per language.** English, German, French,
+  Spanish, Arabic and Russian each keep their own table. The whole stock used to
+  be English (175 entries) plus 31 Russian ones; on a German or French server the
+  program simply did not recognise "hdl", "mdr" or "kA".
+- **Every language has its own table and its own edits.** A language list now
+  sits above the table in the settings window: pick German and you see and edit
+  German abbreviations only, with the English ones left untouched.
+- **Unsaved edits survive a language switch.** Fix the French table, glance at
+  Spanish, come back — everything is still there. The disk is written on "Save",
+  as one file.
+- **`data/slang.json` records the language of every entry.** Old files without
+  that field read as English, which is what they were, so nothing is lost and
+  nothing breaks.
+- **Arabic is written in Arabic script**, not Latin transliteration: "ههههه",
+  "ان شاء الله", "يعطيك العافية".
+- **Faces are never touched.** "xD", "x)", ":)" and "^^" are expressions rather
+  than abbreviations; in the `/b`, `/ab` and `/f` service chats they stay as
+  typed. One guard covers every table, so a new table cannot bring a face back.
+- **The table language follows the translation language** but can also be picked
+  by hand; the choice is stored in the settings (`slang_lang`). Languages without
+  a table of their own (Italian, Portuguese, Polish and the rest) use the English
+  one.
+- **The "any language into Russian" mode searches every table at once**: a
+  partner may write "brb", "hdl" or "mdr", and not knowing their nationality in
+  advance makes recognising all three better than guessing one.
+- **The short Russian variant stays shared** across languages: it is substituted
+  after translation when a service answers in Latin letters.
+- Undo and redo are now separate for each language's abbreviation table too:
+  Ctrl+Z in German does not rewrite English. Undo puts `slang.json` back as well.
+- The order of "edit the data, then record the history step" was fixed in all
+  three tables: an "after" snapshot could miss the text just typed, and a redo
+  returned the cell to the previous keystroke.
 
 ## 1.15.0 — 15 Nov 2026
 

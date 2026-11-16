@@ -40,8 +40,8 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox,
 
 from app import dlx as dlx_mod
 from app import anims, history, i18n, langs, modules, morph, slang
-from app.config import (CONFIG_PATH, DATA, DEFAULT_CONFIG, log, read_json,
-                        save_config)
+from app.config import (CONFIG_PATH, DATA, DEFAULT_CONFIG, SLANG_PATH, log,
+                        read_json, save_config, write_json)
 from app.engine import (Engine, Glossary, glossary_path, load_glossary_data,
                         reset_glossary, save_glossary_data)
 from app.translator import TranslateError, Translator
@@ -120,7 +120,13 @@ def _read_disk_state():
                 docs[path.stem] = data
     except Exception:
         log.exception("Отмена: не удалось прочитать файлы словарей")
-    return {"cfg": cfg if isinstance(cfg, dict) else {}, "docs": docs}
+    # Свои сокращения меняются в окне, и отмена обязана вернуть файл: без этого
+    # после Ctrl+Z таблица на экране старая, а в игре новая.
+    # The player's own abbreviations change in the window, and an undo has to put
+    # the file back: otherwise the table is old on screen and new in game.
+    slang_file = read_json(SLANG_PATH, None)
+    return {"cfg": cfg if isinstance(cfg, dict) else {}, "docs": docs,
+            "slang": slang_file if isinstance(slang_file, dict) else {}}
 
 
 STYLE = """
@@ -752,6 +758,14 @@ class SettingsWindow(QDialog):
         # the user's row order in the slang table: built-ins come
         # alphabetically and dragging changes that
         self._slang_order = list(cfg.get("slang_order") or [])
+        # Несохранённые правки по языкам: {код: {сокращение: [разворот, вариант]}}.
+        # Таблица показывает один язык, но правки другого не теряются при
+        # переключении — они ждут «Сохранить».
+        # Unsaved edits per language: {code: {token: [expansion, variant]}}.
+        # The table shows one language, yet edits to another are never lost on a
+        # switch: they wait for "Save".
+        self._slang_drafts = {}
+        self._slang_lang = slang.code_for(cfg.get("slang_lang") or cfg.get("target_lang"))
         self.glang = langs.code_of(self.cfg.get("target_lang", "it"))
         self.glossary_changed = False
         self.first_run = first_run
@@ -1565,11 +1579,20 @@ class SettingsWindow(QDialog):
                                else i18n.tf("всего фраз: %d", total))
 
     def _table_edited(self, item):
+        """Правка ячейки словаря / a glossary cell was edited.
+
+        Порядок важен: сначала данные, потом шаг истории. Снимок «после» обязан
+        нести уже правленый словарь, иначе повтор вернул бы таблицу без данных
+        и ячейка откатилась бы не туда.
+        The order matters: data first, the history step second. The "after"
+        snapshot has to carry the already edited glossary, or a redo would return
+        a table without its data and the cell would roll back to the wrong place.
+        """
         row = item.row() if item is not None else -1
         col = item.column() if item is not None else -1
-        self._mark(f"glossary:{self.glang}:{row}:{col}")
         self.glossary_changed = True
         self._collect_glossary()
+        self._mark(f"glossary:{self.glang}:{row}:{col}")
 
     def _collect_glossary(self):
         """Переносит таблицу в данные словаря текущего языка.
@@ -1771,6 +1794,30 @@ class SettingsWindow(QDialog):
         lay.setContentsMargins(20, 18, 20, 18)
         lay.setSpacing(10)
 
+        # язык таблицы выбирается здесь же: у каждого языка своя таблица, и
+        # правка немецкой не лезет в английскую
+        # the table's language is chosen right here: every language keeps its own
+        # table, so editing German does not touch English
+        lang_row = QHBoxLayout()
+        lang_row.setSpacing(8)
+        lang_row.addWidget(QLabel("Язык таблицы"))
+        self.cb_slang_lang = QComboBox()
+        for code, title in slang.languages():
+            self.cb_slang_lang.addItem(title, code)
+        # названия языков пишутся на самих языках и не переводятся
+        # language names are written in their own languages and stay untranslated
+        self.cb_slang_lang.setProperty("no_i18n", True)
+        self.cb_slang_lang.setMinimumWidth(150)
+        self.cb_slang_lang.setMaximumWidth(220)
+        self.cb_slang_lang.setToolTip(
+            "Сокращения своего языка разворачиваются перед переводом на русский. "
+            "«Русский» — обратное направление: из русского текста в текст на языке сервера.")
+        self.cb_slang_lang.currentIndexChanged.connect(self._slang_lang_changed)
+        lang_row.addWidget(self.cb_slang_lang)
+        self.lb_slang_lang_hint = _hint("")
+        lang_row.addWidget(self.lb_slang_lang_hint, 1)
+        lay.addLayout(lang_row)
+
         head = QHBoxLayout()
         self.lb_slang_count = _hint("")
         self.lb_slang_count.setProperty("no_i18n", True)
@@ -1824,29 +1871,77 @@ class SettingsWindow(QDialog):
         lay.addLayout(btns)
 
         lay.addWidget(_hint(
-            "Свои сокращения работают так же, как встроенные, и перекрывают их: «afaik» → "
-            "«as far as I know» → «насколько знаю». Во второй колонке — полная фраза на языке "
-            "собеседника: её получает переводчик, поэтому падеж и род выходят верными. "
-            "В третьей — короткая подстановка, если сервис вернул латиницу. Кириллическое "
-            "сокращение («мнепох») идёт в обратную сторону, в текст на языке сервера. "
-            "Пустые колонки выключают сокращение."))
+            "У каждого языка своя таблица: выберите его в списке сверху, правки "
+            "запоминаются отдельно и не мешают друг другу. Свои сокращения работают "
+            "так же, как встроенные, и перекрывают их: «afaik» → «as far as I know» → "
+            "«насколько знаю». Во второй колонке — полная фраза на языке собеседника: её "
+            "получает переводчик, поэтому падеж и род выходят верными. В третьей — "
+            "короткая подстановка, если сервис вернул латиницу. Пустые колонки "
+            "выключают сокращение. Смайлы вроде «xD» и «x)» не трогаются никогда."))
         return page
 
     # заполнение и сбор таблицы сокращений
+    def _slang_lang_changed(self, *_):
+        """Переключили язык таблицы сокращений / the abbreviation language changed.
+
+        Правки покидаемого языка сначала уходят в черновик, поэтому ничего не
+        пропадает: вернувшись, игрок увидит их на месте, даже если не сохранял.
+        The edits of the language being left go into its draft first, so nothing
+        is lost: coming back shows them again, saved or not.
+        """
+        code = self.cb_slang_lang.currentData()
+        if not code or code == self._slang_lang:
+            return
+        self._collect_slang(self._slang_lang)
+        self._slang_lang = code
+        # рабочая таблица переключается сразу: иначе предпросмотр на соседней
+        # странице показывал бы сокращения прежнего языка
+        # the working table switches at once, or the preview on the next page
+        # would still show the previous language's abbreviations
+        slang.set_language(code)
+        self._fill_slang()
+
+    def _slang_draft(self, code):
+        """Черновик языка: сокращение -> [разворот, вариант], в порядке таблицы.
+
+        The draft of one language: token -> [expansion, variant], in table order.
+
+        Черновик начинается с того, что реально работает сейчас (встроенные плюс
+        сохранённые свои записи), и дальше живёт отдельно — до «Сохранить».
+        A draft starts as what actually works now (the built-ins plus the saved
+        own entries) and lives apart from then on, until "Save".
+        """
+        code = slang.code_for(code)
+        draft = self._slang_drafts.get(code)
+        if draft is None:
+            draft = {}
+            for token, expand, ru, _own in slang.entries(code):
+                draft[token] = [expand, ru]
+            self._slang_drafts[code] = draft
+        return draft
+
     def _fill_slang(self):
         if not hasattr(self, "tbl_slang"):
             return
+        code = slang.code_for(getattr(self, "_slang_lang", "en"))
+        self._slang_lang = code
+        if hasattr(self, "cb_slang_lang"):
+            index = self.cb_slang_lang.findData(code)
+            if index >= 0 and self.cb_slang_lang.currentIndex() != index:
+                self.cb_slang_lang.blockSignals(True)
+                self.cb_slang_lang.setCurrentIndex(index)
+                self.cb_slang_lang.blockSignals(False)
+        draft = self._slang_draft(code)
         self.tbl_slang.blockSignals(True)
         self.tbl_slang.setRowCount(0)
         # порядок из настроек: перетащенные строки остаются на своих местах,
         # новые и незнакомые идут в конце / the saved order comes first
         order = {token: index for index, token in enumerate(self._slang_order)}
-        rows = sorted(slang.entries(),
-                      key=lambda row: order.get(row[0], len(order)))
-        for token, expand, ru, own in rows:
+        rows = sorted(draft.items(), key=lambda row: order.get(row[0], len(order)))
+        for token, (expand, ru) in rows:
             r = self.tbl_slang.rowCount()
             self.tbl_slang.insertRow(r)
-            items = [QTableWidgetItem(("★ " if own else "") + token),
+            items = [QTableWidgetItem(token),
                      QTableWidgetItem(expand),
                      QTableWidgetItem(ru)]
             for c, it in enumerate(items):
@@ -1871,26 +1966,49 @@ class SettingsWindow(QDialog):
             self.tbl_slang.setRowHidden(r, not match)
             shown += 1 if match else 0
         total = self.tbl_slang.rowCount()
-        own = len(slang.user_entries())
+        own = len(slang.user_entries(self._slang_lang))
         self.lb_slang_count.setText(
             i18n.tf("Показано: %d из %d\nСвоих: %d", shown, total, own) if needle
             else i18n.tf("Всего: %d\nСвоих: %d", total, own))
 
     def _update_slang_ui(self):
         if hasattr(self, "lb_slang_count"):
-            own = len(slang.user_entries())
-            total = len(slang.entries())
+            own = len(slang.user_entries(self._slang_lang))
+            total = len(slang.entries(self._slang_lang))
             self.lb_slang_count.setText(i18n.tf("Всего: %d\nСвоих: %d", total, own))
+        if hasattr(self, "lb_slang_lang_hint"):
+            hint = i18n.t("Таблица языка сервера: разворот уходит в переводчик "
+                          "до перевода.")
+            if self._slang_lang == "ru":
+                hint = i18n.t("Обратное направление: русское сокращение "
+                              "разворачивается в полную русскую запись.")
+            self.lb_slang_lang_hint.setText(hint)
 
     def _slang_edited(self, item):
+        """Правка ячейки сокращений / an abbreviation cell was edited.
+
+        Сначала черновик языка, потом шаг истории: снимок «после» должен нести
+        уже правленую таблицу, иначе повтор покажет старое слово.
+        The language's draft first, the history step second: the "after"
+        snapshot has to carry the edited table, or a redo would show the old word.
+        """
         row = item.row() if item is not None else -1
         col = item.column() if item is not None else -1
-        self._mark(f"slang:{self.glang}:{row}:{col}")
         self._slang_pending = True
         self._collect_slang()
+        self._mark(f"slang:{self._slang_lang}:{row}:{col}")
 
-    def _collect_slang(self):
-        """Переносит таблицу в набор своих сокращений (в памяти)."""
+    def _collect_slang(self, code=None):
+        """Переносит таблицу в черновик языка (в памяти).
+
+        Copy the table into the language's draft, in memory.
+
+        Вызывается и при переключении языка — тогда ``code`` указывает, какой
+        язык покидаем, а таблица ещё показывает его.
+        Also called on a language switch: then ``code`` names the language being
+        left, which the table still shows.
+        """
+        code = slang.code_for(code or self._slang_lang)
         if not hasattr(self, "tbl_slang"):
             return {}
         rows = {}
@@ -1902,21 +2020,39 @@ class SettingsWindow(QDialog):
             token = cells[0].lstrip("★ ").strip()
             if not token:
                 continue
-            expand, ru = cells[1], cells[2]
-            if token in slang.FOREIGN:
-                if (expand, ru) == tuple(slang.FOREIGN[token]):
-                    continue                     # встроенное не тронуто
-            elif token in slang.RUSSIAN:
-                if expand == slang.RUSSIAN[token] and not ru:
-                    continue
-            rows[token] = [expand, ru]
-        # встроенные, которых в таблице нет, игрок убрал — значит, выключаем
-        for token in list(slang.FOREIGN) + list(slang.RUSSIAN):
-            if token not in rows and not self._slang_row_exists(token):
-                rows[token] = ["", ""]
-        slang.set_user(rows)
+            rows[token] = [cells[1], cells[2]]
+        self._slang_drafts[code] = rows
+        slate = self._slate_of(code, rows)
+        # своё применяем сразу: иначе предпросмотр и движок видели бы старое
+        # the own entries are applied at once, or the preview would see the old ones
+        slang.set_user(slate, code)
         self._slang_pending = True
-        return rows
+        return slate
+
+    @staticmethod
+    def _slate_of(code, rows):
+        """Черновик -> то, что отличается от встроенного.
+
+        A draft turned into what differs from the built-in table.
+
+        В файл и в память уходят только отличия: полная таблица на шесть языков
+        весит больше, чем весь остальной slang.json, и повторять её в файле
+        незачем. Встроенное, которого в черновике нет, считается выключенным.
+        Only the differences are stored and applied: the full tables of six
+        languages weigh more than the rest of slang.json put together, and there
+        is no reason to repeat them in the file. A built-in missing from the draft
+        counts as disabled.
+        """
+        built = slang.builtin(code)
+        slate = {}
+        for token, (expand, ru) in rows.items():
+            if token in built and [expand, ru] == list(built[token]):
+                continue                     # встроенное не тронуто / untouched
+            slate[token] = [expand, ru]
+        for token in built:
+            if token not in rows:
+                slate[token] = ["", ""]       # выключено игроком / switched off
+        return slate
 
     def _move_slang_row(self, source, target):
         self._hist_shadow = self._hist_state()
@@ -1936,18 +2072,21 @@ class SettingsWindow(QDialog):
         self._collect_slang()
         self._filter_slang()
 
-    def _slang_row_exists(self, token):
-        for r in range(self.tbl_slang.rowCount()):
-            it = self.tbl_slang.item(r, 0)
-            if it and it.text().lstrip("★ ").strip().lower() == token.lower():
-                return True
-        return False
-
     def _sync_slang(self):
-        """Сохранить свои сокращения на диск (вызывается по «Сохранить»)."""
+        """Сохранить свои сокращения на диск (вызывается по «Сохранить»).
+
+        Write the player's own abbreviations to the disk on "Save".
+
+        Уходят все черновики сразу: игрок мог поправить три языка и не
+        возвращаться к каждому.
+        Every draft goes at once: the player may have edited three languages and
+        need not come back to each.
+        """
         if not hasattr(self, "tbl_slang"):
             return
-        slang.save_user(self._collect_slang())
+        self._collect_slang()
+        slang.save_languages({code: self._slate_of(code, rows)
+                              for code, rows in self._slang_drafts.items()})
         self._slang_pending = False
 
     def _add_slang(self):
@@ -1984,6 +2123,7 @@ class SettingsWindow(QDialog):
                                 i18n.t("Не удалось прочитать файл:\n") + str(e))
             return
         loaded = {}
+        foreign = {}                 # запись чужого языка -> его код / other languages
         try:
             if path.lower().endswith(".json"):
                 obj = json.loads(text)
@@ -1992,7 +2132,14 @@ class SettingsWindow(QDialog):
                     raise ValueError(i18n.t("в JSON нужен объект «сокращение: разворот»"))
                 for k, v in src.items():
                     if isinstance(v, dict):
-                        loaded[str(k)] = [str(v.get("expand", "")), str(v.get("ru", ""))]
+                        pair = [str(v.get("expand", "")), str(v.get("ru", ""))]
+                        code = slang.code_for(v.get("lang") or self._slang_lang)
+                        if code != self._slang_lang:
+                            # чужой язык не подмешиваем в текущий: он уедет в свой
+                            # a foreign language is not mixed in: it goes to its own
+                            foreign.setdefault(code, {})[str(k)] = pair
+                            continue
+                        loaded[str(k)] = pair
                     elif isinstance(v, str):
                         loaded[str(k)] = [v, ""]
                     elif isinstance(v, (list, tuple)):
@@ -2010,19 +2157,22 @@ class SettingsWindow(QDialog):
             QMessageBox.warning(self, i18n.t("Импорт"),
                                 i18n.t("Файл не подошёл:\n") + str(e))
             return
-        if not loaded:
+        if not loaded and not foreign:
             QMessageBox.information(self, i18n.t("Импорт"),
                                     i18n.t("В файле не нашлось сокращений."))
             return
-        cur = {k: list(v) for k, v in slang.user_entries().items()}
-        added = sum(1 for k in loaded if k not in cur)
-        cur.update(loaded)
-        slang.set_user(cur)
+        total = len(loaded) + sum(len(rows) for rows in foreign.values())
+        added = 0
+        for code, rows in [(self._slang_lang, loaded)] + list(foreign.items()):
+            draft = self._slang_draft(code)
+            added += sum(1 for k in rows if k not in draft)
+            draft.update(rows)
         self._fill_slang()
+        self._slang_pending = True
         QMessageBox.information(
             self, i18n.t("Импорт"),
             i18n.tf("Загружено сокращений: %d (новых %d).\n"
-                    "Нажмите «Сохранить», чтобы применить.", len(loaded), added))
+                    "Нажмите «Сохранить», чтобы применить.", total, added))
 
     def _export_slang(self):
         path, _ = QFileDialog.getSaveFileName(
@@ -2030,7 +2180,7 @@ class SettingsWindow(QDialog):
             "JSON (*.json);;CSV (*.csv)")
         if not path:
             return
-        data = slang.entries()
+        data = slang.entries(self._slang_lang)
         try:
             if path.lower().endswith(".csv"):
                 with open(path, "w", encoding="utf-8-sig", newline="") as f:
@@ -2039,8 +2189,15 @@ class SettingsWindow(QDialog):
                     for token, expand, ru, _own in data:
                         w.writerow([token, expand, ru])
             else:
-                payload = {"custom": slang.user_entries() or {
-                    token: [expand, ru] for token, expand, ru, _o in data}}
+                code = self._slang_lang
+                own = slang.user_entries(code)
+                payload = {"custom": {
+                    token: {"lang": code, "expand": expand, "ru": ru}
+                    for token, expand, ru, _o in data if token in own}}
+                if not payload["custom"]:
+                    payload = {"custom": {
+                        token: {"lang": code, "expand": expand, "ru": ru}
+                        for token, expand, ru, _o in data}}
                 Path(path).write_text(json.dumps(payload, ensure_ascii=False, indent=2),
                                       encoding="utf-8")
         except OSError as e:
@@ -2053,11 +2210,16 @@ class SettingsWindow(QDialog):
     def _reset_slang(self):
         ans = QMessageBox.question(
             self, i18n.t("Сбросить сокращения"),
-            i18n.t("Вернуть встроенный список сокращений?\nВаши добавления будут "
-                   "потеряны."))
+            i18n.tf("Вернуть встроенный список сокращений для языка «%s»?\n"
+                    "Ваши добавления на этом языке будут потеряны, остальные "
+                    "языки не изменятся.",
+                    self.cb_slang_lang.currentText()))
         if ans != QMessageBox.StandardButton.Yes:
             return
-        slang.save_user({})
+        code = self._slang_lang
+        self._slang_drafts.pop(code, None)
+        slang.set_user({}, code)
+        self._slang_pending = True
         self._fill_slang()
 
     # ------------------------------------------------------------ DeepL
@@ -3211,7 +3373,6 @@ class SettingsWindow(QDialog):
         """Правка ячейки: проверяем длительность и обновляем подсказки."""
         row = item.row() if item is not None else -1
         col = item.column() if item is not None else -1
-        self._mark(f"anims:{row}:{col}")
         if item is not None and item.column() == 5:
             text = (item.text() or "").strip()
             if text and not text.lstrip("-").isdigit():
@@ -3220,8 +3381,10 @@ class SettingsWindow(QDialog):
                 # the duration field wants a number; letters are not fixed
                 # silently, the row is highlighted and the hint explains why
                 self._anims_changed()
+                self._mark(f"anims:{row}:{col}")
                 return
         self._anims_changed()
+        self._mark(f"anims:{row}:{col}")
 
     def _anims_changed(self):
         self._update_anims_ui()
@@ -3800,9 +3963,14 @@ class SettingsWindow(QDialog):
         tables the history is shared, because the edits there are single fields.
         """
         row = self.nav.currentRow() if hasattr(self, "nav") else 0
+        if row == 4:
+            # у каждой таблицы сокращений своя история: отмена в немецкой не
+            # должна переписывать английскую
+            # every abbreviation table keeps its own history: an undo in German
+            # must not rewrite English
+            return "slang:" + slang.code_for(getattr(self, "_slang_lang", "en"))
         return {row: self.HIST_MAIN,
                 3: "glossary",       # страница «Словарь»
-                4: "slang",          # страница «Сокращения»
                 7: "anims"}.get(row, self.HIST_MAIN)
 
     def _hist_state(self):
@@ -3825,6 +3993,12 @@ class SettingsWindow(QDialog):
             "fields": fields,
             "tables": {name: _table_state(table)
                        for name, table in self._hist_tables()},
+            # Черновики сокращений по языкам: таблица показывает один язык, но
+            # правки другого тоже обязаны откатываться.
+            # The abbreviation drafts per language: the table shows one language,
+            # yet the other languages' edits must roll back too.
+            "slang_drafts": {code: {token: list(pair) for token, pair in rows.items()}
+                             for code, rows in self._slang_drafts.items()},
             "docs": docs,
             "self_cfg": dict(self.cfg),
             # Диск берётся из кэша: снимок делается на каждое нажатие клавиши, а
@@ -3864,8 +4038,7 @@ class SettingsWindow(QDialog):
     @staticmethod
     def _hist_read(widget):
         """Значение поля для снимка / a widget's value for the snapshot."""
-        for getter, kind in (("isChecked", "bool"), ("value", "int"),
-                             ("currentData", "data"), ("text", "text")):
+        for getter in ("isChecked", "value", "currentData", "text"):
             method = getattr(widget, getter, None)
             if callable(method):
                 try:
@@ -3985,6 +4158,8 @@ class SettingsWindow(QDialog):
         state = step()
         if state is None:
             return False
+        drafts_before = {code: {token: list(pair) for token, pair in rows.items()}
+                         for code, rows in self._slang_drafts.items()}
         self._hist_applying = True
         try:
             self._restore_state(state)
@@ -3993,12 +4168,38 @@ class SettingsWindow(QDialog):
             # after the write the disk equals this snapshot, so the cache is set
             # without reading it back
             self._disk_cache = dict(state.get("disk") or {"cfg": {}, "docs": {}})
+            # Диск вернулся к снимку, а в памяти снова черновики: несохранённые
+            # правки остаются на экране и в предпросмотре, но в файле их нет —
+            # ровно как было до «Сохранить».
+            # The disk is back to the snapshot, while memory holds the drafts
+            # again: unsaved edits stay on screen and in the preview but not in
+            # the file, exactly as before "Save".
+            self._apply_slang_drafts(force=self._slang_drafts != drafts_before)
         finally:
             self._hist_applying = False
         self._hist_shadow = self._hist_state()
         self._hist_note()
         self._flash_hint()
         return True
+
+    def _apply_slang_drafts(self, force=False):
+        """Применить черновики к таблицам сокращений в памяти.
+
+        Apply the drafts to the abbreviation tables in memory.
+
+        ``force`` пишет и файл: после отмены без этого таблица на экране и файл
+        разъехались бы.
+        ``force`` writes the file too: without it an undo would leave the table on
+        screen and the file disagreeing.
+        """
+        rows = {code: self._slate_of(code, rows) for code, rows in self._slang_drafts.items()}
+        for code, slate in rows.items():
+            slang.set_user(slate, code)
+        if force:
+            try:
+                slang.save_languages(rows)
+            except OSError:
+                log.exception("Отмена: не удалось записать slang.json")
 
     def _restore_state(self, state):
         """Вернуть интерфейс и память окна к снимку / restore the window to a snapshot."""
@@ -4011,6 +4212,8 @@ class SettingsWindow(QDialog):
             if table is not None:
                 _restore_table(table, rows)
         self.docs = {code: dict(data) for code, data in (state.get("docs") or {}).items()}
+        self._slang_drafts = {code: {token: list(pair) for token, pair in rows.items()}
+                              for code, rows in (state.get("slang_drafts") or {}).items()}
         self.cfg = dict(state.get("self_cfg") or self.cfg)
         # таблицы перерисовываются из восстановленных данных, а не наоборот
         # the tables are redrawn from the restored data, not the other way round
@@ -4048,6 +4251,13 @@ class SettingsWindow(QDialog):
                 save_glossary_data(code, data)
             except OSError:
                 log.exception("Отмена: не удалось записать словарь %s", code)
+        slang_file = disk.get("slang")
+        if isinstance(slang_file, dict):
+            try:
+                write_json(SLANG_PATH, slang_file)
+                slang.load_user()
+            except OSError:
+                log.exception("Отмена: не удалось записать slang.json")
 
     def _mirror_own_flag(self, key, checked):
         """Флажок на странице модуля изменился — обновить «Модули».
@@ -4452,10 +4662,23 @@ class SettingsWindow(QDialog):
             cfg["anim_extra_ms"] = int(self.sp_anim_gap.value())
             cfg["anim_skip_negation"] = bool(self.chk_anim_negation.isChecked())
         cfg["slang_order"] = list(self._slang_order)
+        cfg["slang_lang"] = slang.code_for(self._slang_lang)
+        # Рабочий язык таблицы переставляет главное окно после сохранения: окно
+        # настроек только собирает выбор, чтобы проверка перевода и игра видели
+        # одно и то же.
+        # The main window moves the working table language after a save; the
+        # settings window only collects the choice, so the preview and the game
+        # see the same thing.
         return modules.apply_defaults(cfg)
 
     def _load_widgets(self):
         cfg = self.cfg
+        code = slang.code_for(cfg.get("slang_lang") or cfg.get("target_lang"))
+        if code != getattr(self, "_slang_lang", None):
+            # черновика ещё нет, поэтому менять нечего: просто выбираем язык
+            # no draft exists yet, so there is nothing to flush: just pick it
+            self._slang_lang = code
+            self._fill_slang()
         idx = self.cb_lang.findData(langs.code_of(cfg.get("target_lang", "it")))
         self.cb_lang.setCurrentIndex(max(0, idx))
         self.ed_hotkey.setText(_pretty_hotkey(cfg.get("hotkey", "F6")))
@@ -4691,7 +4914,8 @@ class SettingsWindow(QDialog):
         # put the file back and the game would keep doing what was undone.
         before = self._hist_state()
         self._disk_cache = {"cfg": dict(cfg), "docs": {
-            code: dict(self.docs.get(code) or {}) for code in saved_glossaries}}
+            code: dict(self.docs.get(code) or {}) for code in saved_glossaries},
+            "slang": read_json(SLANG_PATH, {})}
         after = self._hist_state()
         self._hist.section(self._section_key()).record(before, after, "save")
         self._hist_shadow = after

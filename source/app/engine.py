@@ -846,7 +846,6 @@ class Engine:
         auto-translation (everything is translated), no +...+ markers and no
         "what goes to the chat" choice: the target text is what is sent.
         """
-        cfg = self.cfg
         self._sync_direction(False)
         src = (text or "").strip()
         if not src:
@@ -924,8 +923,11 @@ class Engine:
         prefix, body, _is_cmd, _counted = split_prefix(src)
         slang_on = self._slang_on()
         if slang_on:
-            # lol / brb / afk → полные фразы: переводчик сам поставит падеж и род
-            body = slang.expand_foreign(body)[0]
+            # lol / brb / afk → полные фразы: переводчик сам поставит падеж и род.
+            # Язык собеседника неизвестен, поэтому ищем во всех таблицах сразу.
+            # The speaker's language is unknown, so every table is searched at
+            # once before translation.
+            body = slang.expand_any(body)[0]
         out, pos = [], 0
         for m in ACT_RE.finditer(body):
             part = body[pos:m.start()]
@@ -939,7 +941,8 @@ class Engine:
         ru = "".join(out).strip()
         if slang_on:
             # сервис мог оставить «afk»/«gg» как есть — подменяем лаконичным русским
-            ru = slang.restore_russian(ru)[0]
+            # a service may leave "afk" or "gg" as typed, so a short Russian takes over
+            ru = slang.restore_any(ru)[0]
         if not ru:
             return Result("", body.strip(), False)
         return Result(prefix + ru, body.strip(), True)

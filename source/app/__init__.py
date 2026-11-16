@@ -9,7 +9,8 @@ RP Chat Overlay application package: a chat translator for GTA V and FiveM.
     translator.py   цепочка сервисов перевода / translation service chain
     langs.py        реестр языков перевода / target language registry
     langpacks/      встроенные словари языков / built-in language packs
-    slang.py        сленг и сокращения / slang and abbreviations
+    slang.py        сленг и сокращения: замена и свои записи / slang expansion and own entries
+    slang_data.py   сокращения по языкам, ~300 на язык / abbreviations per language
     translit.py     русская запись по звучанию / Russian reading of foreign words
     i18n.py         язык интерфейса / interface language
     autoplan.py     счётчик автоперевода / auto-translation counter
@@ -30,8 +31,8 @@ from __future__ import annotations
 
 APP_NAME = "RP Chat Overlay"
 APP_NAME_FULL = "RP Chat Overlay"
-VERSION = "1.15.0"
-VERSION_TUPLE = (1, 15, 0, 0)
+VERSION = "1.16.0"
+VERSION_TUPLE = (1, 16, 0, 0)
 
 # Имя мьютекса одиночного запуска / single-instance mutex name.
 MUTEX_NAME = "Local\\RPChatOverlayMutex"

@@ -894,11 +894,43 @@ STRINGS = {
     "Правила объединены: задержка, повтор и режим совпадали и перенесены.":
         "The rules are merged: the delay, the loop and the mode matched and were "
         "carried over.",
+    "У каждого языка своя таблица: выберите его в списке сверху, правки "
+    "запоминаются отдельно и не мешают друг другу. Свои сокращения работают "
+    "так же, как встроенные, и перекрывают их: «afaik» → «as far as I know» → "
+    "«насколько знаю». Во второй колонке — полная фраза на языке собеседника: её "
+    "получает переводчик, поэтому падеж и род выходят верными. В третьей — "
+    "короткая подстановка, если сервис вернул латиницу. Пустые колонки "
+    "выключают сокращение. Смайлы вроде «xD» и «x)» не трогаются никогда.":
+        "Every language keeps its own table: pick it in the list above, and edits "
+        "are remembered separately without interfering. Your own abbreviations "
+        "work like the built-in ones and override them: \"afaik\" becomes \"as far "
+        "as I know\" and then \"насколько знаю\". The second column holds the full "
+        "phrase in your partner's language: it is what the translator receives, so "
+        "case and gender come out right. The third is a short substitution for "
+        "when a service answers in Latin letters. Empty columns switch an "
+        "abbreviation off. Faces such as \"xD\" and \"x)\" are never touched.",
+    # --- сокращения: язык таблицы / abbreviations: table language ---
+    "Язык таблицы": "Table language",
+    "Таблица языка сервера: разворот уходит в переводчик до перевода.":
+        "The server language's table: the expansion goes to the translator "
+        "before translation.",
+    "Обратное направление: русское сокращение разворачивается в полную "
+    "русскую запись.":
+        "The reverse direction: a Russian abbreviation is expanded into the full "
+        "Russian phrase.",
+    "Сокращения своего языка разворачиваются перед переводом на русский. "
+    "«Русский» — обратное направление: из русского текста в текст на языке сервера.":
+        "Abbreviations of your server's language are expanded before translating "
+        "into Russian. \"Russian\" is the reverse direction: from Russian into the "
+        "server's language.",
+    "Вернуть встроенный список сокращений для языка «%s»?\n"
+    "Ваши добавления на этом языке будут потеряны, остальные языки не изменятся.":
+        "Bring back the built-in list for \"%s\"?\nYour additions in that language "
+        "will be lost; the other languages stay untouched.",
     # --- режимы перевода / translation modes ---
     "Режим перевода": "Translation mode",
     "Всё сообщение — на язык перевода": "The whole message into the target language",
     "Только отмеченные куски (обычный режим)": "Only the marked fragments (regular mode)",
-    "Ваш язык → русский": "Your language into Russian",
     "Что переводить:": "What to translate:",
     "Режим переводчика: пишете на своём языке — в чат уходит русский текст. "
     "Переводится каждое сообщение целиком, включая действия *...*; команды "
@@ -923,7 +955,6 @@ STRINGS = {
         "Fillers and the \"what goes to the chat\" choice are active.",
     "Режим: всё сообщение на язык перевода": "Mode: whole message into the target language",
     "Режим: только отмеченные куски": "Mode: marked fragments only",
-    "Режим: ваш язык → русский": "Mode: your language into Russian",
     "Всё сообщение → %s": "Whole message → %s",
     "Только отмеченные куски → %s": "Marked fragments only → %s",
     "Статус: всё сообщение → %s": "Status: whole message → %s",

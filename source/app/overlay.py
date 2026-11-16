@@ -24,7 +24,7 @@ from PySide6.QtGui import (QAction, QActionGroup, QColor, QFont, QGuiApplication
 from PySide6.QtWidgets import (QApplication, QFrame, QLabel, QLineEdit, QMenu,
                                QSystemTrayIcon, QVBoxLayout, QWidget)
 
-from app import APP_NAME, gamesend as gs, i18n, langs, modules
+from app import APP_NAME, gamesend as gs, i18n, langs, modules, slang
 from app import animchoice
 from app import anims as anims_mod
 from app.autoplan import AutoPlan
@@ -655,6 +655,9 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
 
     lang = langs.code_of(cfg.get("target_lang", "it"))
     translator = Translator(lang)
+    # язык таблицы сокращений — до первого перевода
+    # the abbreviation table language, before the first translation
+    slang.use_for(cfg)
     engine = Engine(cfg, load_glossary(lang), translator)
     tracker = gs.GameTracker(cfg)
     bridge = Bridge()
@@ -893,6 +896,15 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
             log.info("DLX: параметры запуска изменились, перезапуск")
             threading.Thread(target=dlx.restart, name="dlx-restart",
                              daemon=True).start()
+        # Язык таблицы сокращений следует за настройками: на немецком сервере
+        # первой работает немецкая таблица, а свой выбор игрок задаёт вручную.
+        # Здесь, в главном потоке, и только здесь: окно настроек и проверка
+        # перевода не должны менять рабочий язык на ходу.
+        # The abbreviation table follows the settings: a German server uses the
+        # German table first, and the player may name one by hand. Set here, in
+        # the main thread, and only here: the settings window and the preview must
+        # not switch the working language under the running engine.
+        slang.use_for(cfg)
         win.engine = Engine(cfg, load_glossary(code), translator)
         win.plan = AutoPlan(cfg)              # новая серия под новые параметры
         runner.reload(cfg)                    # новые правила анимаций
