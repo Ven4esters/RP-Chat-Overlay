@@ -140,6 +140,42 @@ QLabel#err { color: #ff6b6b; font-size: 12px; }
 QLabel#ok { color: #66d18b; font-size: 12px; }
 QFrame#card { background: #1c1c24; border: 1px solid #2e2e3a; border-radius: 10px; }
 QFrame#sep { background: #2a2a36; max-height: 1px; border: none; }
+/* Плашка состояния сервиса DeepL. Цвет говорит то же, что и слово: зелёный —
+   работает, янтарный — работает, но DeepL отказывает, серый — выключен,
+   красный — ошибка. Перед словом стоит точка, чтобы состояние читалось и без
+   цвета: на некоторых экранах зелёный и янтарный почти неразличимы.
+   The DeepL state badge carries its meaning in colour and in words: green means
+   running, amber means running while DeepL refuses, grey means off, red means an
+   error. A dot precedes the words so the state still reads without colour: on
+   some screens green and amber are nearly the same. */
+QLabel#dlxState { font-weight: 600; padding: 2px 0; }
+QLabel#dlxState[state="ready"] { color: #7ff0b0; }
+QLabel#dlxState[state="upstream"] { color: #ffd06b; }
+QLabel#dlxState[state="starting"] { color: #a9c4ff; }
+QLabel#dlxState[state="off"], QLabel#dlxState[state="missing"] { color: #9a9aa6; }
+QLabel#dlxState[state="error"] { color: #ff9c9c; }
+/* погашенный раздел: плашка и переключатель теряют цвет вместе с содержимым
+   a dimmed section: the badge and the switch lose their colour with the rest */
+QWidget#page[moduleOff="true"] QLabel#dlxState { color: #6b6b79; }
+QWidget#page[moduleOff="true"] QPushButton#dlxRun {
+    background: #191920; border: 1px solid #2b2b36; color: #6b6b79; }
+/* Кнопка «Запущено»: то же состояние, но нажимается — это переключатель.
+   The "Running" button shows the same state, yet it is clickable: a switch. */
+QPushButton#dlxRun { background: #1c4a35; border: 1px solid #2e7d55; color: #8bf5bb;
+                     font-weight: 600; }
+QPushButton#dlxRun:hover { background: #235a41; border: 1px solid #3d9a6b; }
+QPushButton#dlxRun:pressed { background: #173d2b; border: 1px solid #2e7d55; }
+QPushButton#dlxRun:focus { border: 1px solid #4fbf8a; }
+QPushButton#dlxRun[state="upstream"] { background: #38300f; border: 1px solid #7a5c1f;
+                                       color: #ffd06b; }
+QPushButton#dlxRun[state="upstream"]:hover { background: #453b13; border: 1px solid #9a7527; }
+QPushButton#dlxRun[state="starting"] { background: #1d2740; border: 1px solid #35507e;
+                                       color: #a9c4ff; }
+QPushButton#dlxRun[state="error"] { background: #38181c; border: 1px solid #7a3a42;
+                                    color: #ff9c9c; }
+/* вертикальная черта между пуском/остановкой и служебными кнопками
+   the vertical line between start/stop and the service buttons */
+QFrame#vsep { background: #2e2e3a; max-width: 1px; border: none; }
 QListWidget#nav { background: #17171e; border: none; border-right: 1px solid #26262f;
                   padding: 8px 6px; outline: 0; }
 QListWidget#nav::item { padding: 10px 12px; border-radius: 8px; margin: 2px 4px; color: #c8c8d2; }
@@ -413,6 +449,40 @@ def _dimmed_css(css):
     for colour in _DIM_SOURCES:
         out = out.replace(colour, _DIM_COLOR).replace(colour.upper(), _DIM_COLOR)
     return out
+
+
+def _dim_state(widget):
+    """Спрятать цветное состояние виджета за серым / hide a coloured state.
+
+    Настоящее состояние запоминается в свойстве ``_dim_state_real``, а само
+    свойство ``state`` ставится в ``off`` — по нему правило стиля и выбирает
+    серый. ``_dim_restore_state`` возвращает всё назад.
+    The real state is kept in the ``_dim_state_real`` property while ``state``
+    becomes ``off``, which is the grey rule in the stylesheet. The restore
+    function puts everything back.
+    """
+    if widget.property("_dim_state_real") is None:
+        widget.setProperty("_dim_state_real", widget.property("state"))
+    if widget.property("state") == "off":
+        return
+    widget.setProperty("state", "off")
+    widget.style().unpolish(widget)
+    widget.style().polish(widget)
+    widget.update()
+
+
+def _dim_restore_state(widget):
+    """Вернуть цветное состояние виджета / restore a widget's coloured state."""
+    real = widget.property("_dim_state_real")
+    if real is None:
+        return
+    widget.setProperty("_dim_state_real", None)
+    if widget.property("state") == real:
+        return
+    widget.setProperty("state", real)
+    widget.style().unpolish(widget)
+    widget.style().polish(widget)
+    widget.update()
 
 
 def _hint(text):
@@ -2351,18 +2421,44 @@ class SettingsWindow(QDialog):
 
         card, cl = _card()
         cl.addWidget(_title("Состояние", "sec"))
-        self.lb_dlx_state = _hint("")
+        # Состояние — цветной плашкой, а не серой строкой: раньше «Работает» и
+        # «Остановлен» выглядели одинаково, и понять, включён ли DeepL, можно
+        # было только вчитавшись. Цвет и слово говорят одно и то же.
+        # The state is a coloured badge instead of a grey line: "Running" and
+        # "Stopped" used to look alike, so whether DeepL works took reading the
+        # words. Colour and words now say the same thing.
+        self.lb_dlx_state = QLabel("")
+        self.lb_dlx_state.setObjectName("dlxState")
         self.lb_dlx_state.setProperty("no_i18n", True)
         self.lb_dlx_state.setWordWrap(True)
+        self.lb_dlx_state.setSizePolicy(QSizePolicy.Policy.Preferred,
+                                        QSizePolicy.Policy.Minimum)
         cl.addWidget(self.lb_dlx_state)
         row = QHBoxLayout()
+        row.setSpacing(8)
+        # Пуск и остановка — отдельной парой слева: это про «работает или нет»,
+        # а справа служебное: проверить, обновить, удалить.
+        # Start and stop stand apart on the left, because they answer "does it
+        # run"; the service buttons on the right are housekeeping.
+        self.b_dlx_start = QPushButton("Запустить")
+        self.b_dlx_start.setProperty("no_i18n", True)   # текст меняется в коде
+        self.b_dlx_start.clicked.connect(self._dlx_toggle)
+        # у «Остановить» подпись постоянная — её переводит общая таблица, а у
+        # «Запустить» текст собирается в коде, поэтому переводить его там нечего
+        # "Stop" keeps a fixed caption translated by the shared table, while
+        # "Start" is built in code, so the table must leave it alone
+        self.b_dlx_stop = QPushButton("Остановить")
+        self.b_dlx_stop.clicked.connect(self._dlx_stop)
+        row.addWidget(self.b_dlx_start)
+        row.addWidget(self.b_dlx_stop)
+        line = QFrame()
+        line.setObjectName("vsep")
+        line.setFrameShape(QFrame.Shape.VLine)
+        line.setFixedWidth(1)
+        row.addWidget(line)
         self.b_dlx_check = QPushButton("Проверить")
         self.b_dlx_check.setToolTip("Короткий запрос к сервису: отвечает ли он")
         self.b_dlx_check.clicked.connect(self._dlx_check)
-        self.b_dlx_start = QPushButton("Запустить")
-        self.b_dlx_start.clicked.connect(self._dlx_start)
-        self.b_dlx_stop = QPushButton("Остановить")
-        self.b_dlx_stop.clicked.connect(self._dlx_stop)
         self.b_dlx_install = QPushButton("Установить")
         self.b_dlx_install.setObjectName("primary")
         self.b_dlx_install.setToolTip("Скачать сервис с GitHub (около 15 МБ)")
@@ -2370,11 +2466,12 @@ class SettingsWindow(QDialog):
         self.b_dlx_remove = QPushButton("Удалить сервис")
         self.b_dlx_remove.setObjectName("danger")
         self.b_dlx_remove.clicked.connect(self._dlx_remove)
-        for button in (self.b_dlx_check, self.b_dlx_start, self.b_dlx_stop,
-                       self.b_dlx_install, self.b_dlx_remove):
+        for button in (self.b_dlx_check, self.b_dlx_install, self.b_dlx_remove):
             button.setAutoDefault(False)
             row.addWidget(button)
         row.addStretch(1)
+        for button in (self.b_dlx_start, self.b_dlx_stop):
+            button.setAutoDefault(False)
         cl.addLayout(row)
         self.lb_dlx_path = _hint("")
         self.lb_dlx_path.setProperty("no_i18n", True)
@@ -2496,13 +2593,30 @@ class SettingsWindow(QDialog):
         self._dlx_timer.setInterval(300)
         self._dlx_timer.timeout.connect(lambda: self.lb_dlx_state.setText(
             self._dlx_progress) if self._dlx_progress else None)
+        # Сервис может подняться или упасть сам, без нажатия кнопок: состояние
+        # в окне должно меняться вместе с ним, иначе «Запущено» так и висело бы
+        # после падения. Опрос дешёвый — одно чтение полей под замком.
+        # The service may come up or die on its own, without a button press, and
+        # the window has to follow: otherwise "Running" would stay after a crash.
+        # The poll is cheap: it reads a few fields under one lock.
+        self._dlx_live_key = None
+        self._dlx_busy_now = False
+        self._dlx_live = QTimer(self)
+        self._dlx_live.setInterval(1000)
+        self._dlx_live.timeout.connect(self._dlx_live_tick)
+        self._dlx_live.start()
         self._dlx_refresh()
         return page
 
     # ------------------------------------------------ работа с сервисом
     # working with the service
     def _dlx_state_text(self):
-        """Текст состояния сервиса / the service state as text."""
+        """Текст состояния сервиса / the service state as text.
+
+        Слова подобраны так, чтобы каждое состояние начиналось с ответа на
+        главный вопрос «работает или нет»: «Работает», «Остановлен», «Ошибка».
+        The first word answers the main question — does it run or not.
+        """
         if self.dlx is None:
             return i18n.t("Сервис не подключён к этому окну — перезапустите программу.")
         status = self.dlx.status()
@@ -2515,7 +2629,9 @@ class SettingsWindow(QDialog):
             "upstream": i18n.t("Работает, но DeepL не отвечает (503)"),
             "error": i18n.tf("Ошибка: %s", status.get("reason") or ""),
         }
-        text = words.get(state, str(state))
+        # точка перед словом: состояние понятно и тем, кто не различает цвета
+        # a dot precedes the words, so the state reads without colour too
+        text = "● " + words.get(state, str(state))
         version = status.get("version")
         if version:
             text += i18n.tf(" · версия %s", version)
@@ -2524,11 +2640,86 @@ class SettingsWindow(QDialog):
             text += i18n.tf(" · %s", note)
         return text
 
+    def _dlx_set_state(self, state, text):
+        """Красит плашку состояния и переключатель пуска / paint the badge and switch.
+
+        Свойство ``state`` переключает правила стиля, а ``unpolish``/``polish``
+        заставляют Qt перечитать их: без этого цвет остался бы прежним.
+        The ``state`` property picks the style rules, and unpolish/polish make Qt
+        read them again: otherwise the old colour stays.
+        """
+        for widget in (self.lb_dlx_state, self.b_dlx_start):
+            if widget.property("state") == state:
+                continue
+            widget.setProperty("state", state)
+            widget.style().unpolish(widget)
+            widget.style().polish(widget)
+            widget.update()
+        self.lb_dlx_state.setText(text)
+
+    def _dlx_apply(self, status):
+        """Кнопки и плашка по состоянию сервиса / buttons and badge from the state.
+
+        Пока сервис работает, «Запустить» становится нажатой кнопкой
+        «Запущено»: она же и останавливает. Неработающий сервис показывает
+        «Запустить», а отдельной «Остановить» на экране нет вовсе — останавливать
+        нечего.
+        While the service runs, "Start" turns into a pressed-looking "Running"
+        that also stops it. A stopped service shows "Start" and no separate
+        "Stop" at all: there is nothing to stop.
+        """
+        state = status.get("state") if status else None
+        # Решает состояние, а не живость процесса: у своего сервиса по адресу
+        # процесс не наш, и «жив» он даже когда его никто не запускал.
+        # The state decides, not the process: a service of your own is not our
+        # child process and counts as alive even when nobody started it.
+        running = bool(status) and (state in ("ready", "upstream", "starting")
+                                    or (state not in ("off", "missing", "error")
+                                        and status.get("running")))
+        starting = state == "starting"
+        if running or starting:
+            if state == "upstream":
+                caption = i18n.t("Запущено")
+                tip = i18n.t("Сервис работает, но DeepL отказывает (503) — чаще всего "
+                             "из-за региональной блокировки. Нажмите, чтобы остановить.")
+            elif starting:
+                caption = i18n.t("Запускается…")
+                tip = i18n.t("Сервис поднимается; нажмите, чтобы остановить.")
+            else:
+                caption = i18n.t("Запущено")
+                tip = i18n.t("Сервис работает. Нажмите, чтобы остановить.")
+            self.b_dlx_start.setText(caption)
+            self.b_dlx_start.setToolTip(tip)
+            self.b_dlx_start.setObjectName("dlxRun")
+            self.b_dlx_start.setEnabled(self.dlx is not None)
+            self.b_dlx_stop.setVisible(True)
+        else:
+            self.b_dlx_start.setText(i18n.t("Запустить"))
+            self.b_dlx_start.setToolTip(i18n.t(
+                "Поднять локальный сервис. Пока он не запущен, DeepL не используется."))
+            self.b_dlx_start.setObjectName("")
+            self.b_dlx_start.setEnabled(self.dlx is not None)
+            self.b_dlx_stop.setVisible(False)
+        # objectName участвует в селекторе стиля, поэтому его смена тоже требует
+        # переполировки / objectName is part of the selector, so it needs a repolish
+        self.b_dlx_start.style().unpolish(self.b_dlx_start)
+        self.b_dlx_start.style().polish(self.b_dlx_start)
+        self.b_dlx_start.update()
+        # подсказка у плашки: что происходит, пока сервис не запущен
+        # the badge tooltip explains what a stopped service means
+        self.lb_dlx_state.setToolTip(
+            "" if running else i18n.t(
+                "Пока сервис не запущен, перевод идёт через стандартные сервисы, "
+                "а DeepL не используется."))
+        self._dlx_set_state(state or "off", self._dlx_state_text())
+
     def _dlx_refresh(self):
         """Обновляет подписи страницы по текущему состоянию / refresh the page."""
         if not hasattr(self, "lb_dlx_state"):
             return
-        self.lb_dlx_state.setText(self._dlx_state_text())
+        status = self.dlx.status() if self.dlx is not None else None
+        self._dlx_live_key = self._dlx_status_key(status)
+        self._dlx_apply(status)
         if self.dlx is not None:
             token = self.dlx.token
             self.ed_dlx_token.setText(token[:8] + "…" if token else "")
@@ -2538,6 +2729,28 @@ class SettingsWindow(QDialog):
         for button in (self.b_dlx_start, self.b_dlx_stop, self.b_dlx_install,
                        self.b_dlx_remove, self.b_dlx_check, self.b_dlx_token):
             button.setEnabled(self.dlx is not None)
+
+    @staticmethod
+    def _dlx_status_key(status):
+        """Короткая подпись состояния для сравнения / a short state key."""
+        if not status:
+            return None
+        return (status.get("state"), status.get("port"), status.get("version"),
+                status.get("installed"), status.get("running"))
+
+    def _dlx_live_tick(self):
+        """Раз в секунду: не изменилось ли состояние сервиса / poll the state.
+
+        Пока идёт установка или проверка, опрос молчит: прогресс пишется в ту же
+        плашку, и перерисовка затёрла бы его.
+        The poll stays quiet while an action runs: the progress text goes into
+        the same badge, and a repaint would wipe it.
+        """
+        if self.dlx is None or getattr(self, "_dlx_busy_now", False):
+            return
+        if self._dlx_status_key(self.dlx.status()) == getattr(self, "_dlx_live_key", None):
+            return
+        self._dlx_refresh()
 
     def _dlx_proxy_note(self):
         """Проверяет адрес прокси на вид и подсказывает решение.
@@ -2625,6 +2838,11 @@ class SettingsWindow(QDialog):
         """Блокирует кнопки на время работы / locks the buttons while working."""
         if text:
             self.lb_dlx_state.setText(text)
+        self._dlx_busy_now = bool(busy)
+        if not busy and not text:
+            # работа кончилась: в плашку возвращается настоящее состояние
+            # the work is over: the badge returns to the real state
+            self._dlx_refresh()
         for button in (self.b_dlx_check, self.b_dlx_start, self.b_dlx_stop,
                        self.b_dlx_install, self.b_dlx_remove, self.b_dlx_token,
                        self.b_dlx_proxy_check):
@@ -2674,6 +2892,27 @@ class SettingsWindow(QDialog):
                     % (self.dlx.status().get("reason") or reason
                        or i18n.t("неизвестно")))
         self._dlx_run(self.dlx.ensure, i18n.t("Запускается…"), done)
+
+    def _dlx_toggle(self):
+        """Кнопка «Запустить / Запущено»: пуск или остановка / start or stop.
+
+        Одна кнопка отвечает за оба состояния, поэтому нажатие на «Запущено»
+        останавливает сервис — как выключатель, а не как надпись. Отдельная
+        «Остановить» рядом остаётся для тех, кто ищет именно её, и видна
+        только у работающего сервиса.
+        One button covers both states, so pressing "Running" stops the service —
+        a switch rather than a caption. The separate "Stop" stays for those who
+        look for it and is visible only while the service runs.
+        """
+        if not self._dlx_guard():
+            return
+        status = self.dlx.status()
+        running = bool(status.get("running") or status.get("state") in ("ready", "upstream"))
+        if running or status.get("state") == "starting":
+            self.dlx.stop()
+            self._dlx_refresh()
+        else:
+            self._dlx_start()
 
     def _dlx_stop(self):
         """Остановка сервиса / stop the service."""
@@ -4475,14 +4714,14 @@ class SettingsWindow(QDialog):
                         module.title_en if i18n.is_en() else module.title_ru))
             if view is not None:
                 view.setProperty("moduleOff", not active or other_mode)
-            # Содержимое гаснет целиком — общей полупрозрачностью, а не цветом
-            # каждого вида виджетов: у части подписей свой цвет в styleSheet
-            # (заголовки карточек), и селектор до них не достаёт. Баннер остаётся
-            # непрозрачным: это единственное, что здесь надо прочитать.
-            # The content fades as a whole through one shared opacity rather than
-            # through per-widget colours: some captions carry their own colour in
-            # a styleSheet (card titles), which no selector reaches. The banner
-            # stays fully opaque: it is the one line to read here.
+            # Содержимое гаснет в два приёма: правила [moduleOff="true"] в общей
+            # таблице стилей и перезапись собственных styleSheet (заголовки
+            # карточек, плашка состояния). Баннер не гаснет: это единственное,
+            # что здесь надо прочитать.
+            # The content fades in two steps: the [moduleOff="true"] rules of the
+            # shared stylesheet and a rewrite of the widgets' own stylesheets
+            # (card titles, the state badge). The banner does not fade: it is the
+            # one line to read here.
             self._fade_page(page, view, not active or other_mode)
             # строка в списке разделов тоже гаснет: по одному серому содержимому
             # не всегда ясно, что дело в выключенном модуле, а не в самом разделе
@@ -4505,18 +4744,36 @@ class SettingsWindow(QDialog):
         module back on restores it byte for byte without rebuilding the section.
         """
         for child in (page.findChildren(QWidget) if page is not None else []):
+            if child.objectName() == "moduleOff":
+                continue
             own = child.styleSheet()
+            # Две вещи гасятся по отдельности: собственный стиль виджета и его
+            # цветное состояние (плашка DeepL). Плашка своего styleSheet не
+            # имеет вовсе — цвет ей даёт правило по свойству state.
+            # Two things fade separately: the widget's own stylesheet and its
+            # coloured state (the DeepL badge). The badge has no stylesheet at
+            # all: its colour comes from a rule on the state property.
+            if own and child.property("_dim_css") is None:
+                # исходный стиль запоминаем один раз: дальше в styleSheet лежит
+                # уже серый вариант, и второй проход обесцветил бы его начисто
+                # the original style is remembered once: the stylesheet then holds
+                # the grey variant, and a second pass would wash it out for good
+                child.setProperty("_dim_css", own)
+            saved = child.property("_dim_css")
             if off:
-                if not own or child.objectName() == "moduleOff":
-                    continue
-                if child.property("_dim_css") is None:
-                    child.setProperty("_dim_css", own)
-                child.setStyleSheet(_dimmed_css(own))
+                if saved is not None:
+                    child.setStyleSheet(_dimmed_css(str(saved)))
+                # цветное состояние на погашенном разделе тоже серое: иначе
+                # зелёное «Запущено» светилось бы ярче заголовков
+                # a coloured state goes grey as well, or the green "Running"
+                # would shine brighter than the captions
+                if child.property("state") is not None:
+                    _dim_state(child)
             else:
-                saved = child.property("_dim_css")
                 if saved is not None:
                     child.setStyleSheet(str(saved))
                     child.setProperty("_dim_css", None)
+                _dim_restore_state(child)
         for widget in (page, view, getattr(view, "viewport", lambda: None)()):
             if widget is None:
                 continue

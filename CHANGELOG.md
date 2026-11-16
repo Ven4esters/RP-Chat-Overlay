@@ -5,6 +5,33 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
+## 1.16.3 — 16.11.2026
+
+**Состояние DeepL видно с первого взгляда: цвет, слово и переключатель.**
+
+- **Раздел «Состояние» на странице DeepL переделан.** Раньше состояние было
+  серой строкой в цвет подсказки, и «Работает» с «Остановлен» выглядели
+  одинаково. Теперь это цветная строка с точкой впереди: зелёная — работает,
+  янтарная — работает, но DeepL отвечает 503, красная — ошибка, серая —
+  остановлен или не установлен. Точка нужна для тех, кто плохо различает
+  цвета: состояние читается и по слову.
+- **Кнопка «Запустить» превращается в «Запущено» и подсвечивается зелёным.**
+  Она же и останавливает сервис — как выключатель: нажали «Запущено», сервис
+  встал, кнопка вернулась в «Запустить». Если сервис работает, а DeepL
+  отказывает, кнопка становится янтарной, а строка состояния объясняет почему.
+- **«Остановить» видна только у запущенного сервиса.** Нечего останавливать —
+  нет и кнопки: вместо пяти кнопок в ряд остаются четыре.
+- **Кнопки разделены на две группы.** Слева пара «Запущено / Остановить» —
+  она отвечает на вопрос «работает или нет», за вертикальной чертой справа
+  служебные «Проверить», «Обновить», «Удалить сервис».
+- **Состояние обновляется само, раз в секунду.** Сервис может подняться или
+  упасть без нажатия кнопок — окно это замечает, и «Запущено» не висит после
+  падения. Пока идёт скачивание или проверка, опрос молчит, чтобы не затирать
+  строку прогресса.
+- **Свой сервис по адресу больше не путается с остановленным.** Состояние
+  решает не живость процесса, а ответ сервиса: внешний адрес показывает
+  «Запущено» и без процесса под нашим присмотром.
+
 ## 1.16.2 — 16.11.2026
 
 **Сокращения без «русского» пункта, серый раздел у выключенного модуля, новая формулировка режима.**
@@ -1025,6 +1052,32 @@ English version below: [Changelog (English)](#-changelog-english).
 ---
 
 # 📌 Changelog (English)
+
+## 1.16.3 — 16 Nov 2026
+
+**The DeepL state is visible at a glance: colour, word and a switch.**
+
+- **The "State" block on the DeepL page is rebuilt.** The state used to be a grey
+  line in the hint colour, so "Running" and "Stopped" looked the same. It is now
+  a coloured line with a dot in front: green for running, amber for running while
+  DeepL answers 503, red for an error, grey for stopped or not installed. The dot
+  is there for those who see colours poorly: the word says the same thing.
+- **The "Start" button turns into "Running" and lights up green.** It also stops
+  the service, like a switch: press "Running", the service goes down and the
+  button returns to "Start". While the service runs but DeepL refuses, the button
+  turns amber and the state line explains why.
+- **"Stop" appears only while the service runs.** Nothing to stop, no button:
+  instead of five buttons in a row there are four.
+- **The buttons are split into two groups.** The "Running / Stop" pair sits on the
+  left, because it answers "does it run"; behind a vertical line on the right are
+  the service buttons "Check", "Update" and "Remove the service".
+- **The state refreshes itself once a second.** The service may come up or die
+  without a button press, and the window notices: "Running" no longer stays after
+  a crash. While a download or a check is in progress the poll stays quiet, so the
+  progress line is not overwritten.
+- **A service of your own at your address is no longer mistaken for a stopped
+  one.** The state comes from the service answer rather than from the liveness of
+  a child process: an external address shows "Running" with no process of ours.
 
 ## 1.16.2 — 16 Nov 2026
 

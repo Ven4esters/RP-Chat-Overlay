@@ -162,7 +162,10 @@ RP Chat Overhaul/
 - сервис **неофициальный**: DeepL может ограничить запросы, и тогда перевод
   **сам вернётся** к стандартным сервисам — программа не сломается;
 - выключить можно в любой момент: **Настройки → DeepL**, там же «Остановить»
-  и «Удалить сервис».
+  и «Удалить сервис». Запущен ли сервис, видно сразу: строка состояния
+  подсвечена зелёным («Работает»), янтарным («Работает, но DeepL не отвечает»)
+  или серым («Остановлен»), а кнопка «Запустить» на работающем сервисе
+  становится зелёной «Запущено» — она же и останавливает.
 
 **Что программа делает сама:**
 
@@ -927,7 +930,10 @@ and translates through the DeepL engine.
 - translated text goes **to DeepL servers**, exactly as it now goes to Google;
 - the service is **unofficial**: DeepL may rate-limit it, and translation then
   **falls back** to the regular services on its own — the program keeps working;
-- switch it off any time: **Settings → DeepL**, where you can also stop or remove it.
+- switch it off any time: **Settings → DeepL**, where you can also stop or remove
+  it. Whether it runs is visible at once: the state line is green ("Running"),
+  amber ("Running, but DeepL answers 503") or grey ("Stopped"), and the "Start"
+  button becomes a green "Running" while the service is up — pressing it stops.
 
 **Where the service comes from.** The program downloads a ready-made binary from
 the official releases of the project — `github.com/OwO-Network/DLX` (in July 2026

@@ -453,6 +453,42 @@ STRINGS = {
     "Слова-паразиты текущего языка": "Filler words of the current language",
     "Проверяем обычный режим: в чат уйдёт текст на выбранном языке перевода.":
         "Checking the usual mode: the chat gets text in the chosen translation language.",
+    "Полный: в чат уходит весь текст на языке перевода.\n"
+    "Частичный: переводятся только выделенные +слова и фразы+, "
+    "остальное — как написали.\n"
+    "Обратный: пишете на своём языке, в чат уходит русский текст.":
+        "Full: the whole text reaches the chat in the translation language.\n"
+        "Partial: only the selected +words and phrases+ are translated, the rest "
+        "stays as written.\n"
+        "Reverse: you write in your own language, the chat gets Russian text.",
+    "Проверяем полный режим: в чат уйдёт всё сообщение на языке перевода.":
+        "Checking the full mode: the whole message reaches the chat in the "
+        "translation language.",
+    "Проверяем обычный режим: в чат уйдёт ваш текст, а переведёнными — "
+    "только выделенные слова и фразы.":
+        "Checking the regular mode: your own text reaches the chat, and only the "
+        "selected words and phrases are translated.",
+    "Введите фразу по-русски — увидите, что уйдёт в игру в полном "
+    "режиме: весь текст на языке перевода, без +скобок+.":
+        "Type a Russian phrase to see what reaches the game in full mode: the "
+        "whole text in the translation language, no +brackets+.",
+    "Введите фразу по-русски — увидите, что уйдёт в игру в обычном "
+    "режиме: переводятся только выделенные слова и фразы и паразиты.":
+        "Type a Russian phrase to see what reaches the game in regular mode: "
+        "only the selected words and phrases plus filler words are translated.",
+    "Ctrl+Z — отменить правку в разделе · Ctrl+Y — вернуть":
+        "Ctrl+Z undoes the last edit in the section · Ctrl+Y brings it back",
+    "«%s» нужен только в частичном режиме перевода. "
+    "В других режимах он ничего не делает.":
+        "\"%s\" is only needed in the partial translation mode. In other modes "
+        "it does nothing.",
+    "Модуль «%s» в этом режиме не нужен: он работает только в "
+    "частичном режиме. Переключите режим на странице «Основные» — "
+    "настройки вернутся.":
+        "The \"%s\" module is not needed in this mode: it only works in the "
+        "partial mode. Switch the mode on the General page and the settings "
+        "come back.",
+    "Включает и выключает модуль.": "Switches the module on and off.",
     "Проверяем режим для иностранного игрока: в чат уйдёт перевод на русский.":
         "Checking the foreign player mode: the chat gets the Russian translation.",
     "перевожу…": "translating…",
@@ -538,6 +574,23 @@ STRINGS = {
     "Сервис отвечает нормально.": "The service answers normally.",
     "Сервис не отвечает. Нажмите «Запустить» или «Установить».":
         "The service does not answer. Press Start or Install.",
+    "Запущено": "Running",
+    "Запущено · порт %d": "Running · port %d",
+    "Запущено · DeepL не отвечает": "Running · DeepL answers 503",
+    "Сервис работает. Нажмите, чтобы остановить.":
+        "The service is running. Press to stop it.",
+    "Сервис поднимается; нажмите, чтобы остановить.":
+        "The service is starting; press to stop it.",
+    "Сервис работает, но DeepL отказывает (503) — чаще всего "
+    "из-за региональной блокировки. Нажмите, чтобы остановить.":
+        "The service runs, but DeepL answers 503 — most often "
+        "because of a regional block. Press to stop it.",
+    "Поднять локальный сервис. Пока он не запущен, DeepL не используется.":
+        "Start the local service. Until it runs, DeepL is not used.",
+    "Пока сервис не запущен, перевод идёт через стандартные сервисы, "
+    "а DeepL не используется.":
+        "While the service is stopped, translation goes through the regular "
+        "services and DeepL is not used.",
     "Запустить не удалось: %s": "Could not start: %s",
     "неизвестно": "unknown",
     "Установка сервиса": "Installing the service",
@@ -837,7 +890,7 @@ STRINGS = {
         "highlighted, and a blue line shows where it will land. The table order "
         "is for convenience: in the game animations play in the order of the "
         "words in the message.",
-    "ПКМ по строке — «Свойства анимации…»: там задаются варианты, если "
+    "ПКМ по строке — «Варианты и свойства…»: там задаются варианты, если "
     "одному ключу подходят несколько анимаций. Например, ключ «оперся "
     "руками» с вариантами anim_counterleanbar и anim_leanrail: в игре "
     "откроется оверлей выбора с названием и описанием каждого. Один "
