@@ -5,6 +5,26 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
+## 1.16.4 — 16.11.2026
+
+**DeepL включается тумблером, кнопки «Остановить» больше нет.**
+
+- **Тумблер вместо пары кнопок.** Слева в блоке «Состояние» стоит тумблер, а
+  рядом надпись, которая называет состояние: «Запущено» зелёным или
+  «Остановлено» серым. Нажали — бегунок проезжает в другую сторону, надпись
+  меняет слово и цвет. Нажали ещё раз — всё возвращается.
+- **«Остановить» убрана.** У выключателя два положения, и третьей кнопки для
+  того же действия не нужно. Тумблер и надпись делают одно и то же: и тот, и
+  другая — кнопка, поэтому промахнуться мимо маленького бегунка нельзя.
+- **Тумблер рисуется программой, а не берётся из системных элементов.** Значит,
+  он одинаково выглядит на Windows 10, Windows 11 и в любой теме, а не как
+  галочка из списка.
+- **Положение тумблера всегда правдиво.** Сервис поднялся или упал сам — бегунок
+  переезжает без нажатия, но от этого переезда ничего не запускается и не
+  останавливается. Пока идёт скачивание или проверка, тумблер неактивен.
+- **На погашенном разделе тумблер серый и не нажимается**, как и остальные
+  настройки выключенного модуля.
+
 ## 1.16.3 — 16.11.2026
 
 **Состояние DeepL видно с первого взгляда: цвет, слово и переключатель.**
@@ -1052,6 +1072,26 @@ English version below: [Changelog (English)](#-changelog-english).
 ---
 
 # 📌 Changelog (English)
+
+## 1.16.4 — 16 Nov 2026
+
+**DeepL is turned on with a switch; the "Stop" button is gone.**
+
+- **A switch instead of a button pair.** The "State" block now has a switch on the
+  left and a caption beside it naming the state: "Running" in green or "Stopped"
+  in grey. Press it and the knob slides over, the caption changes both word and
+  colour. Press again and everything goes back.
+- **"Stop" is removed.** A switch has two positions, and a third button for the
+  same action is not needed. The switch and the caption do the same thing — both
+  are clickable, so the small knob cannot be missed.
+- **The switch is drawn by the program, not taken from system widgets.** It looks
+  the same on Windows 10, Windows 11 and in any theme, instead of resembling a
+  checkbox from a list.
+- **The knob position is always truthful.** If the service comes up or dies on
+  its own, the knob moves without a press, and that move starts or stops nothing.
+  While a download or a check runs, the switch is inactive.
+- **On a dimmed section the switch is grey and does not react**, like the rest of a
+  disabled module's settings.
 
 ## 1.16.3 — 16 Nov 2026
 

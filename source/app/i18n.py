@@ -575,6 +575,13 @@ STRINGS = {
     "Сервис не отвечает. Нажмите «Запустить» или «Установить».":
         "The service does not answer. Press Start or Install.",
     "Запущено": "Running",
+    "Остановлено": "Stopped",
+    "Включить или выключить локальный сервис DeepL":
+        "Turn the local DeepL service on or off",
+    "Сервис работает. Выключите тумблер, чтобы остановить.":
+        "The service is running. Turn the switch off to stop it.",
+    "Сервис поднимается; тумблер остановит его.":
+        "The service is starting; the switch will stop it.",
     "Запущено · порт %d": "Running · port %d",
     "Запущено · DeepL не отвечает": "Running · DeepL answers 503",
     "Сервис работает. Нажмите, чтобы остановить.":
@@ -582,11 +589,12 @@ STRINGS = {
     "Сервис поднимается; нажмите, чтобы остановить.":
         "The service is starting; press to stop it.",
     "Сервис работает, но DeepL отказывает (503) — чаще всего "
-    "из-за региональной блокировки. Нажмите, чтобы остановить.":
-        "The service runs, but DeepL answers 503 — most often "
-        "because of a regional block. Press to stop it.",
+    "из-за региональной блокировки. Выключите тумблер, чтобы остановить.":
+        "The service runs, but DeepL answers 503 — most often because of a "
+        "regional block. Turn the switch off to stop it.",
     "Поднять локальный сервис. Пока он не запущен, DeepL не используется.":
         "Start the local service. Until it runs, DeepL is not used.",
+    "Сервис DeepL": "DeepL service",
     "Пока сервис не запущен, перевод идёт через стандартные сервисы, "
     "а DeepL не используется.":
         "While the service is stopped, translation goes through the regular "

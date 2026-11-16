@@ -164,8 +164,8 @@ RP Chat Overhaul/
 - выключить можно в любой момент: **Настройки → DeepL**, там же «Остановить»
   и «Удалить сервис». Запущен ли сервис, видно сразу: строка состояния
   подсвечена зелёным («Работает»), янтарным («Работает, но DeepL не отвечает»)
-  или серым («Остановлен»), а кнопка «Запустить» на работающем сервисе
-  становится зелёной «Запущено» — она же и останавливает.
+  или серым («Остановлен»), а рядом стоит тумблер: включён — «Запущено»
+  зелёным, выключен — «Остановлено» серым. Одно нажатие включает и выключает.
 
 **Что программа делает сама:**
 
@@ -932,8 +932,9 @@ and translates through the DeepL engine.
   **falls back** to the regular services on its own — the program keeps working;
 - switch it off any time: **Settings → DeepL**, where you can also stop or remove
   it. Whether it runs is visible at once: the state line is green ("Running"),
-  amber ("Running, but DeepL answers 503") or grey ("Stopped"), and the "Start"
-  button becomes a green "Running" while the service is up — pressing it stops.
+  amber ("Running, but DeepL answers 503") or grey ("Stopped"), and a switch sits
+  beside it: on means a green "Running", off means a grey "Stopped". One press
+  turns the service on or off.
 
 **Where the service comes from.** The program downloads a ready-made binary from
 the official releases of the project — `github.com/OwO-Network/DLX` (in July 2026

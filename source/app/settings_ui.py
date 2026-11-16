@@ -24,12 +24,13 @@ import threading
 import time
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QPoint, QRect, Qt, QTimer, Signal
+from PySide6.QtCore import (QEasingCurve, QObject, QPoint, QRect, QRectF, QSize, Qt,
+                            QTimer, QVariantAnimation, Signal)
 from PySide6.QtGui import (QColor, QDrag, QGuiApplication, QKeySequence, QPainter,
                            QPixmap, QPolygon)
 import urllib.parse
 
-from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox,
+from PySide6.QtWidgets import (QAbstractButton, QAbstractItemView, QCheckBox, QComboBox,
                                QDialog, QFileDialog, QFormLayout, QFrame, QHBoxLayout,
                                QHeaderView, QInputDialog, QLabel, QLineEdit,
                                QListWidget,
@@ -154,27 +155,28 @@ QLabel#dlxState[state="upstream"] { color: #ffd06b; }
 QLabel#dlxState[state="starting"] { color: #a9c4ff; }
 QLabel#dlxState[state="off"], QLabel#dlxState[state="missing"] { color: #9a9aa6; }
 QLabel#dlxState[state="error"] { color: #ff9c9c; }
-/* погашенный раздел: плашка и переключатель теряют цвет вместе с содержимым
-   a dimmed section: the badge and the switch lose their colour with the rest */
-QWidget#page[moduleOff="true"] QLabel#dlxState { color: #6b6b79; }
-QWidget#page[moduleOff="true"] QPushButton#dlxRun {
-    background: #191920; border: 1px solid #2b2b36; color: #6b6b79; }
-/* Кнопка «Запущено»: то же состояние, но нажимается — это переключатель.
-   The "Running" button shows the same state, yet it is clickable: a switch. */
-QPushButton#dlxRun { background: #1c4a35; border: 1px solid #2e7d55; color: #8bf5bb;
-                     font-weight: 600; }
-QPushButton#dlxRun:hover { background: #235a41; border: 1px solid #3d9a6b; }
-QPushButton#dlxRun:pressed { background: #173d2b; border: 1px solid #2e7d55; }
-QPushButton#dlxRun:focus { border: 1px solid #4fbf8a; }
-QPushButton#dlxRun[state="upstream"] { background: #38300f; border: 1px solid #7a5c1f;
-                                       color: #ffd06b; }
-QPushButton#dlxRun[state="upstream"]:hover { background: #453b13; border: 1px solid #9a7527; }
-QPushButton#dlxRun[state="starting"] { background: #1d2740; border: 1px solid #35507e;
-                                       color: #a9c4ff; }
-QPushButton#dlxRun[state="error"] { background: #38181c; border: 1px solid #7a3a42;
-                                    color: #ff9c9c; }
-/* вертикальная черта между пуском/остановкой и служебными кнопками
-   the vertical line between start/stop and the service buttons */
+/* Надпись у тумблера: называет то же состояние, что и бегунок, и красится
+   вместе с ним. Плоская кнопка — чтобы её можно было нажать, но она не
+   выглядела второй кнопкой рядом с тумблером.
+   The switch caption names the same state as the knob and takes its colour.
+   It is a flat button: clickable, yet it does not look like a second button. */
+QPushButton#dlxSwitch { background: transparent; border: none; padding: 2px 2px;
+                        font-weight: 600; min-height: 18px; }
+QPushButton#dlxSwitch[state="ready"] { color: #7ff0b0; }
+QPushButton#dlxSwitch[state="upstream"] { color: #ffd06b; }
+QPushButton#dlxSwitch[state="starting"] { color: #a9c4ff; }
+QPushButton#dlxSwitch[state="off"], QPushButton#dlxSwitch[state="missing"] {
+    color: #9a9aa6; }
+QPushButton#dlxSwitch[state="error"] { color: #ff9c9c; }
+QPushButton#dlxSwitch:hover { color: #ffffff; }
+QPushButton#dlxSwitch:disabled { color: #6b6b79; }
+/* погашенный раздел: плашка, тумблер и надпись теряют цвет вместе с остальным
+   a dimmed section: badge, switch and caption lose their colour with the rest */
+QWidget#page[moduleOff="true"] QLabel#dlxState,
+QWidget#page[moduleOff="true"] QPushButton#dlxSwitch {
+    background: transparent; border: none; color: #6b6b79; }
+/* вертикальная черта между тумблером и служебными кнопками
+   the vertical line between the switch and the service buttons */
 QFrame#vsep { background: #2e2e3a; max-width: 1px; border: none; }
 QListWidget#nav { background: #17171e; border: none; border-right: 1px solid #26262f;
                   padding: 8px 6px; outline: 0; }
@@ -483,6 +485,119 @@ def _dim_restore_state(widget):
     widget.style().unpolish(widget)
     widget.style().polish(widget)
     widget.update()
+
+
+class ToggleSwitch(QAbstractButton):
+    """Тумблер: дорожка и бегунок, состояние — «включён / выключен».
+
+    A switch: a track and a knob; the state is on or off.
+
+    Зачем свой, а не QCheckBox: у галочки два вида, и на тёмной теме она читается
+    как «пункт списка», а не как выключатель сервиса. Тумблер рисуется сам —
+    значит, его вид не зависит от стиля Windows и одинаков на всех системах.
+    A switch is drawn here rather than taken from QCheckBox: a checkbox reads as a
+    list item on a dark theme, not as a service switch. Drawing it by hand also
+    keeps the look the same on every system instead of following the Windows
+    style.
+    """
+
+    WIDTH = 46                     # ширина дорожки / the track width
+    HEIGHT = 24                    # высота дорожки / the track height
+    KNOB = 18                      # диаметр бегунка / the knob diameter
+    ON_COLOR = QColor("#2e7d55")   # зелёная дорожка: включено / on
+    ON_EDGE = QColor("#3d9a6b")
+    OFF_COLOR = QColor("#2b2b36")  # серая дорожка: выключено / off
+    OFF_EDGE = QColor("#3c3c4a")
+    KNOB_COLOR = QColor("#eef6f1")
+    KNOB_DIM = QColor("#9a9aa6")
+    DISABLED_COLOR = QColor("#20202a")
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setCheckable(True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        self.setFixedSize(self.WIDTH, self.HEIGHT)
+        self._pos = 0.0            # 0 — выключен, 1 — включён / 0 off, 1 on
+        self._anim = QVariantAnimation(self)
+        self._anim.setDuration(140)
+        self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._anim.valueChanged.connect(self._animate_to)
+        self.toggled.connect(self._slide)
+
+    def sizeHint(self):
+        return QSize(self.WIDTH, self.HEIGHT)
+
+    def _slide(self, on):
+        """Плавно сдвинуть бегунок / slide the knob to the new side."""
+        start = float(self._pos)
+        end = 1.0 if on else 0.0
+        self._anim.stop()
+        self._anim.setStartValue(start)
+        self._anim.setEndValue(end)
+        self._anim.start()
+
+    def _animate_to(self, value):
+        self._pos = float(value)
+        self.update()
+
+    def set_on(self, on, animate=False):
+        """Поставить состояние без сигнала / set the state without a signal.
+
+        Нужно, когда состояние пришло извне (сервис упал или поднялся сам):
+        переключать тумблер и запускать от этого остановку нельзя.
+        It is used when the state comes from outside (the service died or came up
+        on its own): the switch must follow without starting a stop.
+        """
+        on = bool(on)
+        if self.isChecked() != on:
+            self.blockSignals(True)
+            self.setChecked(on)
+            self.blockSignals(False)
+            if animate:
+                self._slide(on)
+            else:
+                self._pos = 1.0 if on else 0.0
+                self.update()
+
+    def paintEvent(self, event):          # noqa: N802 — имя из Qt / a Qt name
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        rect = QRectF(0.5, 0.5, self.WIDTH - 1, self.HEIGHT - 1)
+        radius = rect.height() / 2
+        enabled = self.isEnabled()
+        on = self._pos > 0.5
+        if not enabled:
+            track = self.DISABLED_COLOR
+            edge = self.OFF_EDGE
+        elif on:
+            track = self.ON_COLOR
+            edge = self.ON_EDGE
+        else:
+            track = self.OFF_COLOR
+            edge = self.OFF_EDGE
+        painter.setPen(edge)
+        painter.setBrush(track)
+        painter.drawRoundedRect(rect, radius, radius)
+        # бегунок едет между краями по значению анимации
+        # the knob travels between the edges with the animation value
+        margin = (self.HEIGHT - self.KNOB) / 2
+        left = margin
+        right = self.WIDTH - margin - self.KNOB
+        x = left + (right - left) * self._pos
+        knob = QRectF(x, margin, self.KNOB, self.KNOB)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(self.KNOB_COLOR if enabled else self.KNOB_DIM)
+        painter.drawEllipse(knob)
+        if self.hasFocus():
+            # рамка фокуса — снаружи дорожки, чтобы бегунок её не перекрывал
+            # the focus ring sits outside the track so the knob cannot hide it
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.setPen(QColor("#7ea6ff"))
+            painter.drawRoundedRect(
+                QRectF(-2.5, -2.5, self.WIDTH + 4, self.HEIGHT + 4),
+                radius + 2, radius + 2)
+        painter.end()
 
 
 def _hint(text):
@@ -2434,23 +2549,26 @@ class SettingsWindow(QDialog):
         self.lb_dlx_state.setSizePolicy(QSizePolicy.Policy.Preferred,
                                         QSizePolicy.Policy.Minimum)
         cl.addWidget(self.lb_dlx_state)
+        # Тумблер с надписью вместо пары кнопок: положение бегунка и слово
+        # отвечают на один вопрос — работает сервис или нет. Слева тумблер,
+        # справа служебное: проверить, обновить, удалить.
+        # A switch with a caption replaces the button pair: the knob position and
+        # the word answer one question — does the service run. The switch sits on
+        # the left; the service buttons on the right are housekeeping.
         row = QHBoxLayout()
-        row.setSpacing(8)
-        # Пуск и остановка — отдельной парой слева: это про «работает или нет»,
-        # а справа служебное: проверить, обновить, удалить.
-        # Start and stop stand apart on the left, because they answer "does it
-        # run"; the service buttons on the right are housekeeping.
-        self.b_dlx_start = QPushButton("Запустить")
+        row.setSpacing(10)
+        self.sw_dlx = ToggleSwitch()
+        self.sw_dlx.setToolTip("Включить или выключить локальный сервис DeepL")
+        self.sw_dlx.setAccessibleName("Сервис DeepL")
+        self.sw_dlx.clicked.connect(self._dlx_toggle)
+        self.b_dlx_start = QPushButton("Остановлено")
+        self.b_dlx_start.setObjectName("dlxSwitch")
         self.b_dlx_start.setProperty("no_i18n", True)   # текст меняется в коде
+        self.b_dlx_start.setFlat(True)
+        self.b_dlx_start.setCursor(Qt.CursorShape.PointingHandCursor)
         self.b_dlx_start.clicked.connect(self._dlx_toggle)
-        # у «Остановить» подпись постоянная — её переводит общая таблица, а у
-        # «Запустить» текст собирается в коде, поэтому переводить его там нечего
-        # "Stop" keeps a fixed caption translated by the shared table, while
-        # "Start" is built in code, so the table must leave it alone
-        self.b_dlx_stop = QPushButton("Остановить")
-        self.b_dlx_stop.clicked.connect(self._dlx_stop)
+        row.addWidget(self.sw_dlx)
         row.addWidget(self.b_dlx_start)
-        row.addWidget(self.b_dlx_stop)
         line = QFrame()
         line.setObjectName("vsep")
         line.setFrameShape(QFrame.Shape.VLine)
@@ -2470,8 +2588,7 @@ class SettingsWindow(QDialog):
             button.setAutoDefault(False)
             row.addWidget(button)
         row.addStretch(1)
-        for button in (self.b_dlx_start, self.b_dlx_stop):
-            button.setAutoDefault(False)
+        self.b_dlx_start.setAutoDefault(False)
         cl.addLayout(row)
         self.lb_dlx_path = _hint("")
         self.lb_dlx_path.setProperty("no_i18n", True)
@@ -2601,6 +2718,7 @@ class SettingsWindow(QDialog):
         # The poll is cheap: it reads a few fields under one lock.
         self._dlx_live_key = None
         self._dlx_busy_now = False
+        self._dlx_was_applied = False      # первый проход без анимации / no animation first
         self._dlx_live = QTimer(self)
         self._dlx_live.setInterval(1000)
         self._dlx_live.timeout.connect(self._dlx_live_tick)
@@ -2641,7 +2759,7 @@ class SettingsWindow(QDialog):
         return text
 
     def _dlx_set_state(self, state, text):
-        """Красит плашку состояния и переключатель пуска / paint the badge and switch.
+        """Красит плашку состояния и надпись у тумблера / paint badge and caption.
 
         Свойство ``state`` переключает правила стиля, а ``unpolish``/``polish``
         заставляют Qt перечитать их: без этого цвет остался бы прежним.
@@ -2658,15 +2776,16 @@ class SettingsWindow(QDialog):
         self.lb_dlx_state.setText(text)
 
     def _dlx_apply(self, status):
-        """Кнопки и плашка по состоянию сервиса / buttons and badge from the state.
+        """Тумблер, надпись и плашка по состоянию сервиса.
 
-        Пока сервис работает, «Запустить» становится нажатой кнопкой
-        «Запущено»: она же и останавливает. Неработающий сервис показывает
-        «Запустить», а отдельной «Остановить» на экране нет вовсе — останавливать
-        нечего.
-        While the service runs, "Start" turns into a pressed-looking "Running"
-        that also stops it. A stopped service shows "Start" and no separate
-        "Stop" at all: there is nothing to stop.
+        The switch, its caption and the badge, taken from the service state.
+
+        Тумблер — единственное место, где сервис включают и выключают: он стоит
+        в правом положении, пока сервис работает, и в левом, когда нет. Надпись
+        рядом называет то же состояние словом и меняет цвет вместе с ним.
+        The switch is the only place the service is turned on and off: it sits on
+        the right while the service runs and on the left when it does not. The
+        caption names the same state in words and changes colour with it.
         """
         state = status.get("state") if status else None
         # Решает состояние, а не живость процесса: у своего сервиса по адресу
@@ -2676,35 +2795,35 @@ class SettingsWindow(QDialog):
         running = bool(status) and (state in ("ready", "upstream", "starting")
                                     or (state not in ("off", "missing", "error")
                                         and status.get("running")))
-        starting = state == "starting"
-        if running or starting:
-            if state == "upstream":
-                caption = i18n.t("Запущено")
-                tip = i18n.t("Сервис работает, но DeepL отказывает (503) — чаще всего "
-                             "из-за региональной блокировки. Нажмите, чтобы остановить.")
-            elif starting:
-                caption = i18n.t("Запускается…")
-                tip = i18n.t("Сервис поднимается; нажмите, чтобы остановить.")
-            else:
-                caption = i18n.t("Запущено")
-                tip = i18n.t("Сервис работает. Нажмите, чтобы остановить.")
-            self.b_dlx_start.setText(caption)
-            self.b_dlx_start.setToolTip(tip)
-            self.b_dlx_start.setObjectName("dlxRun")
-            self.b_dlx_start.setEnabled(self.dlx is not None)
-            self.b_dlx_stop.setVisible(True)
+        if state == "upstream":
+            caption = i18n.t("Запущено")
+            tip = i18n.t("Сервис работает, но DeepL отказывает (503) — чаще всего "
+                         "из-за региональной блокировки. Выключите тумблер, чтобы "
+                         "остановить.")
+        elif state == "starting":
+            caption = i18n.t("Запускается…")
+            tip = i18n.t("Сервис поднимается; тумблер остановит его.")
+        elif running:
+            caption = i18n.t("Запущено")
+            tip = i18n.t("Сервис работает. Выключите тумблер, чтобы остановить.")
         else:
-            self.b_dlx_start.setText(i18n.t("Запустить"))
-            self.b_dlx_start.setToolTip(i18n.t(
-                "Поднять локальный сервис. Пока он не запущен, DeepL не используется."))
-            self.b_dlx_start.setObjectName("")
-            self.b_dlx_start.setEnabled(self.dlx is not None)
-            self.b_dlx_stop.setVisible(False)
-        # objectName участвует в селекторе стиля, поэтому его смена тоже требует
-        # переполировки / objectName is part of the selector, so it needs a repolish
-        self.b_dlx_start.style().unpolish(self.b_dlx_start)
-        self.b_dlx_start.style().polish(self.b_dlx_start)
-        self.b_dlx_start.update()
+            caption = i18n.t("Остановлено")
+            tip = i18n.t("Поднять локальный сервис. Пока он не запущен, DeepL "
+                         "не используется.")
+        switch = self.sw_dlx
+        # первый показ — без анимации: окно ещё не на экране, и бегунок не
+        # должен проезжать вхолостую при каждом открытии настроек
+        # the first paint is not animated: the window is not on screen yet, and
+        # the knob should not slide on its own every time the settings open
+        switch.set_on(running, animate=self._dlx_was_applied)
+        self._dlx_was_applied = True
+        enabled = self.dlx is not None and not self._dlx_page_dimmed()
+        switch.setEnabled(enabled and not self._dlx_busy_now)
+        switch.setToolTip(tip)
+        switch.setAccessibleDescription(caption)
+        self.b_dlx_start.setText(caption)
+        self.b_dlx_start.setToolTip(tip)
+        self.b_dlx_start.setEnabled(enabled and not self._dlx_busy_now)
         # подсказка у плашки: что происходит, пока сервис не запущен
         # the badge tooltip explains what a stopped service means
         self.lb_dlx_state.setToolTip(
@@ -2712,6 +2831,17 @@ class SettingsWindow(QDialog):
                 "Пока сервис не запущен, перевод идёт через стандартные сервисы, "
                 "а DeepL не используется."))
         self._dlx_set_state(state or "off", self._dlx_state_text())
+
+    def _dlx_page_dimmed(self):
+        """Погашен ли раздел / is the page dimmed right now?
+
+        На погашенном разделе тумблер обязан остаться неактивным: иначе
+        обновление состояния тихо вернуло бы ему нажимаемость.
+        On a dimmed page the switch must stay inactive, or a state refresh would
+        quietly make it clickable again.
+        """
+        page = getattr(self, "page_dlx", None)
+        return bool(page is not None and page.property("moduleOff"))
 
     def _dlx_refresh(self):
         """Обновляет подписи страницы по текущему состоянию / refresh the page."""
@@ -2726,8 +2856,8 @@ class SettingsWindow(QDialog):
             self.lb_dlx_path.setText(i18n.tf("Файлы сервиса: %s", str(self.dlx.dir)))
             self.b_dlx_install.setText(i18n.t("Обновить") if self.dlx.installed()
                                        else i18n.t("Установить"))
-        for button in (self.b_dlx_start, self.b_dlx_stop, self.b_dlx_install,
-                       self.b_dlx_remove, self.b_dlx_check, self.b_dlx_token):
+        for button in (self.b_dlx_install, self.b_dlx_remove, self.b_dlx_check,
+                       self.b_dlx_token):
             button.setEnabled(self.dlx is not None)
 
     @staticmethod
@@ -2839,14 +2969,20 @@ class SettingsWindow(QDialog):
         if text:
             self.lb_dlx_state.setText(text)
         self._dlx_busy_now = bool(busy)
+        for button in (self.b_dlx_check, self.b_dlx_install, self.b_dlx_remove,
+                       self.b_dlx_token, self.b_dlx_proxy_check):
+            button.setEnabled(not busy)
+        # тумблер на время работы не двигается: пуск и остановка идут в фоне,
+        # и второе нажатие поверх первого только спутало бы состояние
+        # the switch does not move while an action runs: start and stop go to a
+        # thread, and a second press would only muddle the state
+        free = not busy and self.dlx is not None and not self._dlx_page_dimmed()
+        self.sw_dlx.setEnabled(free)
+        self.b_dlx_start.setEnabled(free)
         if not busy and not text:
             # работа кончилась: в плашку возвращается настоящее состояние
             # the work is over: the badge returns to the real state
             self._dlx_refresh()
-        for button in (self.b_dlx_check, self.b_dlx_start, self.b_dlx_stop,
-                       self.b_dlx_install, self.b_dlx_remove, self.b_dlx_token,
-                       self.b_dlx_proxy_check):
-            button.setEnabled(not busy)
         if busy:
             self._dlx_progress = text
             self._dlx_timer.start()
@@ -2907,19 +3043,13 @@ class SettingsWindow(QDialog):
         if not self._dlx_guard():
             return
         status = self.dlx.status()
-        running = bool(status.get("running") or status.get("state") in ("ready", "upstream"))
-        if running or status.get("state") == "starting":
+        state = status.get("state")
+        running = state in ("ready", "upstream", "starting") or bool(status.get("running"))
+        if running:
             self.dlx.stop()
             self._dlx_refresh()
         else:
             self._dlx_start()
-
-    def _dlx_stop(self):
-        """Остановка сервиса / stop the service."""
-        if not self._dlx_guard():
-            return
-        self.dlx.stop()
-        self._dlx_refresh()
 
     def _dlx_install(self):
         """Скачивание и установка сервиса / download and install the service."""
