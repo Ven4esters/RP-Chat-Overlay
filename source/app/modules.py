@@ -42,6 +42,9 @@ class Module:
     default      состояние при первом запуске / state on the first run
     requires     модули, без которых этот не работает / hard dependencies
     settings_page  раздел настроек, где включается, или None для своего флажка
+                   the settings section where it is switched on, or None
+    page_key       имя страницы настроек для блокировки, когда модуль выключен
+                   the settings page name to dim when the module is off
     """
 
     key: str
@@ -53,6 +56,7 @@ class Module:
     default: bool = True
     requires: tuple[str, ...] = ()
     settings_page: int | None = None
+    page_key: str = ""
 
 
 # Порядок в таблице = порядок в окне настроек.
@@ -67,6 +71,7 @@ MODULES: Final[tuple[Module, ...]] = (
         desc_en="The chain of Google, MyMemory, Lingva and LibreTranslate. "
                 "Without it only the built-in glossaries work.",
         config_key="translator_enabled",
+        page_key="page_test",
     ),
     Module(
         key="glossary",
@@ -77,6 +82,7 @@ MODULES: Final[tuple[Module, ...]] = (
         desc_en="Ready-made phrases with a Russian reading and meanings. Without it "
                 "phrases are translated by the services, with no reading hint.",
         config_key="glossary_enabled",
+        page_key="page_glossary",
     ),
     Module(
         key="slang",
@@ -86,7 +92,8 @@ MODULES: Final[tuple[Module, ...]] = (
         desc_en="brb, afk, gg and their Russian counterparts are expanded into "
                 "full phrases before translation.",
         config_key="slang",
-        settings_page=0,
+        settings_page=4,
+        page_key="page_slang",
     ),
     Module(
         key="autotranslate",
@@ -98,6 +105,7 @@ MODULES: Final[tuple[Module, ...]] = (
         config_key="auto_mode",
         requires=("translator",),
         settings_page=1,
+        page_key="page_auto",
     ),
     Module(
         key="game_send",
@@ -109,6 +117,7 @@ MODULES: Final[tuple[Module, ...]] = (
                 "When off, the text is only copied to the clipboard.",
         config_key="game_send",
         settings_page=2,
+        page_key="page_game",
     ),
     Module(
         key="dlx",
@@ -122,6 +131,7 @@ MODULES: Final[tuple[Module, ...]] = (
         default=False,
         requires=("translator",),
         settings_page=6,
+        page_key="page_dlx",
     ),
     Module(
         key="anims",
@@ -135,6 +145,7 @@ MODULES: Final[tuple[Module, ...]] = (
         default=False,
         requires=("game_send",),
         settings_page=7,
+        page_key="page_anims",
     ),
     Module(
         key="hotkey",
@@ -191,6 +202,26 @@ def apply_defaults(cfg: dict[str, Any]) -> dict[str, Any]:
     for module in MODULES:
         cfg.setdefault(module.config_key, module.default)
     return cfg
+
+
+def blockers(cfg: Mapping[str, Any], key: str) -> list[str]:
+    """Какие выключенные родители мешают включить модуль / disabled parents.
+
+    Пустой список — модуль можно включать: он либо не зависит ни от чего, либо
+    всё, что ему нужно, уже включено. Нужен, чтобы предложить включить родителя,
+    а не просто погасить флажок.
+    An empty list means the module may be switched on: it depends on nothing, or
+    everything it needs is already on. This is what makes it possible to offer to
+    switch the parent on instead of just dimming the checkbox.
+    """
+    module = BY_KEY.get(key)
+    if module is None:
+        return []
+    out: list[str] = []
+    for dep in module.requires:
+        if not is_enabled(cfg, dep):
+            out.append(dep)
+    return out
 
 
 def summary(cfg: Mapping[str, Any]) -> str:

@@ -868,6 +868,14 @@ STRINGS = {
         "two or more variants the game opens a chooser, and the player sees the "
         "title and description instead of the command name. One variant is an "
         "ordinary rule and plays at once.",
+    "Токен программы": "Programme token",
+    "Нужен ещё один модуль": "One more module is needed",
+    "«%s» не работает без модуля: %s.\n\nВключить его?":
+        "“%s” does not work without the module: %s.\n\nSwitch it on?",
+    "Модуль «%s» выключен — настройки раздела недоступны. Включите его здесь "
+    "или в разделе «Модули».":
+        "The “%s” module is off — the settings here are unavailable. Switch it on "
+        "here or in the Modules section.",
     "Группа": "Group",
     "Группа…": "Group…",
     "Группа вариантов": "Variant group",

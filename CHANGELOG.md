@@ -5,6 +5,29 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
+## 1.12.0 — 15.11.2026
+
+**Этап 1: модули, блокировка разделов, токен DeepL Pro.**
+
+### Модули
+- **Чек-боксы на странице «Модули» теперь рабочие у всех модулей.** Раньше у
+  шести из восьми стояла блокировка «включается на своей странице», и выглядело
+  это как неработающие флажки. Теперь это один флажок в двух местах: страница
+  модуля остаётся главной, а флажок в «Модулях» её повторяет и сам обновляет.
+- **Выключенный модуль больше не прячет свой раздел, а гасит его.** Раздел
+  остаётся в меню слева, настройки в нём видны, но недоступны, а сверху
+  появляется подсказка: модуль выключен, включить можно здесь или в «Модулях».
+  Прятать раздел было бы хуже: игрок решил бы, что настройки пропали.
+- **Попытка включить модуль без родителя предлагает включить родителя.** С
+  прямым текстом, что без него модуль не работает. Отказ возвращает флажок
+  на место — раньше галочка оставалась стоять, хотя ничего не включилось.
+
+### DeepL
+- **Токен DeepL Pro переехал в «Доступ к сервису»**, к остальным токенам: это
+  доступ к сервису, а не настройка прокси.
+- Поле локального токена переименовано в **«Токен программы»**, чтобы два
+  разных токена рядом не путались.
+
 ## 1.11.1 — 15.11.2026
 
 **Ревизия кода: утечки, мёртвый код, производительность, PEP 8.**
@@ -813,6 +836,29 @@ English version below: [Changelog (English)](#-changelog-english).
 ---
 
 # 📌 Changelog (English)
+
+## 1.12.0 — 15 Nov 2026
+
+**Stage 1: modules, section locking, the DeepL Pro token.**
+
+### Modules
+- **The checkboxes on the Modules page now work for every module.** Six of the
+  eight used to be locked with "switched on its own page", which looked like
+  broken checkboxes. It is now one flag in two places: the module page stays
+  primary, and the Modules checkbox mirrors it and updates it in turn.
+- **A disabled module no longer hides its section; it dims it.** The section stays
+  in the left menu, its settings are visible but inactive, and a hint on top says
+  the module is off and can be switched on here or in Modules. Hiding the section
+  would be worse: the player would think the settings are gone.
+- **Switching a module on without its parent offers to switch the parent on**, and
+  says plainly that the module does not work without it. Refusing puts the
+  checkbox back — the tick used to stay on while nothing was enabled.
+
+### DeepL
+- **The DeepL Pro token moved into "Service access"**, next to the other tokens: it
+  belongs to service access, not to the proxy settings.
+- The local token field is renamed to **"Programme token"** so that two different
+  tokens side by side are not confused.
 
 ## 1.11.1 — 15 Nov 2026
 

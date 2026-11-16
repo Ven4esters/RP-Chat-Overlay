@@ -715,6 +715,7 @@ class SettingsWindow(QDialog):
             if attr == "page_anims":
                 self._anims_row = page_index
             page = maker()
+            self._add_module_banner(page, attr)
             setattr(self, attr, page)
             view = _scroll_page(page)
             if attr == "page_anims":
@@ -733,6 +734,9 @@ class SettingsWindow(QDialog):
         i18n.retranslate(self)
         self._slang_pending = False
         self._fill_slang()
+        # первый расчёт: какие разделы погашены при текущих флагах модулей
+        # the first pass: which sections are dimmed with the current flags
+        self._sync_module_pages()
         self._preview_timer = QTimer(self)
         self._preview_timer.setSingleShot(True)
         self._preview_timer.timeout.connect(self._do_preview)
@@ -862,6 +866,11 @@ class SettingsWindow(QDialog):
     def _nav_changed(self, row):
         self._sync_glossary()
         self.stack.setCurrentIndex(row)
+        # раздел мог быть погашен, пока его не было на экране: состояние
+        # модулей проверяем при каждом заходе
+        # the section may have been dimmed while off screen: the module state is
+        # re-checked on every visit
+        self._sync_module_pages()
         cur = self.stack.currentWidget()
         if cur is not None and cur.widget() is getattr(self, "page_test", None):
             self._do_preview()
@@ -953,6 +962,8 @@ class SettingsWindow(QDialog):
                            "В обратную сторону так же раскрываются русские сокращения: "
                            "«спс» → «спасибо», «мб» → «может быть»."))
         self.chk_slang = QCheckBox("Разворачивать сленг и сокращения")
+        self.chk_slang.toggled.connect(
+            lambda on: self._mirror_own_flag("slang", on))
         self.chk_slang.setToolTip(
             "lol, brb, afk, idk, idc, omw, gtg, gg, wp, ez, ty, thx, np, pls, sry,\n"
             "btw, imo, tbh, ngl, rn, asap, wdym, wbu, sup, cya, gn, gm, tmrw, cuz,\n"
@@ -1182,6 +1193,8 @@ class SettingsWindow(QDialog):
         cl.addWidget(_hint("Перевод вставляется в обычную русскую речь, чтобы она выглядела живой. "
                            "Например: «мне срочно нужна помощь» → «мне срочно нужна Aiutami»."))
         self.chk_auto = QCheckBox("Включить автоперевод")
+        self.chk_auto.toggled.connect(
+            lambda on: self._mirror_own_flag("autotranslate", on))
         cl.addWidget(self.chk_auto)
         form = QFormLayout()
         form.setHorizontalSpacing(18)
@@ -1238,6 +1251,7 @@ class SettingsWindow(QDialog):
         card, cl = _card()
         cl.addWidget(_title("Отправка в игру", "sec"))
         self.chk_send = QCheckBox("Вставлять текст в чат игры")
+        self.chk_send.toggled.connect(lambda on: self._mirror_own_flag("game_send", on))
         cl.addWidget(self.chk_send)
         self.chk_chat_first = QCheckBox("Сначала открывать чат игры (клавиша T), потом оверлей")
         self.chk_chat_first.setToolTip("Окружающие видят, что вы печатаете, а не стоите без действия")
@@ -1911,6 +1925,7 @@ class SettingsWindow(QDialog):
             "Сервис неофициальный: DeepL может ограничить запросы, и тогда перевод "
             "автоматически вернётся к стандартным сервисам."))
         self.chk_dlx = QCheckBox("Переводить через DeepL в первую очередь")
+        self.chk_dlx.toggled.connect(lambda on: self._mirror_own_flag("dlx", on))
         self.chk_dlx.setToolTip("Без этого флажка работает обычная цепочка сервисов")
         cl.addWidget(self.chk_dlx)
         self.chk_dlx_autostart = QCheckBox("Запускать сервис вместе с программой")
@@ -1966,7 +1981,17 @@ class SettingsWindow(QDialog):
         self.ed_dlx_token = QLineEdit()
         self.ed_dlx_token.setReadOnly(True)
         self.ed_dlx_token.setToolTip("Токен знает только программа; в сеть он не уходит")
-        form.addRow("Токен", self.ed_dlx_token)
+        form.addRow("Токен программы", self.ed_dlx_token)
+        # OAuth-токен DeepL Pro относится к доступу к сервису, а не к прокси,
+        # поэтому живёт здесь, рядом с остальными токенами.
+        # The DeepL Pro OAuth token belongs to service access, not to the proxy,
+        # so it lives here next to the other tokens.
+        self.ed_dlx_pro = QLineEdit()
+        self.ed_dlx_pro.setEchoMode(QLineEdit.EchoMode.Password)
+        self.ed_dlx_pro.setPlaceholderText("необязательно")
+        self.ed_dlx_pro.setToolTip("OAuth-токен DeepL Pro; без него работает "
+                                   "бесплатный путь")
+        form.addRow("Токен DeepL Pro", self.ed_dlx_pro)
         # свой сервис вместо бинарника: локальный сервер на Node.js или
         # развёрнутый DeepLX / a service of your own instead of the binary
         self.ed_dlx_url = QLineEdit()
@@ -2023,12 +2048,6 @@ class SettingsWindow(QDialog):
         self.ed_dlx_proxy.setPlaceholderText("http://127.0.0.1:10809")
         self.ed_dlx_proxy.setToolTip("Пусто — идти напрямую; http, https или socks5")
         form.addRow("HTTP-прокси", self.ed_dlx_proxy)
-        self.ed_dlx_pro = QLineEdit()
-        self.ed_dlx_pro.setEchoMode(QLineEdit.EchoMode.Password)
-        self.ed_dlx_pro.setPlaceholderText("необязательно")
-        self.ed_dlx_pro.setToolTip("OAuth-токен DeepL Pro; без него работает "
-                                   "бесплатный путь")
-        form.addRow("Токен DeepL Pro", self.ed_dlx_pro)
         cl.addLayout(form)
         # замечание к адресу прокси: опечатку видно сразу, до запуска сервиса
         # a remark about the proxy address: a typo shows up before the service runs
@@ -2326,6 +2345,7 @@ class SettingsWindow(QDialog):
         self.chk_anims = QCheckBox("Включить модуль «Анимации»")
         self.chk_anims.setChecked(bool(self.cfg.get("anims_enabled", False)))
         self.chk_anims.toggled.connect(self._anims_toggled)
+        self.chk_anims.toggled.connect(lambda on: self._mirror_own_flag("anims", on))
         cl.addWidget(self.chk_anims)
         cl.addWidget(_hint(
             "Ключевое слово в вашем сообщении запускает анимацию: в чат игры уходит "
@@ -3332,6 +3352,10 @@ class SettingsWindow(QDialog):
         # they are refreshed by hand when the language changes
         self._module_rows = []
         self._module_deps = []
+        # строка -> модуль: по нему переключатель знает, какой флажок обновить
+        # row -> module: the switch uses it to update the flag it mirrors
+        self._module_by_key = {}
+        self._module_switching = False
         for module in modules.MODULES:
             row = QWidget()
             rl = QVBoxLayout(row)
@@ -3339,18 +3363,18 @@ class SettingsWindow(QDialog):
             rl.setSpacing(2)
             title = module.title_en if i18n.is_en() else module.title_ru
             box = QCheckBox(title)
-            if module.settings_page is None:
-                box.setChecked(bool(self.cfg.get(module.config_key, module.default)))
-                self.chk_modules[module.config_key] = box
-            else:
-                # включается на своей странице — здесь только показываем
-                # switched on its own page, shown here for reference only
-                box.setChecked(bool(self.cfg.get(module.config_key, module.default)))
-                box.setEnabled(False)
-                box.setToolTip(i18n.t("Включается на странице «%s»")
-                               % self.nav.item(module.settings_page).text()
-                               if hasattr(self, "nav") and self.nav.count()
-                               else i18n.t("Включается на своей странице"))
+            # Флажок здесь рабочий у ВСЕХ модулей, даже у тех, что включаются на
+            # своей странице: два разных переключателя одного и того же флага —
+            # это гарантированный рассинхрон. Страница модуля остаётся главной,
+            # а этот флажок её повторяет и сам же её обновляет.
+            # The checkbox works for EVERY module here, including the ones switched
+            # on their own page: two independent switches for one flag are a
+            # guaranteed desync. The module page stays the primary one, and this
+            # checkbox mirrors it and updates it in turn.
+            box.setChecked(modules.is_enabled(self.cfg, module.key))
+            self.chk_modules[module.config_key] = box
+            self._module_by_key[module.key] = (box, module)
+            box.toggled.connect(lambda checked, key=module.key: self._module_toggled(key, checked))
             rl.addWidget(box)
             desc = QLabel(module.desc_en if i18n.is_en() else module.desc_ru)
             desc.setWordWrap(True)
@@ -3375,6 +3399,187 @@ class SettingsWindow(QDialog):
         lay.addWidget(card)
         lay.addStretch(1)
         return page
+
+    def _add_module_banner(self, page, attr):
+        """Подсказка сверху раздела: модуль выключен, настройки недоступны.
+
+        A hint on top of a section: the module is off, its settings are inactive.
+
+        Баннер создаётся сразу и скрыт, пока модуль включён. Скрывать его через
+        ``setVisible``, а не удалять, важно: раздел перерисовывается при каждом
+        переключении, и пересоздавать виджет на каждое движение флажка незачем.
+        The banner is created at once and hidden while the module is on. Hiding it
+        with ``setVisible`` instead of deleting matters: the section is refreshed on
+        every toggle, and recreating a widget per flag change is pointless.
+        """
+        layout = page.layout()
+        if layout is None:
+            return
+        banner = QLabel("")
+        banner.setObjectName("moduleOff")
+        banner.setWordWrap(True)
+        banner.setProperty("no_i18n", True)
+        banner.setStyleSheet(
+            "color:#ffcf80; background:#2a2418; border:1px solid #5a4a28;"
+            "border-radius:8px; padding:10px 12px;")
+        banner.setVisible(False)
+        layout.insertWidget(0, banner)
+
+    def _module_toggled(self, key, checked):
+        """Переключатель модуля на странице «Модули».
+
+        The module switch on the Modules page.
+
+        Модуль с выключенным родителем включить нельзя: предлагаем включить
+        родителя и честно говорим, что без него модуль не работает.
+        A module whose parent is off cannot be switched on: we offer to switch the
+        parent on and say plainly that it does not work without it.
+        """
+        if self._module_switching:
+            return
+        module = modules.get(key)
+        if module is None:
+            return
+        if checked:
+            missing = modules.blockers(self._cfg_now(), key)
+            if missing:
+                names = ", ".join((modules.get(dep).title_en if i18n.is_en()
+                                   else modules.get(dep).title_ru)
+                                  for dep in missing if modules.get(dep))
+                answer = QMessageBox.question(
+                    self, i18n.t("Нужен ещё один модуль"),
+                    i18n.tf("«%s» не работает без модуля: %s.\n\nВключить его?",
+                            module.title_en if i18n.is_en() else module.title_ru,
+                            names),
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes)
+                if answer != QMessageBox.StandardButton.Yes:
+                    # Возвращаем флажок на место. Сигналы НЕ блокируем: именно
+                    # повторный `toggled(False)` откатывает галочку, которую
+                    # уже поставил клик. Флаг `_module_switching` внутри
+                    # `_set_module_flag` не даёт уйти в рекурсию.
+                    # Put the checkbox back. Signals are NOT blocked: the repeated
+                    # `toggled(False)` is what rolls back the tick the click has
+                    # already made. `_set_module_flag` guards against recursion.
+                    self._set_module_flag(key, False)
+                    return
+                for dep in missing:
+                    self._set_module_flag(dep, True)
+        self._set_module_flag(key, True if checked else False)
+
+    def _cfg_now(self):
+        """Текущее состояние флагов модулей из интерфейса / the module flags as shown."""
+        cfg = dict(self.cfg)
+        for module in modules.MODULES:
+            box = self.chk_modules.get(module.config_key)
+            if box is not None:
+                cfg[module.config_key] = bool(box.isChecked())
+        return cfg
+
+    def _set_module_flag(self, key, value):
+        """Задать флаг модуля в интерфейсе и обновить все его переключатели.
+
+        Set a module flag in the interface and refresh every switch of it: the
+        checkbox on the Modules page and the one on the module's own page.
+        """
+        module = modules.get(key)
+        if module is None:
+            return
+        self._module_switching = True
+        try:
+            box = self.chk_modules.get(module.config_key)
+            if box is not None:
+                box.setChecked(bool(value))
+            # флажок на своей странице — тот же самый ключ конфигурации
+            # the checkbox on the module's own page carries the same config key
+            own = self._own_module_box(key)
+            if own is not None and own is not box:
+                own.blockSignals(True)
+                own.setChecked(bool(value))
+                own.blockSignals(False)
+        finally:
+            self._module_switching = False
+        self._sync_module_pages()
+
+    def _mirror_own_flag(self, key, checked):
+        """Флажок на странице модуля изменился — обновить «Модули».
+
+        The checkbox on a module's own page changed: refresh the Modules page.
+
+        Два переключателя одного флага обязаны показывать одно и то же, иначе
+        «Модули» врут о состоянии программы.
+        Two switches of one flag must show the same thing, otherwise the Modules
+        page lies about the program's state.
+        """
+        if getattr(self, "_module_switching", False):
+            return
+        box = self.chk_modules.get(modules.get(key).config_key) if modules.get(key) else None
+        if box is None:
+            return
+        self._module_switching = True
+        try:
+            box.blockSignals(True)
+            box.setChecked(bool(checked))
+            box.blockSignals(False)
+        finally:
+            self._module_switching = False
+        self._sync_module_pages()
+
+    def _own_module_box(self, key):
+        """Флажок модуля на его собственной странице / the module's own checkbox."""
+        return {
+            "slang": getattr(self, "chk_slang", None),
+            "autotranslate": getattr(self, "chk_auto", None),
+            "game_send": getattr(self, "chk_send", None),
+            "dlx": getattr(self, "chk_dlx", None),
+            "anims": getattr(self, "chk_anims", None),
+        }.get(key)
+
+    def _sync_module_pages(self):
+        """Погасить разделы выключенных модулей, оставив их видимыми.
+
+        Dim the sections of disabled modules and keep them visible.
+
+        Раздел не прячется: игрок должен видеть, что настройки существуют и
+        почему сейчас недоступны. Сверху появляется подсказка о выключенном
+        модуле, а содержимое становится неактивным.
+        The section is not hidden: the player must see that the settings exist and
+        why they are unavailable. A hint about the disabled module appears on top
+        and the content becomes inactive.
+        """
+        cfg = self._cfg_now()
+        for module in modules.MODULES:
+            if not module.page_key:
+                continue
+            page = getattr(self, module.page_key, None)
+            view = self._view_of(page)
+            if page is None:
+                continue
+            active = modules.is_enabled(cfg, module.key)
+            for child in page.findChildren(QWidget):
+                # подсказку о выключенном модуле не гасим — её и надо прочитать
+                # the disabled-module hint stays readable: it is what to read
+                if child.objectName() == "moduleOff":
+                    continue
+                child.setEnabled(active)
+            page.setProperty("moduleOff", not active)
+            banner = page.findChild(QLabel, "moduleOff")
+            if banner is not None:
+                banner.setVisible(not active)
+                if not active:
+                    banner.setText(i18n.tf(
+                        "Модуль «%s» выключен — настройки раздела недоступны. "
+                        "Включите его здесь или в разделе «Модули».",
+                        module.title_en if i18n.is_en() else module.title_ru))
+            if view is not None:
+                view.setProperty("moduleOff", not active)
+
+    def _view_of(self, page):
+        """Обёртка с прокруткой для страницы / the scroll wrapper of a page."""
+        for view in getattr(self, "_views", []):
+            if view.widget() is page:
+                return view
+        return None
 
     def _page_test(self):
         page = QWidget()
