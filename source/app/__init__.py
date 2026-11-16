@@ -30,8 +30,8 @@ from __future__ import annotations
 
 APP_NAME = "RP Chat Overlay"
 APP_NAME_FULL = "RP Chat Overlay"
-VERSION = "1.13.0"
-VERSION_TUPLE = (1, 13, 0, 0)
+VERSION = "1.14.0"
+VERSION_TUPLE = (1, 14, 0, 0)
 
 # Имя мьютекса одиночного запуска / single-instance mutex name.
 MUTEX_NAME = "Local\\RPChatOverlayMutex"

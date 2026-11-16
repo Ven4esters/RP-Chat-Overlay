@@ -876,6 +876,24 @@ STRINGS = {
     "или в разделе «Модули».":
         "The “%s” module is off — the settings here are unavailable. Switch it on "
         "here or in the Modules section.",
+    # --- объединение правил анимаций / merging animation rules ---
+    "Варианты и свойства…": "Variants and properties…",
+    "Варианты и свойства": "Variants and properties",
+    "Объединить правило с…": "Merge the rule with…",
+    "Объединить сразу с несколькими…": "Merge with several at once…",
+    "Взять «%s»": "Take \"%s\"",
+    "С «%s»": "With \"%s\"",
+    "задержка": "delay",
+    "повтор": "loop",
+    "словоформы": "word forms",
+    "режим": "mode",
+    "Правила объединены. Осталось задать: %s — заполните в «Варианты "
+    "и свойства…» или в таблице.":
+        "The rules are merged. Still to set: %s — fill them in under \"Variants "
+        "and properties…\" or in the table.",
+    "Правила объединены: задержка, повтор и режим совпадали и перенесены.":
+        "The rules are merged: the delay, the loop and the mode matched and were "
+        "carried over.",
     # --- режимы перевода / translation modes ---
     "Режим перевода": "Translation mode",
     "Всё сообщение — на язык перевода": "The whole message into the target language",

@@ -2633,7 +2633,7 @@ class SettingsWindow(QDialog):
             "таблице нужен для удобства: в игре анимации играют по порядку слов "
             "в сообщении."))
         lay.addWidget(_hint(
-            "ПКМ по строке — «Свойства анимации…»: там задаются варианты, если "
+            "ПКМ по строке — «Варианты и свойства…»: там задаются варианты, если "
             "одному ключу подходят несколько анимаций. Например, ключ «оперся "
             "руками» с вариантами anim_counterleanbar и anim_leanrail: в игре "
             "откроется оверлей выбора с названием и описанием каждого. Один "
@@ -2802,7 +2802,7 @@ class SettingsWindow(QDialog):
         """ПКМ по таблице правил: свойства анимации и быстрые действия.
 
         Right-click on the rules table: the animation properties and quick
-        actions. Пункт «Свойства анимации…» — единственный вход в варианты,
+        actions. Пункт «Варианты и свойства…» — единственный вход в варианты,
         названия и описания.
         The Animation properties item is the one way into the variants, titles
         and descriptions.
@@ -2813,12 +2813,26 @@ class SettingsWindow(QDialog):
         row = index.row()
         self.tbl_anims.selectRow(row)
         menu = QMenu(self.tbl_anims)
-        act_props = menu.addAction(i18n.t("Свойства анимации…"))
+        act_props = menu.addAction(i18n.t("Варианты и свойства…"))
         act_variant = None
+        act_merge = None
+        act_merge_all = None
         rules = self._collect_anims()
         current = rules[row] if 0 <= row < len(rules) else None
         if current is not None:
             act_variant = menu.addAction(i18n.t("Добавить ещё один вариант…"))
+            # «Объединить правило с…» — для двух правил с одним смыслом и разными
+            # ключевыми словами: одно слово на анимацию, а не пять правил-двойников
+            # "Merge the rule with..." is for two rules with one meaning and
+            # different keywords: one word per animation, not five twin rules
+            act_merge = menu.addAction(i18n.t("Объединить правило с…"))
+            act_merge_all = menu.addMenu(i18n.t("Объединить сразу с несколькими…"))
+            for other in range(len(rules)):
+                if other == row:
+                    continue
+                name = rules[other].keywords.strip().split(",")[0].strip() or "?"
+                action = act_merge_all.addAction(i18n.tf("Взять «%s»", name))
+                action.setData(other)
         menu.addSeparator()
         act_dup = menu.addAction(i18n.t("Дублировать правило"))
         act_del = menu.addAction(i18n.t("Удалить правило"))
@@ -2829,10 +2843,93 @@ class SettingsWindow(QDialog):
             self._anim_props(row, force_variants=False)
         elif act_variant is not None and chosen is act_variant:
             self._anim_props(row, force_variants=True)
+        elif act_merge is not None and chosen is act_merge:
+            self._merge_anim(row)
+        elif act_merge_all is not None and chosen is not None \
+                and isinstance(chosen.data(), int):
+            self._merge_anim(row, others=[int(chosen.data())])
         elif chosen is act_dup:
             self._duplicate_anim(row)
         elif chosen is act_del:
             self._del_anim()
+
+    def _merge_anim(self, row, others=None):
+        """«Объединить правило с…»: два правила становятся одним.
+
+        "Merge the rule with...": two rules become one.
+
+        Зачем / why
+        -----------
+        У одной анимации бывает несколько ключевых слов, и игрок заводит по
+        правилу на каждое. Потом выясняется, что задержку надо менять в трёх
+        местах, а варианты анимации в двух из них забыты. Объединение сводит
+        это в одно правило: ключевые слова складываются без повторов, варианты
+        тоже, второе правило исчезает.
+
+        One animation may have several keywords, and the player creates one rule
+        per keyword. Then the delay has to be changed in three places, and the
+        variants are forgotten in two of them. A merge brings this into one rule:
+        keywords and variants are combined without duplicates and the second rule
+        disappears.
+
+        Задержка, повтор, словоформы и режим переносятся только при совпадении:
+        иначе поле остаётся пустым, и игрок обязан задать его сам — угадывать,
+        какое из двух значений «правильное», программа не станет.
+        The delay, loop, word forms and mode carry over only when both rules
+        agree; otherwise the field stays empty and the player must fill it in.
+        """
+        rules = self._collect_anims()
+        if not 0 <= row < len(rules):
+            return
+        if others is None:
+            others = self._ask_merge_target(row, rules)
+        others = [i for i in (others or []) if 0 <= i < len(rules) and i != row]
+        if not others:
+            return
+        merged = rules[row]
+        empty = []
+        for other in others:
+            merged, empty = anims.merge_rules(merged, rules[other])
+        # второе (и третье) правило больше не нужно: его слова уже в объединённом
+        # the second (and third) rule is no longer needed: its keywords moved over
+        for other in sorted(others, reverse=True):
+            rules.pop(other)
+        target = row - sum(1 for other in others if other < row)
+        rules[target] = merged
+        self._fill_anims(rules)
+        self.tbl_anims.selectRow(target)
+        self._anims_changed()
+        log.info("Анимации: правило «%s» объединено с %d другим(и)",
+                 merged.keywords[:40], len(others))
+        if empty:
+            self._anim_say(i18n.tf(
+                "Правила объединены. Осталось задать: %s — заполните в «Варианты "
+                "и свойства…» или в таблице.", self._empty_fields_text(empty)))
+        else:
+            self._anim_say(i18n.t("Правила объединены: задержка, повтор и режим "
+                                  "совпадали и перенесены."))
+
+    @staticmethod
+    def _empty_fields_text(fields):
+        """Названия незаполненных полей по-человечески / human names of empty fields."""
+        names = {"duration_ms": i18n.t("задержка"), "loop": i18n.t("повтор"),
+                 "forms": i18n.t("словоформы"), "mode": i18n.t("режим")}
+        return ", ".join(names.get(f, f) for f in fields)
+
+    def _ask_merge_target(self, row, rules):
+        """Спросить, с каким правилом объединять / ask which rule to merge with."""
+        menu = QMenu(self)
+        for other, rule in enumerate(rules):
+            if other == row:
+                continue
+            name = rule.keywords.strip().split(",")[0].strip() or "?"
+            action = menu.addAction(i18n.tf("С «%s»", name))
+            action.setData(other)
+        chosen = menu.exec(self.tbl_anims.viewport().mapToGlobal(
+            self.tbl_anims.rect().center()))
+        if chosen is None:
+            return []
+        return [int(chosen.data())]
 
     def _anim_props(self, row, force_variants=False):
         """Окно свойств анимации для строки таблицы.
@@ -4237,7 +4334,7 @@ def _sz(w, h):
 
 
 class AnimProps(QDialog):
-    """Свойства анимации: варианты, их названия и описания.
+    """Варианты и свойства анимации: имена, названия и описания.
 
     Animation properties: the variants, their titles and descriptions.
 
@@ -4263,7 +4360,7 @@ class AnimProps(QDialog):
     def __init__(self, rule, parent=None):
         super().__init__(parent)
         self.rule = rule
-        self.setWindowTitle(i18n.t("Свойства анимации"))
+        self.setWindowTitle(i18n.t("Варианты и свойства"))
         self.setStyleSheet(style_sheet(1.0))
         self.setMinimumWidth(620)
         lay = QVBoxLayout(self)

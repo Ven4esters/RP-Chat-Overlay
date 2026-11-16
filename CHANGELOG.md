@@ -5,6 +5,24 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
+## 1.14.0 — 15.11.2026
+
+**Этап 3: «Объединить правило с…» и «Варианты и свойства».**
+
+- **ПКМ по правилу → «Объединить правило с…».** Правила с одним смыслом и разными
+  ключевыми словами сводятся в одно: ключевые слова складываются без повторов,
+  варианты анимаций — тоже, второе правило исчезает. Раньше пять слов одной
+  анимации означали пять правил, и задержку приходилось менять в пяти местах.
+- **Есть и «Объединить сразу с несколькими…»**: подменю со списком остальных
+  правил, за один заход можно собрать всё в одно.
+- **Задержка, повтор, словоформы и режим переносятся только при совпадении.**
+  Если у правил они разные, поле остаётся пустым, а программа честно пишет, что
+  осталось задать: угадывать, какое из двух значений «правильное», она не станет.
+  Всё остальное переносится как есть.
+- **«Свойства анимации» переименованы в «Варианты и свойства…»** — по названию
+  видно, что там не только варианты. Пункт «Добавить ещё один вариант…» остался:
+  это про варианты, а не про свойства.
+
 ## 1.13.0 — 15.11.2026
 
 **Этап 2: три режима перевода.**
@@ -866,6 +884,25 @@ English version below: [Changelog (English)](#-changelog-english).
 ---
 
 # 📌 Changelog (English)
+
+## 1.14.0 — 15 Nov 2026
+
+**Stage 3: "Merge the rule with…" and "Variants and properties".**
+
+- **Right-click a rule → "Merge the rule with…".** Rules that mean the same thing
+  but carry different keywords are brought into one: keywords and animation
+  variants are combined without duplicates, and the second rule disappears. Five
+  words for one animation used to mean five rules, with the delay changed in five
+  places.
+- **There is also "Merge with several at once…"**: a submenu with the other rules,
+  so everything can be gathered into one in a single pass.
+- **The delay, loop, word forms and mode carry over only when both rules agree.**
+  Otherwise the field stays empty and the program says plainly what is left to
+  set: it will not guess which of two values is "the right one". Everything else
+  is carried over as is.
+- **"Animation properties" is renamed "Variants and properties…"**, so the name
+  says it is not only about variants. The "Add one more variant…" item stays: that
+  one is about variants, not properties.
 
 ## 1.13.0 — 15 Nov 2026
 

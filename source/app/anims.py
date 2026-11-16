@@ -783,6 +783,101 @@ class Rule:
         )
 
 
+def merge_keywords(*texts: str) -> str:
+    """Ключевые слова нескольких правил без повторов, по порядку.
+
+    The keywords of several rules, duplicates removed, order kept.
+
+    Повторы схлопываются без учёта регистра и лишних пробелов: «Открыл зонт» и
+    «открыл  зонт» — одно и то же слово, и двух строк в правиле ему не нужно.
+    Duplicates collapse regardless of case and extra spaces: they are one and the
+    same keyword, and the rule does not need it twice.
+    """
+    seen: set[str] = set()
+    out: list[str] = []
+    for text in texts:
+        for part in keywords_of(text):
+            key = " ".join(part.casefold().split())
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(part)
+    return ", ".join(out)
+
+
+def merge_choices(*groups: Iterable["Choice"]) -> list["Choice"]:
+    """Варианты нескольких правил без повторов по имени.
+
+    The variants of several rules, duplicates by name removed.
+
+    Совпало имя — остаётся первый вариант: подпись и описание у него уже есть, а
+    придумывать за игрока, чьё описание правильнее, не наше дело.
+    Same name means the first variant wins: it already has a title and a
+    description, and deciding for the player which one is right is not our call.
+    """
+    seen: set[str] = set()
+    out: list[Choice] = []
+    for group in groups:
+        for choice in group:
+            key = (choice.name or "").strip().lstrip("/").casefold()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            out.append(choice)
+    return out
+
+
+def merge_rules(left: "Rule", right: "Rule") -> "Rule":
+    """Объединить два правила в одно / merge two rules into one.
+
+    Что переносится всегда: ключевые слова (без повторов) и варианты анимации.
+    Что переносится, только если совпадает у обоих: задержка, повтор, словоформы
+    и режим. Иначе поле остаётся пустым (значение ``None``), и игрок обязан
+    задать его сам — угадывать, какая из двух задержек «правильная», программа
+    не станет.
+
+    Always carried over: the keywords (deduplicated) and the animation variants.
+    Carried over only when both rules agree: the delay, the loop, the word forms
+    and the mode. Otherwise the field is left empty (``None``) so that the player
+    has to set it: guessing which of two delays is "the right one" is not the
+    program's business.
+
+    Сам merge ничего не решает за интерфейс: возвращается правило и список полей,
+    которые остались пустыми, чтобы окно могло попросить их заполнить.
+    The merge decides nothing on the interface's behalf: it returns the rule plus
+    the fields left empty, so the window can ask for them.
+    """
+    keywords = merge_keywords(left.keywords, right.keywords)
+    choices = merge_choices(left.choices or left.variant_list(),
+                            right.choices or right.variant_list())
+    empty: list[str] = []
+
+    duration = left.duration_ms if left.duration_ms == right.duration_ms else None
+    if duration is None:
+        empty.append("duration_ms")
+    loop = left.loop if left.loop == right.loop else None
+    if loop is None:
+        empty.append("loop")
+    forms = left.forms if left.forms == right.forms else None
+    if forms is None:
+        empty.append("forms")
+    mode = left.mode if left.mode == right.mode else None
+    if mode is None:
+        empty.append("mode")
+
+    merged = Rule(
+        keywords=keywords,
+        name="",
+        mode=mode if mode is not None else MODE_ALWAYS,
+        forms=forms if forms is not None else morph.FORMS_DEFAULT,
+        duration_ms=duration if duration is not None else 0,
+        loop=bool(loop),
+        enabled=left.enabled and right.enabled,
+        choices=choices[:MAX_CHOICES],
+    )
+    return merged, empty
+
+
 def rules_from_cfg(cfg: Mapping[str, Any]) -> list[Rule]:
     """Все правила из настроек / every rule stored in the settings."""
     raw = cfg.get("anim_rules") or []
