@@ -3141,6 +3141,28 @@ class SettingsWindow(QDialog):
             "Длительность 0 мс означает «не останавливать вовсе». Работает только "
             "вместе с модулем «Отправка в игру»."))
 
+        # Режим «В машине»: главный выключатель тишины. Стоит рядом с включением
+        # модуля, потому что это такое же «работать или нет», только на время
+        # поездки. Дублируется пунктом в меню трея — включать его в поездке
+        # удобнее оттуда.
+        # The "In a vehicle" mode: the main silence switch. It sits next to the
+        # module switch, because it is the same "run or not", only for the length
+        # of a ride. The tray menu item does the same, and is handier on the move.
+        self.chk_anim_vehicle = QCheckBox(
+            "В машине — не играть анимации (ни /anim, ни /sa)")
+        self.chk_anim_vehicle.setChecked(bool(self.cfg.get("anim_in_vehicle", False)))
+        self.chk_anim_vehicle.setToolTip(
+            "В транспорте анимации ломают позу, а /sa и нажатие клавиши "
+            "выбрасывают из машины. Пока галочка стоит, в игру не уходит ни одна "
+            "команда анимаций: очередь снимается, зацикливание прекращается, "
+            "уходит один /sa — и дальше тишина. Включается и из меню трея.")
+        self.chk_anim_vehicle.toggled.connect(self._anim_vehicle_changed)
+        cl.addWidget(self.chk_anim_vehicle)
+        self.lb_anim_vehicle = _hint("")
+        self.lb_anim_vehicle.setProperty("no_i18n", True)
+        self.lb_anim_vehicle.setWordWrap(True)
+        cl.addWidget(self.lb_anim_vehicle)
+
         key_row = QHBoxLayout()
         key_label = _title("Клавиша остановки зацикливания", "sec")
         key_row.addWidget(key_label)
@@ -3395,6 +3417,42 @@ class SettingsWindow(QDialog):
         self._anim_note = (text, time.monotonic() + seconds)
         self.lb_anim_live.setText(text)
 
+    def _anim_vehicle_changed(self, on):
+        """Галочка «В машине»: сразу применить режим / apply the mode at once.
+
+        Режим — именно та настройка, которую нельзя отложить до «Сохранить»:
+        игрок ставит галочку, уже сидя в машине, и анимации должны замолчать
+        немедленно, а не после закрытия окна.
+        The mode is the one setting that cannot wait for "Save": the player ticks
+        it while already sitting in a vehicle, and the animations must fall silent
+        at once, not after the window closes.
+        """
+        on = bool(on)
+        api = getattr(self, "anims_api", None)
+        if api is not None:
+            try:
+                api["set_vehicle"](on)
+            except Exception:
+                log.exception("Не удалось переключить режим «В машине»")
+        self._anim_vehicle_note(on)
+
+    def _anim_vehicle_note(self, on=None):
+        """Подпись под галочкой «В машине» / the caption under the vehicle switch."""
+        if not hasattr(self, "lb_anim_vehicle"):
+            return
+        if on is None:
+            on = bool(getattr(self, "chk_anim_vehicle", None)
+                      and self.chk_anim_vehicle.isChecked())
+        if not on:
+            self.lb_anim_vehicle.setText("")
+            return
+        text = i18n.t(
+            "Режим включён: ни /anim, ни /sa в игру не уходят. Действует до "
+            "выключения галочки, в том числе после перезапуска программы.")
+        if getattr(self, "anims_api", None) is None:
+            text += " " + i18n.t("Применится после сохранения.")
+        self.lb_anim_vehicle.setText(text)
+
     def _anim_live_tick(self):
         """Раз в секунду: что играет и что не отправилось / live module state."""
         api = getattr(self, "anims_api", None)
@@ -3412,6 +3470,12 @@ class SettingsWindow(QDialog):
             log.exception("Не удалось прочитать состояние анимаций")
             return
         parts = []
+        if state.get("vehicle"):
+            # режим «В машине» важнее всего остального: игрок должен сразу
+            # видеть, почему сейчас ничего не играет
+            # the "In a vehicle" mode outranks the rest: the player must see at
+            # once why nothing plays right now
+            parts.append(i18n.t("режим «В машине»: команды не отправляются"))
         if state.get("current"):
             playing = i18n.tf("Сейчас играет: %s", state["current"])
             if state.get("loop"):
@@ -5241,6 +5305,11 @@ class SettingsWindow(QDialog):
             cfg["anim_stop_by_key"] = bool(self.chk_anim_stop_key.isChecked())
             cfg["anim_extra_ms"] = int(self.sp_anim_gap.value())
             cfg["anim_skip_negation"] = bool(self.chk_anim_negation.isChecked())
+            # режим «В машине» уже применён галочкой, здесь он только пишется
+            # на диск, чтобы пережить перезапуск
+            # the "In a vehicle" mode was already applied by the checkbox; here it
+            # is only written to disk so that it survives a restart
+            cfg["anim_in_vehicle"] = bool(self.chk_anim_vehicle.isChecked())
         cfg["slang_order"] = list(self._slang_order)
         cfg["slang_lang"] = slang.code_for(self._slang_lang)
         # Рабочий язык таблицы переставляет главное окно после сохранения: окно
@@ -5344,6 +5413,21 @@ class SettingsWindow(QDialog):
             self.chk_anim_stop_key.blockSignals(True)
             self.chk_anim_stop_key.setChecked(bool(cfg.get("anim_stop_by_key", False)))
             self.chk_anim_stop_key.blockSignals(False)
+            # состояние режима берётся у работающего модуля: он и есть источник
+            # правды, галочка в файле могла устареть
+            # the mode state comes from the running module: it is the source of
+            # truth, the flag in the file may be stale
+            live = bool(cfg.get("anim_in_vehicle", False))
+            api = getattr(self, "anims_api", None)
+            if api is not None:
+                try:
+                    live = bool(api["state"]().get("vehicle"))
+                except Exception:
+                    log.exception("Не удалось прочитать режим «В машине»")
+            self.chk_anim_vehicle.blockSignals(True)
+            self.chk_anim_vehicle.setChecked(live)
+            self.chk_anim_vehicle.blockSignals(False)
+            self._anim_vehicle_note(live)
         if hasattr(self, "sp_anim_gap"):
             self.sp_anim_gap.blockSignals(True)
             self.sp_anim_gap.setValue(self._anim_extra(cfg))

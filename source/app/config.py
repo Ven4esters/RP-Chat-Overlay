@@ -177,6 +177,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "anim_stop_by_key": False,
     "anim_skip_negation": True,           # останавливать нажатием клавиши / stop with the key
     "anim_extra_ms": 50,                  # добавка к длительности анимации / tail after it
+    # Режим «В машине»: пока включён, анимации не играют и /sa не уходит.
+    # Флаг сохраняется, чтобы после перезапуска игры на парковке не сработало
+    # то, что игрок выключил нарочно.
+    # The "In a vehicle" mode: while on, no animation plays and no /sa is sent.
+    # The flag is saved so that a restart in the middle of a ride does not bring
+    # back what the player switched off on purpose.
+    "anim_in_vehicle": False,
 
     # --- горячая клавиша и окно / hotkey and window ---
     "hotkey": "F6",

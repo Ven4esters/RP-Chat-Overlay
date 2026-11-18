@@ -5,6 +5,32 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
+## 1.17.0 — 16.11.2026
+
+**Режим «В машине»: пока он включён, анимации не играют и `/sa` не уходит.**
+
+Анимации в транспорте ломают позу: персонаж сидит криво, а `/sa` и нажатие
+клавиши остановки выбрасывают игрока из машины. Узнать, что вы в машине, программа
+сама не может — состояние игры ей недоступно, поэтому сигнал даёт игрок.
+
+- **Галочка «В машине — не играть анимации (ни /anim, ни /sa)»** на странице
+  «Анимации» и такой же пункт с галочкой в меню трея. Включается одним движением
+  прямо в поездке, не открывая настройки.
+- **Включение делает три вещи сразу:** снимает очередь, прекращает зацикливание и
+  отправляет **ровно один `/sa`**, чтобы в игре не осталось кривой позы. Второй
+  `/sa` был бы вреден — первый же и убирает анимацию, а лишняя команда в машине
+  снова дёргает персонажа.
+- **Дальше — полная тишина.** Пока режим включён, в игру не уходит ни `/anim`,
+  ни `/sa`, не нажимается клавиша остановки, правила не проверяются, очередь не
+  наполняется. Поэтому после выхода из машины не сыграет то, что было написано
+  десять минут назад на ходу.
+- **Режим держится до выключения галочки**, в том числе после перезапуска
+  программы: флаг сохраняется в настройках.
+- **Галочка применяется сразу**, не дожидаясь «Сохранить»: её ставят уже сидя в
+  машине, и анимации должны замолчать немедленно.
+- В блоке «Проверка в игре» видно, что режим включён: `режим «В машине»:
+  команды не отправляются`.
+
 ## 1.16.4 — 16.11.2026
 
 **DeepL включается тумблером, кнопки «Остановить» больше нет.**
@@ -1072,6 +1098,32 @@ English version below: [Changelog (English)](#-changelog-english).
 ---
 
 # 📌 Changelog (English)
+
+## 1.17.0 — 16 Nov 2026
+
+**The "In a vehicle" mode: while it is on, no animation plays and no `/sa` is sent.**
+
+Animations in a vehicle break the pose: the character sits crooked, and `/sa` plus
+the stop key throw the player out of the car. The program cannot tell that you are
+in a vehicle — the game state is not available to it — so the player gives the signal.
+
+- **A checkbox "In a vehicle — play no animations (neither /anim nor /sa)"** on the
+  Animations page and the same checkable item in the tray menu. One move in the
+  middle of a ride, without opening the settings.
+- **Turning it on does three things at once:** it drops the queue, breaks the loop
+  and sends **exactly one `/sa`**, so that no crooked pose is left in the game. A
+  second `/sa` would only hurt — the first one already removes the animation, and an
+  extra command in a vehicle jerks the character again.
+- **After that comes complete silence.** While the mode is on, no `/anim` and no
+  `/sa` leaves for the game, the stop key is not pressed, rules are not checked and
+  the queue does not fill up. So after leaving the vehicle nothing written ten
+  minutes ago on the move suddenly plays.
+- **The mode lasts until the box is cleared**, across program restarts as well: the
+  flag is saved in the settings.
+- **The checkbox applies at once**, without waiting for "Save": it is ticked while
+  already sitting in a vehicle, and the animations must fall silent immediately.
+- The "Check in game" block shows the mode is on: `in a vehicle: no commands are
+  sent`.
 
 ## 1.16.4 — 16 Nov 2026
 

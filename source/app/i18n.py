@@ -489,6 +489,32 @@ STRINGS = {
         "partial mode. Switch the mode on the General page and the settings "
         "come back.",
     "Включает и выключает модуль.": "Switches the module on and off.",
+    # Режим «В машине» / the "In a vehicle" mode
+    "В машине — не играть анимации (ни /anim, ни /sa)":
+        "In a vehicle — play no animations (neither /anim nor /sa)",
+    "В машине — не играть анимации": "In a vehicle — play no animations",
+    "Режим «В машине» включён: анимации не играют.":
+        "The \"In a vehicle\" mode is on: no animations play.",
+    "Анимации снова работают.": "Animations work again.",
+    "режим «В машине»: команды не отправляются":
+        "in a vehicle: no commands are sent",
+    "Режим включён: ни /anim, ни /sa в игру не уходят. Действует до "
+    "выключения галочки, в том числе после перезапуска программы.":
+        "The mode is on: neither /anim nor /sa reaches the game. It lasts until "
+        "the box is cleared, across program restarts as well.",
+    "Применится после сохранения.": "It will apply after saving.",
+    "В транспорте анимации ломают позу, а /sa и нажатие клавиши "
+    "выбрасывают из машины. Пока галочка стоит, в игру не уходит ни одна "
+    "команда анимаций: очередь снимается, зацикливание прекращается, "
+    "уходит один /sa — и дальше тишина. Включается и из меню трея.":
+        "In a vehicle animations break the pose, while /sa and a key press throw "
+        "you out of the car. While the box is ticked no animation command reaches "
+        "the game: the queue is dropped, looping stops, one /sa goes out — and "
+        "then silence. The tray menu does the same.",
+    "Пока галочка стоит, ни /anim, ни /sa в игру не уходят: в машине "
+    "анимации ломают позу и выбрасывают из транспорта.":
+        "While the box is ticked neither /anim nor /sa reaches the game: in a "
+        "vehicle animations break the pose and throw you out of the car.",
     "Проверяем режим для иностранного игрока: в чат уйдёт перевод на русский.":
         "Checking the foreign player mode: the chat gets the Russian translation.",
     "перевожу…": "translating…",

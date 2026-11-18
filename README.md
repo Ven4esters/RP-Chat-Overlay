@@ -354,7 +354,7 @@ DeepL закрыт для российских адресов, локальны�
 | 🎮 **Чат игры** | вставлять в чат · **сначала открывать чат (T)** · отправлять сразу (Enter) · клавиша чата · три задержки |
 | 📚 **Словарь** | таблица «фраза · русская запись · русские значения» с поиском · добавить/удалить · **Импорт JSON/CSV** · **Экспорт** · вернуть встроенный словарь |
 | ★ **Сокращения** | **список языков** над таблицей: у каждого своя таблица на ~300 записей · сокращение · разворот · русский вариант · поиск · импорт/экспорт · вернуть встроенные для выбранного языка |
-| 🎬 **Анимации** | правила «ключевое слово → `/anim`»: режим считывания, словоформы (точно / основы / леммы), длительность до остановки, зацикливание, клавиша остановки, «не срабатывать на отрицание», импорт/экспорт JSON, проверка фразы |
+| 🎬 **Анимации** | правила «ключевое слово → `/anim`»: режим считывания, словоформы (точно / основы / леммы), длительность до остановки, зацикливание, клавиша остановки, режим «В машине» (полная тишина в транспорте), «не срабатывать на отрицание», импорт/экспорт JSON, проверка фразы |
 | 🔍 **Проверка** | живой предпросмотр в обе стороны: «Русский → выбранный язык перевода» и «Ваш язык → русский» — видно, что именно уйдёт в чат игры |
 
 Окно подстраивается под экран: на 1366×768 оно занимает не больше 94 % рабочей области,
@@ -555,6 +555,24 @@ DeepL закрыт для российских адресов, локальны�
 остальные анимации из того же сообщения при этом не снимаются и играют дальше. Она читается
 через `GetAsyncKeyState`, поэтому нажатие получает и игра, а модуль узнаёт о нём со
 стороны и не отбирает клавишу.
+
+**В машине анимации не играют.** В транспорте поза ломается: персонаж сидит
+криво, а `/sa` и нажатие клавиши остановки выбрасывают игрока из машины. Сама
+программа состояние игры не видит, поэтому сигнал даёт игрок — галочка
+**«В машине — не играть анимации (ни /anim, ни /sa)»** на странице «Анимации» или
+такой же пункт в меню трея (одним движением, не открывая настройки).
+
+| Что происходит | Когда |
+|---|---|
+| Очередь снимается, зацикливание прекращается, уходит **ровно один** `/sa` | в момент включения галочки |
+| Ни `/anim`, ни `/sa` в игру не уходят, клавиша не нажимается, правила не проверяются, очередь не наполняется | всё время, пока галочка стоит |
+| Всё работает как обычно | сразу после выключения галочки |
+
+Один `/sa` при включении нужен, чтобы не осталось кривой позы; второй был бы
+вреден — лишняя команда в машине снова дёргает персонажа. Режим держится до
+выключения галочки, в том числе после перезапуска программы, а применяется сразу,
+не дожидаясь «Сохранить». Так как в машине правила не проверяются, после выхода
+не сыграет то, что было написано десять минут назад на ходу.
 
 **Проверка.** В разделе два разных блока, и это важно: поле «Проверить»
 проверяет **только слова** — какие правила сработают на написанную фразу. Доходит
@@ -1055,7 +1073,7 @@ thread land in the log.
 | **Game chat** | paste into chat · open the chat first (T) · submit immediately (Enter) · chat key · three delays; the input is cleared before every paste |
 | **Glossary** | phrase · Russian reading · Russian meanings with search, add/remove, JSON/CSV import, export, restore the built-in dictionary |
 | **Abbreviations** | a **language list** above the table, each language with ~300 of its own entries · token · expansion · short Russian variant · search · import/export · restore the built-ins of the chosen language |
-| **Animations** | keyword → `/anim` rules: read mode, word forms (exact / stems / lemmas), delay before the stop, pause after an animation, looping, stop key, "do not fire on negation", JSON import/export, phrase check |
+| **Animations** | keyword → `/anim` rules: read mode, word forms (exact / stems / lemmas), delay before the stop, pause after an animation, looping, stop key, "In a vehicle" mode (total silence in transport), "do not fire on negation", JSON import/export, phrase check |
 | **Test** | live preview in both directions — exactly what the game chat will receive |
 
 ## Animations
@@ -1063,6 +1081,15 @@ thread land in the log.
 A module for players who use animations: a keyword in your message starts
 `/anim` in the game chat by itself and sends `/sa` after the configured time.
 
+- **In a vehicle nothing plays.** In transport the pose breaks: the character sits
+  crooked, and `/sa` plus the stop key throw the player out of the car. The program
+  cannot see the game state, so the player gives the signal — the checkbox **"In a
+  vehicle — play no animations (neither /anim nor /sa)"** on the Animations page, or
+  the same item in the tray menu (one move, without opening the settings). Turning
+  it on drops the queue, breaks the loop and sends **exactly one** `/sa` so that no
+  crooked pose is left; after that no `/anim` and no `/sa` leaves for the game, the
+  stop key is not pressed and rules are not checked. The mode lasts until the box is
+  cleared, across restarts, and applies at once without waiting for Save.
 - **Settings → Animations** holds the module switch, the stop key and the rule
   table. A rule is: on/off, keywords (comma-separated), the animation name
   (`wave` sends `/anim wave`), the read mode, the word forms, the duration in ms

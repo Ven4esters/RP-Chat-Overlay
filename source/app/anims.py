@@ -1045,6 +1045,14 @@ class Runner:
         self._last_trigger = ""
         self._reset_pending = False     # после остановки игроком отправить /sa
                                         # send /sa after a stop by the player
+        # Режим «В машине»: пока он включён, ни одна команда в игру не уходит.
+        # Признак приходит снаружи (галочка в настройках, пункт меню трея),
+        # потому что состояние игры программе недоступно.
+        # The "In a vehicle" mode: while it is on, no command leaves for the game.
+        # The flag comes from outside (a checkbox in the settings, a tray menu
+        # item), because the game state is not available to the program.
+        self._vehicle = False
+        self._vehicle_note = ""
 
     # ------------------------------------------------------------ настройки
     def reload(self, cfg: Mapping[str, Any]) -> None:
@@ -1058,6 +1066,90 @@ class Runner:
     def enabled(self) -> bool:
         """Включён ли модуль / is the module switched on."""
         return bool(self.cfg.get("anims_enabled", False))
+
+    # ------------------------------------------------------ режим «В машине»
+    def vehicle(self) -> bool:
+        """Включён ли режим «В машине» / is the "In a vehicle" mode on."""
+        return bool(self._vehicle)
+
+    def set_vehicle(self, on: bool, reason: str = "") -> bool:
+        """Включить или выключить режим «В машине» / turn the vehicle mode on or off.
+
+        Включение — это команда «больше ничего не запускать», поэтому оно сразу
+        делает три вещи: снимает очередь, гасит зацикливание и отправляет ровно
+        один `/sa`, чтобы в игре не осталось кривой позы. Дальше — тишина: пока
+        режим включён, ни `/anim`, ни `/sa` в игру не уходят.
+        Второй `/sa` здесь был бы вреден: первый же и убирает анимацию, а лишняя
+        команда в машине снова дёргает персонажа.
+        Turning it on means "start nothing else", so it does three things at
+        once: drops the queue, breaks the loop and sends exactly one `/sa` so that
+        no crooked pose is left in the game. After that comes silence: while the
+        mode is on, neither `/anim` nor `/sa` leaves for the game.
+        A second `/sa` would only hurt here: the first one already removes the
+        animation, and an extra command in a vehicle jerks the character again.
+
+        ``reason`` — что написать игроку и в журнал; по умолчанию «в машине».
+        ``reason`` is shown to the player and written to the log; "in a vehicle"
+        by default.
+        """
+        reason = reason or "в машине"
+        was = bool(self._vehicle)
+        self._vehicle = bool(on)
+        self._vehicle_note = reason if on else ""
+        if not on:
+            # Режим выключили: очередь, снятая при включении, не возвращается —
+            # сообщения, которые её наполнили, уже старые. Игрок напишет новое.
+            # The mode is off: the queue dropped on the way in does not come
+            # back — the messages that filled it are stale by now.
+            if was:
+                log.info("Анимации: режим «в машине» выключен")
+            self._emit("vehicle", "режим «в машине» выключен")
+            return True
+        if was:
+            # повторное включение ничего не отправляет: режим уже держит тишину
+            # turning it on again sends nothing: the mode already keeps silence
+            return True
+        log.info("Анимации: режим «в машине» включён — анимации остановлены")
+        self._drop_choice_window(close=True)
+        with self._cv:
+            dropped = [rule.name for rule in self._queue]
+            self._queue.clear()
+            self._stop_run.set()
+            self._cv.notify_all()
+        if dropped:
+            log.info("Анимации: очередь снята (%s)", ", ".join("/anim " + name
+                                                              for name in dropped))
+        current = self._current
+        if current is not None:
+            # ровно одна остановка, и только если что-то играло
+            # exactly one stop, and only when something was playing
+            try:
+                # единственная команда, которой режим пропускает: она и убирает
+                # анимацию, из-за которой персонаж в машине сидит криво
+                # the only command the mode lets through: it removes the
+                # animation that makes the character sit crooked in a vehicle
+                self._send("/sa", current, quiet=True, force=True)
+            except Exception:
+                log.exception("Анимации: не удалось отправить /sa при входе в машину")
+            self._emit("stopped", "остановлено перед машиной")
+        self._emit("vehicle", "режим «в машине» включён")
+        return True
+
+    def guard_quiet(self) -> bool:
+        """Пускать ли текущее действие в игру / may the current action reach the game.
+
+        Единственное место, где решается «молчать или отправлять»: пока режим
+        включён, ни одна команда не уходит. Ошибку пишем один раз, чтобы журнал
+        не забивался одинаковыми строками.
+        The only place that decides "silent or send": while the mode is on no
+        command leaves. The log line is written once, so it does not fill up.
+        """
+        if not self._vehicle:
+            return True
+        if not self._quiet_off:
+            self._quiet_off = True
+            log.info("Анимации: режим «в машине» — команды в игру не отправляются")
+        return False
 
     def rules(self) -> list[Rule]:
         with self._lock:
@@ -1085,9 +1177,20 @@ class Runner:
                 self._quiet_off = True
                 log.info("Анимации: модуль выключен — правила не проверяются")
             return []
+        if self._vehicle:
+            # В машине ни правила не проверяем, ни очередь не трогаем: игрок
+            # не должен удивиться, когда после выхода из машины вдруг сыграет
+            # то, что он написал десять минут назад на ходу.
+            # In a vehicle neither the rules nor the queue are touched: the
+            # player must not be surprised by something written ten minutes ago
+            # suddenly playing after getting out.
+            if not self._quiet_off:
+                self._quiet_off = True
+                log.info("Анимации: режим «в машине» — правила не проверяются")
+            return []
         if not (text or "").strip():
             return []
-        self._quiet_off = False
+        self._quiet_off = False        # снова говорим, если что-то не так
         ctx = Context(equivalent=self.equivalent, text_keys=self.text_keys,
                       negation=self.negation())
         rules = [rule for rule in self.rules() if rule.ready()]
@@ -1114,6 +1217,10 @@ class Runner:
         return [rule for _, _, rule, _ in hits]
 
     def _enqueue(self, rule: Rule) -> None:
+        # Страховка: в машине очередь не наполняется даже в обход feed.
+        # A safeguard: in a vehicle the queue does not fill up even around feed.
+        if self._vehicle:
+            return
         copy = Rule.from_dict(rule.to_dict())      # снимок на момент срабатывания
         with self._cv:
             if len(self._queue) >= MAX_QUEUE:
@@ -1208,7 +1315,7 @@ class Runner:
                     "current": self._current.name if self._current else "",
                     "loop": bool(self._current and self._current.loop),
                     "queued": len(self._queue), "error": self._last_error,
-                    "trigger": self._last_trigger}
+                    "trigger": self._last_trigger, "vehicle": bool(self._vehicle)}
 
     def _emit(self, kind: str, text: str) -> None:
         if self.on_event is None:
@@ -1250,6 +1357,13 @@ class Runner:
             rule = self._next()
             if rule is None:
                 return
+            if self._vehicle:
+                # Режим включили, пока правило ждало очереди: не играем.
+                # The mode was turned on while the rule waited: do not play it.
+                log.info("Анимации: «%s» снято — включён режим «в машине»", rule.name)
+                with self._lock:
+                    self._current = None
+                continue
             try:
                 self._play(rule)
             except Exception:
@@ -1317,6 +1431,8 @@ class Runner:
         simulated key press (F by default, the key the game itself uses). Both on
         means both are used; both off means the animation is not stopped at all.
         """
+        if not self.guard_quiet():
+            return
         by_sa, by_key = self.stop_methods()
         if by_sa:
             self._send("/sa", rule, quiet=True)
@@ -1643,12 +1759,24 @@ class Runner:
             except Exception:
                 log.exception("Анимации: не удалось закрыть окно выбора")
 
-    def _send(self, command: str, rule: Rule, quiet: bool = False) -> bool:
+    def _send(self, command: str, rule: Rule, quiet: bool = False,
+              force: bool = False) -> bool:
         """Отправить команду и запомнить причину отказа.
 
         Send the command and remember the reason of a failure. ``quiet`` keeps a
         failed repeat in a loop from flooding the player with messages.
+
+        Здесь же стоят ворота режима «В машине»: пока он включён, команда не
+        уходит вовсе — ни `/anim`, ни `/sa`, ни нажатие клавиши (клавиша идёт
+        мимо этой функции, поэтому её проверяют отдельно).
+        This is also where the "In a vehicle" gate sits: while the mode is on no
+        command leaves at all — neither `/anim` nor `/sa`; the key press bypasses
+        this function, so it is checked on its own. ``force`` is the one exception:
+        the single `/sa` that turns the mode on has to get through, or the pose
+        left in the game would be the crooked one.
         """
+        if not force and not self.guard_quiet():
+            return False
         try:
             ok, message = self.send(command)
         except Exception as error:

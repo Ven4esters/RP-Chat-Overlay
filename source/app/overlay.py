@@ -858,6 +858,8 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
         "state": runner.state,
         "stop": runner.stop_user,
         "send": lambda name: anims_send(f"/anim {name}".strip()),
+        "vehicle": runner.vehicle,
+        "set_vehicle": runner.set_vehicle,
     }
 
     def start_stop_watcher():
@@ -884,8 +886,6 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
             lambda: bool(runner.state().get("loop")))
         state["stop"] = watcher
         watcher.start()
-
-    start_stop_watcher()
 
     # ---------- применение настроек ----------
     # applying the settings
@@ -952,6 +952,28 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
         save_config(cfg)
         apply_settings(dict(cfg))
         win.notify(i18n.t(dict(MODE_TITLES)[mode]))
+
+    def set_vehicle(on):
+        """Режим «В машине» из меню трея / the "In a vehicle" mode from the tray.
+
+        Пока режим включён, ни `/anim`, ни `/sa` в игру не уходят: включение
+        один раз гасит текущую анимацию, и всё. Флаг пишется в настройки, чтобы
+        пережить перезапуск программы.
+        While the mode is on, neither `/anim` nor `/sa` leaves for the game: turning
+        it on stops the current animation once, and that is all. The flag is saved
+        so that it survives a restart.
+        """
+        on = bool(on)
+        if on == bool(runner.vehicle()):
+            # меню уже пересобрано под это состояние — второй раз незачем
+            # the menu already shows this state, no need to rebuild it
+            return
+        runner.set_vehicle(on)
+        cfg["anim_in_vehicle"] = on
+        save_config(cfg)
+        build_menu()
+        win.notify(i18n.t("Режим «В машине» включён: анимации не играют.")
+                   if on else i18n.t("Анимации снова работают."))
 
     def set_direction(direction):
         """Устаревшее имя переключателя режима / legacy name for set_mode."""
@@ -1044,6 +1066,26 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
             group.addAction(act)
             menu.addAction(act)
 
+        # Режим «В машине»: пункт с галочкой, чтобы включать его одним движением
+        # прямо в поездке, не открывая настройки.
+        # The "In a vehicle" mode: a checkable item, so it can be switched with one
+        # move right in the middle of a ride, without opening the settings.
+        menu.addSeparator()
+        act_vehicle = QAction(i18n.t("В машине — не играть анимации"), menu)
+        act_vehicle.setCheckable(True)
+        # setChecked сам испускает toggled, а обработчик пересобирает это же
+        # меню — без блокировки сигнала получилась бы бесконечная пересборка
+        # setChecked emits toggled on its own, and the handler rebuilds this very
+        # menu — without blocking the signal it would rebuild for ever
+        act_vehicle.blockSignals(True)
+        act_vehicle.setChecked(bool(runner.vehicle()))
+        act_vehicle.blockSignals(False)
+        act_vehicle.setToolTip(i18n.t(
+            "Пока галочка стоит, ни /anim, ни /sa в игру не уходят: в машине "
+            "анимации ломают позу и выбрасывают из транспорта."))
+        act_vehicle.toggled.connect(set_vehicle)
+        menu.addAction(act_vehicle)
+
         menu.addSeparator()
         act_settings = QAction(i18n.t("Настройки…"), menu)
         act_settings.triggered.connect(lambda: open_settings_window())
@@ -1057,6 +1099,14 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
         key = cfg["hotkey"] if modules.is_enabled(cfg, "hotkey") else "без клавиши"
         tray.setToolTip(f"{APP_NAME} · {key} · {short} · {label}")
 
+    # Сохранённый режим «В машине» поднимается при старте: игрок включил его
+    # нарочно, и после перезапуска он должен остаться включённым. Вреда нет —
+    # при старте ничего не играет, поэтому ни /sa, ни /anim не уйдут.
+    # The saved "In a vehicle" mode comes back at start-up: the player turned it
+    # on on purpose, and it must stay on after a restart. Nothing is harmed —
+    # nothing plays at start-up, so neither /sa nor /anim leaves.
+    if cfg.get("anim_in_vehicle"):
+        runner.set_vehicle(True)
     build_menu()
     # двойной клик по значку в трее открывает оверлей (пункта в меню нет)
     # a double click on the tray icon opens the overlay (there is no menu item)
