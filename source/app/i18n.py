@@ -489,6 +489,49 @@ STRINGS = {
         "partial mode. Switch the mode on the General page and the settings "
         "come back.",
     "Включает и выключает модуль.": "Switches the module on and off.",
+    # Подсказки ключевых слов в оверлее / keyword hints in the overlay
+    "Подсказывать ключевые слова в оверлее (Tab — пролистать)":
+        "Suggest keywords in the overlay (Tab walks the list)",
+    "Пока вы печатаете, под полем ввода появляются ключевые слова "
+    "правил, начинающиеся с набранного: Tab листает их, Enter "
+    "подставляет выбранное, Esc убирает список. Подсказка заменяет "
+    "только последнее набранное слово, остальной текст не трогает.":
+        "While you type, the rule keywords that start with what you wrote appear "
+        "under the input: Tab walks them, Enter applies the picked one, Esc hides "
+        "the list. A hint replaces only the word being typed and leaves the rest "
+        "of the text alone.",
+    "Tab — дальше · Enter — подставить · Esc — скрыть список":
+        "Tab — next · Enter — apply · Esc — hide the list",
+    "Ключевые слова: %d · Tab — пролистать · Enter — отправить":
+        "Keywords: %d · Tab — walk the list · Enter — send",
+    "Подставить «%s» — Tab, Enter — отправить":
+        "Apply \"%s\" — Tab, Enter sends",
+    "Высота строк таблицы, пкс": "Table row height, px",
+    "Строки правил можно сделать выше: длинные фразы и подписи режимов "
+    "читаются лучше. Двойной щелчок по шапке таблицы разворачивает её "
+    "на весь экран — там строки ещё выше.":
+        "The rule rows can be made taller: long phrases and mode captions read "
+        "better. A double click on the table header expands it to the whole "
+        "screen, where the rows are taller still.",
+    # Таблица правил / the rules table
+    "Поиск по словам, /anim и описаниям вариантов":
+        "Search the keywords, /anim names and variant descriptions",
+    "На весь экран": "Full screen",
+    "Анимации — правила": "Animations — rules",
+    "Правила анимаций": "Animation rules",
+    "Вернуть на страницу": "Back to the page",
+    "Развернуть таблицу правил на весь экран — удобнее править длинные "
+    "ключевые слова. То же самое делает двойной щелчок по шапке таблицы.":
+        "Expand the rules table to the whole screen — long keywords are easier to "
+        "edit. A double click on the table header does the same.",
+    "Ищет по ключевым словам, по названию /anim и по описаниям "
+    "вариантов. Строки, которые не подходят, прячутся, а правила "
+    "остаются на своих местах.":
+        "Searches the keywords, the /anim names and the variant descriptions. "
+        "Rows that do not match are hidden while the rules stay where they were.",
+    "Найдено: %d из %d": "Found: %d of %d",
+    "Правил: %d": "Rules: %d",
+    "ничего не подходит, очистите поиск": "nothing matches, clear the search",
     # Режим «В машине» / the "In a vehicle" mode
     "В машине — не играть анимации (ни /anim, ни /sa)":
         "In a vehicle — play no animations (neither /anim nor /sa)",

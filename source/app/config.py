@@ -184,6 +184,14 @@ DEFAULT_CONFIG: dict[str, Any] = {
     # The flag is saved so that a restart in the middle of a ride does not bring
     # back what the player switched off on purpose.
     "anim_in_vehicle": False,
+    # подсказки ключевых слов в оверлее: список слов, подходящих под набранное,
+    # и пролистывание по Tab / keyword hints in the overlay: the words that fit
+    # what is typed, walkable with Tab
+    "anim_hints": True,
+    "anim_hints_max": 8,
+    # высота строки таблицы правил: длинные фразы в пятнадцать пикселей не
+    # читаются / the rules table row height: long phrases do not read at fifteen
+    "anim_row_height": 34,
 
     # --- горячая клавиша и окно / hotkey and window ---
     "hotkey": "F6",

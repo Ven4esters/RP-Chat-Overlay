@@ -21,8 +21,9 @@ import time
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer, Signal
 from PySide6.QtGui import (QAction, QActionGroup, QColor, QFont, QGuiApplication, QIcon,
                            QPainter, QPixmap)
-from PySide6.QtWidgets import (QApplication, QFrame, QLabel, QLineEdit, QMenu,
-                               QSystemTrayIcon, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QLineEdit,
+                               QMenu, QScrollArea, QSizePolicy, QSystemTrayIcon,
+                               QVBoxLayout, QWidget)
 
 from app import APP_NAME, gamesend as gs, i18n, langs, modules, slang
 from app import animchoice
@@ -44,6 +45,17 @@ QLineEdit:focus { border: 1px solid #5b8cff; }
 #out { color: #ffffff; font-size: 14px; }
 #it { color: #9bb0ff; font-size: 12px; }
 #stat { color: #8a8a96; font-size: 11px; }
+
+/* панель подсказок ключевых слов / the keyword suggestion strip */
+#hints { background: rgba(26,26,34,240); border: 1px solid #3a3a46; border-radius: 6px; }
+QLabel#hintItem {
+    background: #1e1e28; border: 1px solid #33333f; border-radius: 5px;
+    padding: 3px 7px; color: #dfe3ff; font-size: 12px;
+}
+QLabel#hintItem[active="true"] {
+    background: #2a3a5c; border: 1px solid #5b8cff; color: #ffffff;
+}
+QLabel#hintKey { color: #9bb0ff; font-size: 11px; padding: 3px 2px; }
 """
 
 
@@ -166,6 +178,9 @@ class Overlay(QWidget):
         self._anim_text = ""          # текст, ждущий проверки правилами анимаций
                                       # text waiting for the animation rules
         self.opening = False          # чат игры открывается (оверлей ещё не виден)
+        self._hints = []              # подсказки ключевых слов / keyword hints
+        self._hint_pick = -1          # которая выбрана пролистыванием / picked
+        self._hint_done = ""          # только что подставленный ключ / just applied
 
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
                             | Qt.WindowType.Tool)
@@ -184,7 +199,47 @@ class Overlay(QWidget):
         for w, name in ((self.out, "out"), (self.it, "it"), (self.stat, "stat")):
             w.setObjectName(name)
             w.setWordWrap(True)
-        for w in (self.input, self.out, self.it, self.stat):
+        # Подсказки стоят под полем ввода и над переводом: игрок смотрит на то,
+        # что печатает, и не должен искать глазами по всему оверлею.
+        # The hints sit under the input and above the translation: the player
+        # looks at what is being typed and should not hunt across the overlay.
+        self.hints_box = QFrame()
+        self.hints_box.setObjectName("hints")
+        hints_lay = QVBoxLayout(self.hints_box)
+        hints_lay.setContentsMargins(6, 5, 6, 5)
+        hints_lay.setSpacing(4)
+        self.hints_row = QWidget()
+        self.hints_row_lay = QHBoxLayout(self.hints_row)
+        self.hints_row_lay.setContentsMargins(0, 0, 0, 0)
+        self.hints_row_lay.setSpacing(5)
+        self.hints_scroll = QScrollArea()
+        self.hints_scroll.setWidgetResizable(True)
+        self.hints_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.hints_scroll.setWidgetResizable(True)
+        self.hints_scroll.setWidget(self.hints_row)
+        self.hints_scroll.setFixedHeight(34)
+        self.hints_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.hints_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.hints_scroll.setStyleSheet(
+            "QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; }")
+        hints_lay.addWidget(self.hints_scroll)
+        self.hints_hint = QLabel("")
+        self.hints_hint.setObjectName("hintKey")
+        self.hints_hint.setProperty("no_i18n", True)
+        # перенос строки обязателен: иначе длинная подсказка растягивает оверлей
+        # шире игры / wrapping is required: otherwise a long note widens the
+        # overlay beyond the game
+        self.hints_hint.setWordWrap(True)
+        # подсказка не должна требовать ширины: она подстраивается под оверлей
+        # the note must not demand width: it fits the overlay instead
+        self.hints_hint.setSizePolicy(QSizePolicy.Policy.Ignored,
+                                      QSizePolicy.Policy.Preferred)
+        hints_lay.addWidget(self.hints_hint)
+        self.hints_box.hide()
+
+        for w in (self.input, self.hints_box, self.out, self.it, self.stat):
             lay.addWidget(w)
         self.out.hide()
         self.it.hide()
@@ -194,6 +249,11 @@ class Overlay(QWidget):
         self.timer.timeout.connect(self._fire)
         self.input.textChanged.connect(self.on_text)
         self.input.returnPressed.connect(self.on_enter)
+        # Tab и Shift+Tab листают подсказки, как в обычном чате с командами.
+        # Перехват стоит на самом поле: иначе Qt увёл бы фокус на другой виджет.
+        # Tab and Shift+Tab walk the hints, as a normal command chat does. The
+        # filter sits on the field itself: otherwise Qt would move the focus.
+        self.input.installEventFilter(self)
         self.worker = Worker(
             lambda j: self._run_engine(j),
             lambda j, r, e: self.bridge.translated.emit(j[0], r, str(e) if e else ""))
@@ -285,6 +345,7 @@ class Overlay(QWidget):
         self.input.blockSignals(True)
         self.input.clear()
         self.input.blockSignals(False)
+        self._hint_hide()
         self._show_result("", "")
 
     def close_overlay(self, refocus: bool = True) -> None:
@@ -340,7 +401,13 @@ class Overlay(QWidget):
             if Qt.Key.Key_1 <= key <= Qt.Key.Key_9:
                 if chooser.type_digit(key - Qt.Key.Key_0):
                     return
-        if e.key() == Qt.Key.Key_Escape:
+        if e.key() == Qt.Key.Key_Escape and self._hints:
+            # Esc со списком на экране убирает только список: закрывать оверлей
+            # в этот момент игрок ещё не просил
+            # Esc with the list on screen hides only the list: the player has not
+            # asked to close the overlay yet
+            self._hint_hide()
+        elif e.key() == Qt.Key.Key_Escape:
             self.close_overlay()
         elif ctrl and e.nativeVirtualKey() == 0x52:          # Ctrl+R в любой раскладке
             self.plan.reroll()
@@ -455,11 +522,199 @@ class Overlay(QWidget):
         self.it.setVisible(bool(other))
         self.adjustSize()
 
+    # ----- подсказки ключевых слов / keyword hints
+    def eventFilter(self, obj, event):
+        """Tab и Shift+Tab в поле ввода листают подсказки.
+
+        Tab and Shift+Tab in the input field walk the suggestions.
+
+        Работает только когда подсказки есть: без них Tab остаётся обычным
+        переходом фокуса, и ничего не ломается. Подсказка не подставляется сама —
+        её сначала выбирают пролистыванием, а подставляет Enter или сам Tab в
+        конце списка, как в чате с командами.
+        This only works when there are suggestions: without them Tab stays an
+        ordinary focus move, and nothing breaks. A suggestion is never applied by
+        itself — Tab walks the list, and Enter (or Tab past the end) applies it,
+        exactly like a command chat.
+        """
+        if obj is getattr(self, "input", None) and event.type() == QEvent.Type.KeyPress:
+            key = event.key()
+            if key in (Qt.Key.Key_Tab, Qt.Key.Key_Backtab):
+                back = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier
+                            or key == Qt.Key.Key_Backtab)
+                if self._hints:
+                    self._hint_walk(-1 if back else 1)
+                    return True
+        return super().eventFilter(obj, event)
+
+    def _hint_walk(self, step: int) -> None:
+        """Сдвинуть выбор по подсказкам; на шаге за краем — подставить.
+
+        Move the picked suggestion; stepping past the end applies it.
+
+        Так же ведёт себя чат с командами: листаешь, пока не остановился, а
+        последний Tab подтверждает выбор. Иначе пришлось бы отпускать Tab и
+        тянуться к Enter.
+        A command chat behaves the same: you walk until you stop, and the last Tab
+        confirms the pick. Otherwise you would have to leave Tab and reach for
+        Enter.
+        """
+        if not self._hints:
+            return
+        index = self._hint_pick + step
+        if index >= len(self._hints):
+            self._hint_apply()
+            return
+        if index < 0:
+            index = len(self._hints) - 1
+        self._hint_pick = index
+        self._hint_paint()
+
+    def _hint_apply(self) -> None:
+        """Подставить выбранную подсказку в поле ввода.
+
+        Put the picked suggestion into the input field.
+
+        Каретка встаёт в конец подставленного ключа, подсказки прячутся: игрок
+        уже выбрал, и список поверх текста только мешает.
+        The caret goes to the end of the inserted keyword and the hints hide: the
+        player has chosen, and a list over the text only gets in the way.
+        """
+        if not self._hints:
+            return
+        hint = self._hints[max(0, min(self._hint_pick, len(self._hints) - 1))]
+        text, caret = anims_mod.complete(self.input.text(), hint)
+        self.input.blockSignals(True)
+        self.input.setText(text)
+        self.input.setCursorPosition(caret)
+        self.input.blockSignals(False)
+        self._hint_done = " ".join(hint.keyword.casefold().split())
+        self._hints, self._hint_pick = [], -1
+        self._hint_paint()
+        # перевод запускаем вручную: сигнал был заблокирован, а текст изменился
+        # the translation is started by hand: the signal was blocked but the
+        # text did change
+        self.on_text()
+
+    def _hint_refresh(self, text: str) -> None:
+        """Пересчитать подсказки по набранному тексту.
+
+        Recompute the suggestions for the typed text.
+
+        Подсказки бывают только при включённом модуле анимаций: выключенный
+        модуль не играет ничего, и предлагать слова было бы обманом.
+        Suggestions only exist while the animations module is on: a disabled module
+        plays nothing, and offering words would be a lie.
+        """
+        if not self.cfg.get("anim_hints", True):
+            self._hints, self._hint_pick = [], -1
+            self._hint_paint()
+            return
+        runner = self.anims
+        rules = []
+        if runner is not None:
+            try:
+                if runner.enabled() and not runner.vehicle():
+                    rules = runner.rules()
+            except Exception:
+                log.exception("Подсказки анимаций: не удалось прочитать правила")
+                rules = []
+        # Только что подставленный ключ второй раз не предлагаем: список над
+        # готовым словом закрывал бы перевод, который игрок и хочет увидеть.
+        # A keyword that was just inserted is not offered again: a list over a
+        # finished word would cover the translation the player wants to see.
+        tail = " ".join(anims_mod.current_word(text).casefold().split())
+        if tail and tail == self._hint_done:
+            self._hints, self._hint_pick = [], -1
+            self._hint_paint()
+            return
+        if tail != self._hint_done:
+            self._hint_done = ""
+        found = anims_mod.suggestions(rules, text,
+                                     int(self.cfg.get("anim_hints_max", 8) or 8))
+        if [hint.keyword for hint in found] != [hint.keyword for hint in self._hints]:
+            self._hint_pick = -1
+        self._hints = found
+        self._hint_paint()
+
+    def _hint_paint(self) -> None:
+        """Нарисовать полосу подсказок / draw the suggestion strip."""
+        while self.hints_row_lay.count():
+            item = self.hints_row_lay.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+        if not self._hints:
+            self.hints_box.hide()
+            self.adjustSize()
+            return
+        for index, hint in enumerate(self._hints):
+            # В полосе — только само слово: оверлей узкий, и подпись анимации
+            # растянула бы полосу так, что соседние слова ушли бы за край.
+            # The strip shows the word alone: the overlay is narrow, and an
+            # animation label would stretch the strip and push its neighbours out.
+            label = QLabel(hint.keyword)
+            label.setObjectName("hintItem")
+            if index == self._hint_pick:
+                label.setProperty("active", "true")
+            tip = hint.keyword
+            if hint.label and hint.label != hint.keyword:
+                tip += f" → {hint.label}"
+            label.setToolTip(tip)
+            self.hints_row_lay.addWidget(label)
+        self.hints_row_lay.addStretch(1)
+        # Ширину полосы задаём минимальной, а не фиксированной: фиксированная
+        # обнуляет максимальный размер контейнера, и после первой же пересборки
+        # все слова получают нулевую ширину и пропадают. Минимум же задаёт
+        # только нижнюю границу — лишние слова уезжают под прокрутку, и
+        # выбранное можно подкрутить в видимую часть.
+        # The strip's width is a minimum, never fixed: a fixed width zeroes the
+        # container's maximum size, and after the first rebuild every word gets
+        # zero width and disappears. A minimum only sets the lower bound — extra
+        # words go under the scroll and the picked one can be brought into view.
+        total = 0
+        for index in range(self.hints_row_lay.count()):
+            widget = self.hints_row_lay.itemAt(index).widget()
+            if widget is not None:
+                total += widget.sizeHint().width() + self.hints_row_lay.spacing()
+        self.hints_row.setMinimumWidth(total)
+        self.hints_row.setMaximumWidth(16777215)
+        self.hints_row.setMinimumHeight(0)
+        chosen = self._hints[max(0, self._hint_pick)] if self._hint_pick >= 0 else None
+        if chosen is not None:
+            # выбранное слово прокручиваем в видимую часть полосы: иначе при
+            # десяти подсказках выбор уезжает за край и его не видно
+            # the picked word is scrolled into view: with ten suggestions the pick
+            # would otherwise slide out of sight
+            item = self.hints_row_lay.itemAt(max(0, self._hint_pick))
+            if item is not None and item.widget() is not None:
+                self.hints_scroll.ensureWidgetVisible(item.widget(), 8, 0)
+            # название анимации уже прокручено в полосе выше, а здесь — только
+            # что нажимать, иначе строка занимает две строки впустую
+            # the animation label is already scrolled into the strip above, so
+            # this line carries the keys only, or it wastes a second row
+            self.hints_hint.setText(i18n.t(
+                "Tab — дальше · Enter — подставить · Esc — скрыть список"))
+        else:
+            self.hints_hint.setText(i18n.tf(
+                "Ключевые слова: %d · Tab — пролистать · Enter — отправить",
+                len(self._hints)))
+        self.hints_box.show()
+        self.adjustSize()
+
+    def _hint_hide(self) -> None:
+        """Скрыть подсказки, ничего не подставляя / hide the hints, applying none."""
+        self._hint_done = ""
+        if self._hints or self._hint_pick >= 0:
+            self._hints, self._hint_pick = [], -1
+            self._hint_paint()
+
     def on_text(self, _=None):
         self.rid += 1
         self.cur, self.err, self.want_send = None, "", False
         self.timer.stop()
         text = self.input.text()
+        self._hint_refresh(text)
         self._count()
         if not text.strip():
             self._show_result("", "")
@@ -514,6 +769,13 @@ class Overlay(QWidget):
         close the overlay when the field is empty.
         """
         if self.sending:
+            return
+        # выбрана подсказка — Enter сначала подставляет её: игрок как раз
+        # листал список, и отправлять недописанное слово было бы грубо
+        # a suggestion is picked, so Enter applies it first: the player was walking
+        # the list, and sending a half-typed word would be rude
+        if self._hint_pick >= 0 and self._hints:
+            self._hint_apply()
             return
         text = self.input.text().strip()
         if not text:

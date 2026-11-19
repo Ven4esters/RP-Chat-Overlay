@@ -354,7 +354,7 @@ DeepL закрыт для российских адресов, локальны�
 | 🎮 **Чат игры** | вставлять в чат · **сначала открывать чат (T)** · отправлять сразу (Enter) · клавиша чата · три задержки |
 | 📚 **Словарь** | таблица «фраза · русская запись · русские значения» с поиском · добавить/удалить · **Импорт JSON/CSV** · **Экспорт** · вернуть встроенный словарь |
 | ★ **Сокращения** | **список языков** над таблицей: у каждого своя таблица на ~300 записей · сокращение · разворот · русский вариант · поиск · импорт/экспорт · вернуть встроенные для выбранного языка |
-| 🎬 **Анимации** | правила «ключевое слово → `/anim`»: режим считывания, словоформы (точно / основы / леммы), длительность до остановки, зацикливание, клавиша остановки, режим «В машине» (полная тишина в транспорте), «не срабатывать на отрицание», импорт/экспорт JSON, проверка фразы |
+| 🎬 **Анимации** | правила «ключевое слово → `/anim`»: режим считывания, словоформы (точно / основы / леммы), длительность до остановки, зацикливание, клавиша остановки, режим «В машине» (полная тишина в транспорте), подсказки ключевых слов в оверлее с пролистыванием по Tab, поиск и полноэкранная таблица правил, «не срабатывать на отрицание», импорт/экспорт JSON, проверка фразы |
 | 🔍 **Проверка** | живой предпросмотр в обе стороны: «Русский → выбранный язык перевода» и «Ваш язык → русский» — видно, что именно уйдёт в чат игры |
 
 Окно подстраивается под экран: на 1366×768 оно занимает не больше 94 % рабочей области,
@@ -555,6 +555,22 @@ DeepL закрыт для российских адресов, локальны�
 остальные анимации из того же сообщения при этом не снимаются и играют дальше. Она читается
 через `GetAsyncKeyState`, поэтому нажатие получает и игра, а модуль узнаёт о нём со
 стороны и не отбирает клавишу.
+
+**Подсказки в оверлее.** Пока вы печатаете, под полем ввода появляются слова
+из ваших правил, начинающиеся с набранного — сразу видно, что сработает.
+**Tab** листает подсказки, **Shift+Tab** — назад, **Tab** за последней или
+**Enter** подставляют выбранное, **Esc** сначала убирает список и только вторым
+нажатием закрывает оверлей. Подставляется только последнее набранное слово:
+остальной текст, `*…*` и команды вроде `/me` остаются как были. Подсказки
+учитывают режим правила (в `/me` слово из «Только `*…*`» не предлагается) и
+молчат, когда модуль выключен или включён режим «В машине».
+
+**Таблица правил.** Она стоит первой на странице, потому что ради неё сюда и
+заходят. Над ней — поиск по ключевым словам, названиям `/anim` и описаниям
+вариантов; неподходящие строки прячутся, а правила остаются на местах. Высота
+строк регулируется (24–96 пкс), кнопка **«На весь экран»** или двойной щелчок по
+шапке разворачивают таблицу в отдельное окно — там строки ещё выше, а введённое
+ничего не теряет.
 
 **В машине анимации не играют.** В транспорте поза ломается: персонаж сидит
 криво, а `/sa` и нажатие клавиши остановки выбрасывают игрока из машины. Сама
@@ -1073,7 +1089,7 @@ thread land in the log.
 | **Game chat** | paste into chat · open the chat first (T) · submit immediately (Enter) · chat key · three delays; the input is cleared before every paste |
 | **Glossary** | phrase · Russian reading · Russian meanings with search, add/remove, JSON/CSV import, export, restore the built-in dictionary |
 | **Abbreviations** | a **language list** above the table, each language with ~300 of its own entries · token · expansion · short Russian variant · search · import/export · restore the built-ins of the chosen language |
-| **Animations** | keyword → `/anim` rules: read mode, word forms (exact / stems / lemmas), delay before the stop, pause after an animation, looping, stop key, "In a vehicle" mode (total silence in transport), "do not fire on negation", JSON import/export, phrase check |
+| **Animations** | keyword → `/anim` rules: read mode, word forms (exact / stems / lemmas), delay before the stop, pause after an animation, looping, stop key, "In a vehicle" mode (total silence in transport), keyword hints in the overlay with Tab walking, rules search and a full-screen table, "do not fire on negation", JSON import/export, phrase check |
 | **Test** | live preview in both directions — exactly what the game chat will receive |
 
 ## Animations
@@ -1081,6 +1097,20 @@ thread land in the log.
 A module for players who use animations: a keyword in your message starts
 `/anim` in the game chat by itself and sends `/sa` after the configured time.
 
+- **Hints in the overlay.** While you type, the words from your rules that start
+  with what you wrote appear under the input, so you can see at once what will
+  fire. **Tab** walks the hints, **Shift+Tab** goes back, and **Tab** past the last
+  one or **Enter** applies the pick; **Esc** first hides the list and only the
+  second press closes the overlay. Only the last word being typed is replaced: the
+  rest of the text, `*…*` and commands such as `/me` stay as they were. The hints
+  respect the rule mode (a "Only `*…*`" keyword is not offered in `/me`) and stay
+  silent while the module is off or the "In a vehicle" mode is on.
+- **The rules table** comes first on the page, because it is what the page is
+  opened for. Above it sits a search over the keywords, `/anim` names and variant
+  descriptions; non-matching rows are hidden while the rules stay in place. The
+  rows are adjustable in height (24–96 px), and the **"Full screen"** button or a
+  double click on the header expands the table into a separate window with taller
+  rows — and nothing typed is lost.
 - **In a vehicle nothing plays.** In transport the pose breaks: the character sits
   crooked, and `/sa` plus the stop key throw the player out of the car. The program
   cannot see the game state, so the player gives the signal — the checkbox **"In a

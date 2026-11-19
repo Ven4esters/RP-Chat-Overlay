@@ -5,6 +5,35 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
+## 1.18.0 — 15.11.2026
+
+**Таблицу правил стало удобно читать, а ключевые слова — не набирать целиком.**
+
+- **Таблица правил поднята наверх страницы «Анимации»** и получила больше высоты:
+  раньше её сжимали карточки настроек, и видно было две-три строки. Настройки
+  модуля и проверки стоят ниже, как и было.
+- **Поиск над таблицей** ищет по ключевым словам, по названию `/anim` и по
+  названиям с описаниями вариантов. Неподходящие строки прячутся, правила
+  остаются на своих местах, и в строке над таблицей видно «Найдено: N из M».
+- **Строки выше и регулируются**: «Высота строк таблицы» от 24 до 96 пкс,
+  применяется сразу. Раньше подписи режима и форм срезались в низких строках.
+- **Кнопка «На весь экран»** (и двойной щелчок по шапке) разворачивает таблицу в
+  отдельное окно на весь экран — там строки ещё выше. Таблица не пересобирается,
+  а переезжает, поэтому введённое и выделенное ничего не теряет.
+- **Подсказки ключевых слов в оверлее**: пока вы печатаете, под полем ввода
+  появляются слова из ваших правил, начинающиеся с набранного, с названием
+  анимации в подсказке чипа.
+- **Tab и Shift+Tab листают подсказки**, как в обычном чате с командами: Tab
+  выбирает следующую, Shift+Tab — предыдущую, Tab за последней подставляет
+  выбранное. Enter тоже подставляет выбранное, а Esc сначала убирает список и
+  только вторым нажатием закрывает оверлей.
+- Подставляется **только последнее набранное слово**: остальной текст, `*…*` и
+  команды вроде `/me` остаются как были. Подсказки учитывают режим правила: в
+  `/me` не предлагается слово из «Только `*…*`», и наоборот.
+- Подсказок нет, когда модуль выключен или включён режим «В машине»: предлагать
+  слова, которые сейчас не сыграют, было бы обманом. Отключаются они и галочкой
+  «Подсказывать ключевые слова в оверлее».
+
 ## 1.17.0 — 16.11.2026
 
 **Режим «В машине»: пока он включён, анимации не играют и `/sa` не уходит.**
@@ -1098,6 +1127,35 @@ English version below: [Changelog (English)](#-changelog-english).
 ---
 
 # 📌 Changelog (English)
+
+## 1.18.0 — 15 Nov 2026
+
+**The rules table is easier to read, and keywords no longer have to be typed whole.**
+
+- **The rules table moved to the top of the Animations page** and got more height:
+  the settings cards used to squeeze it down to two or three visible rows. The
+  module settings and the checks sit below, as before.
+- **A search box above the table** looks through the keywords, the `/anim` names
+  and the variant titles and descriptions. Non-matching rows are hidden while the
+  rules stay where they were, and the line above the table shows "Found: N of M".
+- **Taller, adjustable rows**: "Table row height" from 24 to 96 px, applied at
+  once. The mode and forms captions used to be cut off in the short rows.
+- **A "Full screen" button** (and a double click on the header) expands the table
+  into a separate full-screen window, where the rows are taller still. The table
+  is moved rather than rebuilt, so nothing typed or selected is lost.
+- **Keyword hints in the overlay**: while you type, the words from your rules that
+  start with what you wrote appear under the input, with the animation name in the
+  chip tooltip.
+- **Tab and Shift+Tab walk the hints**, as a normal command chat does: Tab picks
+  the next one, Shift+Tab the previous, and Tab past the last one applies the pick.
+  Enter applies the pick as well, while Esc first hides the list and only the
+  second press closes the overlay.
+- Only the last word being typed is replaced: the rest of the text, `*…*` and
+  commands such as `/me` stay as they were. The hints respect the rule mode: in
+  `/me` a "Only `*…*`" keyword is not offered, and the other way round.
+- There are no hints while the module is off or the "In a vehicle" mode is on:
+  offering words that cannot play would be a lie. The checkbox "Suggest keywords
+  in the overlay" switches them off by hand as well.
 
 ## 1.17.0 — 16 Nov 2026
 

@@ -307,6 +307,27 @@ def style_sheet(scale=1.0):
     return out + extra
 
 
+def _fit_dialog(win, ratio=0.94):
+    """Окно по размеру экрана: не шире и не выше рабочей области.
+
+    A window sized to the screen: no wider and no taller than the work area.
+
+    Отдельные окна (свойства анимации, развёрнутая таблица) задают размер сами и
+    на большом экране ошибаются в другую сторону — упираются в края. Здесь одно
+    место, где это считается.
+    Standalone windows (the animation properties, the expanded table) size
+    themselves and get it wrong the other way on a large screen — they run into
+    the edges. This is the one place where it is worked out.
+    """
+    screen = QGuiApplication.primaryScreen()
+    if screen is None:
+        return
+    area = screen.availableGeometry()
+    win.resize(int(area.width() * ratio), int(area.height() * ratio))
+    win.move(area.x() + (area.width() - win.width()) // 2,
+             area.y() + (area.height() - win.height()) // 2)
+
+
 def _scroll_page(page):
     """Обёртка с прокруткой: содержимое раздела не наезжает само на себя.
 
@@ -3126,6 +3147,12 @@ class SettingsWindow(QDialog):
         lay.setContentsMargins(20, 18, 20, 18)
         lay.setSpacing(10)
 
+        # Таблица — первая на странице: это то, ради чего сюда заходят, и ей
+        # нужна высота. Настройки модуля и проверки стоят ниже и прокручиваются.
+        # The table comes first: it is what the page is opened for, and it needs
+        # the height. The module settings and the checks sit below and scroll.
+        lay.addWidget(self._anim_table_block(), 1)
+
         card, cl = _card()
         self.chk_anims = QCheckBox("Включить модуль «Анимации»")
         self.chk_anims.setChecked(bool(self.cfg.get("anims_enabled", False)))
@@ -3213,6 +3240,41 @@ class SettingsWindow(QDialog):
         self.chk_anim_negation.toggled.connect(self._anims_changed)
         cl.addWidget(self.chk_anim_negation)
 
+        # Подсказки в оверлее: список ключевых слов под полем ввода и
+        # пролистывание по Tab. Выключить можно, если список мешает.
+        # Hints in the overlay: the keyword list under the input and Tab walking.
+        # They can be switched off when the list gets in the way.
+        self.chk_anim_hints = QCheckBox(
+            "Подсказывать ключевые слова в оверлее (Tab — пролистать)")
+        self.chk_anim_hints.setChecked(bool(self.cfg.get("anim_hints", True)))
+        self.chk_anim_hints.setToolTip(
+            "Пока вы печатаете, под полем ввода появляются ключевые слова "
+            "правил, начинающиеся с набранного: Tab листает их, Enter "
+            "подставляет выбранное, Esc убирает список. Подсказка заменяет "
+            "только последнее набранное слово, остальной текст не трогает.")
+        self.chk_anim_hints.toggled.connect(self._anims_changed)
+        cl.addWidget(self.chk_anim_hints)
+
+        # высота строк таблицы: длинные ключевые фразы в низких строках не
+        # читаются, а в высоких таблица занимает весь экран
+        # the row height: long keyword phrases do not read in short rows, and in
+        # tall ones the table fills the screen
+        row_row = QHBoxLayout()
+        row_row.addWidget(_title("Высота строк таблицы, пкс", "sec"))
+        self.sp_anim_row = QSpinBox()
+        self.sp_anim_row.setRange(24, 96)
+        self.sp_anim_row.setSingleStep(2)
+        self.sp_anim_row.setValue(self._anim_base_row())
+        self.sp_anim_row.setMaximumWidth(120)
+        self.sp_anim_row.setToolTip(
+            "Строки правил можно сделать выше: длинные фразы и подписи режимов "
+            "читаются лучше. Двойной щелчок по шапке таблицы разворачивает её "
+            "на весь экран — там строки ещё выше.")
+        self.sp_anim_row.valueChanged.connect(self._anim_row_changed)
+        row_row.addWidget(self.sp_anim_row)
+        row_row.addStretch(1)
+        cl.addLayout(row_row)
+
         # хвост после анимации: к её длительности добавляется столько, и только
         # потом запускается следующая — игра успевает закрыть чат, сервер
         # принять остановку, и вторая анимация из того же сообщения не теряется
@@ -3238,72 +3300,6 @@ class SettingsWindow(QDialog):
         cl.addLayout(gap_row)
         lay.addWidget(card)
 
-        self.lb_anims_count = _hint("")
-        self.lb_anims_count.setProperty("no_i18n", True)
-        lay.addWidget(self.lb_anims_count)
-
-        self.tbl_anims = DragTable(self._move_anims_row, 0, 7)
-        # короткие заголовки: длинные подписи не влезали в столбцы на узком окне
-        # short headers: the long ones did not fit the columns in a narrow window
-        self.tbl_anims.setHorizontalHeaderLabels(
-            ["Вкл", "Ключевые слова", "/anim", "Режим", "Формы", "мс",
-             "Зацикливать"])
-        head = self.tbl_anims.horizontalHeader()
-        head.setMinimumSectionSize(38)
-        for column, policy in ((0, QHeaderView.ResizeMode.ResizeToContents),
-                               (1, QHeaderView.ResizeMode.Stretch),
-                               (2, QHeaderView.ResizeMode.Stretch),
-                               (3, QHeaderView.ResizeMode.Fixed),
-                               (4, QHeaderView.ResizeMode.Fixed),
-                               (5, QHeaderView.ResizeMode.ResizeToContents),
-                               (6, QHeaderView.ResizeMode.ResizeToContents)):
-            head.setSectionResizeMode(column, policy)
-        # «Режим» и «Формы» — фиксированной ширины: иначе длинный список режимов
-        # распирал столбец и сжимал соседние до нечитаемых
-        # the mode and forms columns keep a fixed width: otherwise the long list
-        # of modes inflated it and squeezed its neighbours into slivers
-        self.tbl_anims.setColumnWidth(3, 124)
-        self.tbl_anims.setColumnWidth(4, 92)
-        self.tbl_anims.setMinimumWidth(600)
-        self.tbl_anims.verticalHeader().setVisible(False)
-        self.tbl_anims.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.tbl_anims.setWordWrap(False)
-        self.tbl_anims.itemChanged.connect(self._anims_edited)
-        self.tbl_anims.itemSelectionChanged.connect(self._update_anims_ui)
-        # ПКМ по правилу — свойства анимации: варианты, названия и описания.
-        # Это же меню умеет добавить второй вариант к обычному правилу.
-        # right-click a rule opens its properties: variants, titles and
-        # descriptions. The same menu adds a second variant to a plain rule.
-        self.tbl_anims.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.tbl_anims.customContextMenuRequested.connect(self._anims_menu)
-        lay.addWidget(self.tbl_anims, 1)
-
-        btns = QHBoxLayout()
-        self.bt_anim_add = QPushButton("Добавить правило")
-        self.bt_anim_add.clicked.connect(self._add_anim)
-        self.bt_anim_del = QPushButton("Удалить")
-        self.bt_anim_del.setObjectName("danger")
-        self.bt_anim_del.clicked.connect(self._del_anim)
-        self.bt_anim_up = QPushButton("Выше")
-        self.bt_anim_up.clicked.connect(lambda: self._move_anim(-1))
-        self.bt_anim_down = QPushButton("Ниже")
-        self.bt_anim_down.clicked.connect(lambda: self._move_anim(1))
-        b_imp = QPushButton("Импорт…")
-        b_imp.setToolTip("Загрузить правила из JSON, созданного кнопкой «Экспорт…»")
-        b_imp.clicked.connect(self._import_anims)
-        b_exp = QPushButton("Экспорт…")
-        b_exp.clicked.connect(self._export_anims)
-        for button in (self.bt_anim_add, self.bt_anim_del, self.bt_anim_up,
-                       self.bt_anim_down, b_imp, b_exp):
-            btns.addWidget(button)
-        btns.addStretch(1)
-        lay.addLayout(btns)
-
-        self.lb_anims_problem = QLabel("")
-        self.lb_anims_problem.setProperty("no_i18n", True)
-        self.lb_anims_problem.setWordWrap(True)
-        self.lb_anims_problem.setStyleSheet("color:#ffb45b;")
-        lay.addWidget(self.lb_anims_problem)
 
         live_card, ll = _card()
         ll.addWidget(_title("Проверка в игре", "sec"))
@@ -3387,6 +3383,258 @@ class SettingsWindow(QDialog):
         self._update_anims_ui()
         return page
 
+    def _anim_table_block(self):
+        """Таблица правил: поиск, крупные строки, разворот на весь экран.
+
+        The rules table: a search box, taller rows and a full-screen expander.
+
+        Таблица — единственный источник правил, пока окно открыто, поэтому
+        переезд на весь экран её не пересобирает: та же таблица просто
+        переносится в отдельное окно и обратно, и введённое не теряется.
+        The table is the only source of rules while the window is open, so the
+        full-screen move does not rebuild it: the same table is re-parented into
+        a separate window and back, and nothing typed is lost.
+        """
+        box = QWidget()
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(8)
+        # место, куда таблица возвращается из большого окна
+        # the slot the table returns to from the big window
+        self._anim_table_slot = lay
+
+        find_row = QHBoxLayout()
+        self.ed_anim_find = QLineEdit()
+        self.ed_anim_find.setPlaceholderText(
+            i18n.t("Поиск по словам, /anim и описаниям вариантов"))
+        self.ed_anim_find.setClearButtonEnabled(True)
+        self.ed_anim_find.textChanged.connect(self._anim_find_changed)
+        self.ed_anim_find.setToolTip(i18n.t(
+            "Ищет по ключевым словам, по названию /anim и по описаниям "
+            "вариантов. Строки, которые не подходят, прячутся, а правила "
+            "остаются на своих местах."))
+        find_row.addWidget(self.ed_anim_find, 1)
+        self.bt_anim_expand = QPushButton(i18n.t("На весь экран"))
+        self.bt_anim_expand.setCheckable(True)
+        self.bt_anim_expand.setToolTip(i18n.t(
+            "Развернуть таблицу правил на весь экран — удобнее править длинные "
+            "ключевые слова. То же самое делает двойной щелчок по шапке таблицы."))
+        self.bt_anim_expand.toggled.connect(self._anim_expand_toggled)
+        find_row.addWidget(self.bt_anim_expand)
+        lay.addLayout(find_row)
+
+        self.lb_anims_count = _hint("")
+        self.lb_anims_count.setProperty("no_i18n", True)
+        lay.addWidget(self.lb_anims_count)
+
+        self.tbl_anims = DragTable(self._move_anims_row, 0, 7)
+        # короткие заголовки: длинные подписи не влезали в столбцы на узком окне
+        # short headers: the long ones did not fit the columns in a narrow window
+        self.tbl_anims.setHorizontalHeaderLabels(
+            ["Вкл", "Ключевые слова", "/anim", "Режим", "Формы", "мс",
+             "Зацикливать"])
+        head = self.tbl_anims.horizontalHeader()
+        head.setMinimumSectionSize(38)
+        for column, policy in ((0, QHeaderView.ResizeMode.ResizeToContents),
+                               (1, QHeaderView.ResizeMode.Stretch),
+                               (2, QHeaderView.ResizeMode.Stretch),
+                               (3, QHeaderView.ResizeMode.Fixed),
+                               (4, QHeaderView.ResizeMode.Fixed),
+                               (5, QHeaderView.ResizeMode.ResizeToContents),
+                               (6, QHeaderView.ResizeMode.ResizeToContents)):
+            head.setSectionResizeMode(column, policy)
+        # «Режим» и «Формы» — фиксированной ширины: иначе длинный список режимов
+        # распирал столбец и сжимал соседние до нечитаемых
+        # the mode and forms columns keep a fixed width: otherwise the long list
+        # of modes inflated it and squeezed its neighbours into slivers
+        self.tbl_anims.setColumnWidth(3, 124)
+        self.tbl_anims.setColumnWidth(4, 92)
+        self.tbl_anims.setMinimumWidth(600)
+        self.tbl_anims.verticalHeader().setVisible(False)
+        self.tbl_anims.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.tbl_anims.setWordWrap(False)
+        # строки выше обычных: в правиле живут длинные фразы, а подписи режима
+        # и форм срезались, когда высота была стандартной
+        # taller rows than usual: a rule holds long phrases, and the mode and
+        # forms captions were cut off at the standard height
+        self._anim_row_height()
+        self.tbl_anims.itemChanged.connect(self._anims_edited)
+        self.tbl_anims.itemSelectionChanged.connect(self._update_anims_ui)
+        # двойной щелчок по шапке разворачивает таблицу: привычный жест, и
+        # кнопка говорит о нём же
+        # a double click on the header expands the table: a familiar gesture, and
+        # the button says so as well
+        head.sectionDoubleClicked.connect(lambda _column: self._anim_expand(True))
+        # ПКМ по правилу — свойства анимации: варианты, названия и описания.
+        # Это же меню умеет добавить второй вариант к обычному правилу.
+        # right-click a rule opens its properties: variants, titles and
+        # descriptions. The same menu adds a second variant to a plain rule.
+        self.tbl_anims.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tbl_anims.customContextMenuRequested.connect(self._anims_menu)
+        # ниже этой высоты таблица бесполезна: видно две строки
+        # below this height the table is useless: only two rows are visible
+        self.tbl_anims.setMinimumHeight(260)
+        lay.addWidget(self.tbl_anims, 1)
+
+        btns = QHBoxLayout()
+        self.bt_anim_add = QPushButton("Добавить правило")
+        self.bt_anim_add.clicked.connect(self._add_anim)
+        self.bt_anim_del = QPushButton("Удалить")
+        self.bt_anim_del.setObjectName("danger")
+        self.bt_anim_del.clicked.connect(self._del_anim)
+        self.bt_anim_up = QPushButton("Выше")
+        self.bt_anim_up.clicked.connect(lambda: self._move_anim(-1))
+        self.bt_anim_down = QPushButton("Ниже")
+        self.bt_anim_down.clicked.connect(lambda: self._move_anim(1))
+        b_imp = QPushButton("Импорт…")
+        b_imp.setToolTip("Загрузить правила из JSON, созданного кнопкой «Экспорт…»")
+        b_imp.clicked.connect(self._import_anims)
+        b_exp = QPushButton("Экспорт…")
+        b_exp.clicked.connect(self._export_anims)
+        for button in (self.bt_anim_add, self.bt_anim_del, self.bt_anim_up,
+                       self.bt_anim_down, b_imp, b_exp):
+            btns.addWidget(button)
+        btns.addStretch(1)
+        lay.addLayout(btns)
+
+        self.lb_anims_problem = QLabel("")
+        self.lb_anims_problem.setProperty("no_i18n", True)
+        self.lb_anims_problem.setWordWrap(True)
+        self.lb_anims_problem.setStyleSheet("color:#ffb45b;")
+        lay.addWidget(self.lb_anims_problem)
+        return box
+
+    def _anim_row_height(self, height=None):
+        """Высота строки таблицы правил: крупнее обычной, с учётом масштаба.
+
+        The rules table row height: taller than the default, scaled with the UI.
+        """
+        if not hasattr(self, "tbl_anims"):
+            return
+        try:
+            base = int(height if height is not None
+                       else self.cfg.get("anim_row_height", 34) or 34)
+        except (TypeError, ValueError):
+            base = 34
+        base = max(24, min(96, base))
+        self.tbl_anims.verticalHeader().setDefaultSectionSize(
+            int(round(base * self._ui_scale())))
+
+    def _anim_expand_toggled(self, on):
+        """Кнопка «На весь экран» / the full-screen button."""
+        self._anim_expand(on)
+
+    def _anim_expand(self, on: bool) -> None:
+        """Развернуть таблицу на весь экран или вернуть на страницу.
+
+        Expand the table to the whole screen, or put it back on the page.
+
+        Таблица не пересобирается: она переезжает в отдельное окно вместе с
+        прокруткой, выделением и фильтром, поэтому ничего введённого не теряется.
+        The table is not rebuilt: it moves into a separate window together with
+        its scroll position, selection and filter, so nothing typed is lost.
+        """
+        on = bool(on)
+        if not hasattr(self, "tbl_anims"):
+            return
+        if on == bool(getattr(self, "_anim_expanded", False)):
+            return
+        self._anim_expanded = on
+        if on:
+            win = QDialog(self)
+            win.setWindowTitle(i18n.t("Анимации — правила"))
+            box = QVBoxLayout(win)
+            box.setContentsMargins(12, 12, 12, 12)
+            box.setSpacing(8)
+            head = QHBoxLayout()
+            head.addWidget(_title(i18n.t("Правила анимаций"), "sec"))
+            head.addStretch(1)
+            b_close = QPushButton(i18n.t("Вернуть на страницу"))
+            b_close.clicked.connect(lambda: self._anim_expand(False))
+            head.addWidget(b_close)
+            box.addLayout(head)
+            box.addWidget(self.tbl_anims, 1)
+            self._anim_expand_win = win
+            win.finished.connect(lambda _result: self._anim_expand(False))
+            _fit_dialog(win)
+            win.showMaximized()
+            # на большом экране строки ещё выше: читать проще
+            # on a large screen the rows are taller still: easier to read
+            self._anim_row_height(max(38, self._anim_base_row() + 8))
+        else:
+            win = getattr(self, "_anim_expand_win", None)
+            self._anim_expand_win = None
+            if win is not None:
+                # таблицу возвращаем на страницу ДО закрытия окна: иначе Qt
+                # удалит её вместе с окном
+                # the table goes back to the page BEFORE the window closes:
+                # otherwise Qt deletes it together with the window
+                self._anim_table_slot.addWidget(self.tbl_anims, 1)
+                win.blockSignals(True)
+                win.close()
+                win.deleteLater()
+            self._anim_row_height()
+            if getattr(self, "bt_anim_expand", None) is not None:
+                self.bt_anim_expand.blockSignals(True)
+                self.bt_anim_expand.setChecked(False)
+                self.bt_anim_expand.blockSignals(False)
+
+    def _anim_base_row(self) -> int:
+        """Высота строки из настроек, без масштаба / the configured row height."""
+        try:
+            return max(24, min(96, int(self.cfg.get("anim_row_height", 34) or 34)))
+        except (TypeError, ValueError):
+            return 34
+
+    def _anim_find_changed(self, text):
+        """Поиск по таблице: слова, /anim и описания вариантов.
+
+        The table search: the keywords, the /anim name and variant descriptions.
+
+        Прячется только строка таблицы — правило остаётся на своём месте,
+        поэтому перетаскивание и «Выше/Ниже» работают как обычно.
+        Only the row is hidden — the rule stays where it was, so dragging and
+        "Up/Down" keep working as usual.
+        """
+        needle = " ".join((text or "").casefold().split())
+        shown = 0
+        total = self.tbl_anims.rowCount()
+        for row in range(total):
+            match = True
+            if needle:
+                parts: list[str] = []
+                for column in (1, 2):
+                    item = self.tbl_anims.item(row, column)
+                    parts.append(item.text() if item is not None else "")
+                name_item = self.tbl_anims.item(row, 2)
+                if name_item is not None:
+                    raw = name_item.data(Qt.ItemDataRole.UserRole + 1)
+                    if isinstance(raw, list):
+                        for entry in raw:
+                            if isinstance(entry, dict):
+                                parts.append(str(entry.get("title") or ""))
+                                parts.append(str(entry.get("description") or ""))
+                hay = " ".join(" ".join(parts).casefold().split())
+                match = needle in hay
+            self.tbl_anims.setRowHidden(row, not match)
+            shown += int(match)
+        self._anim_find_note(shown, total, bool(needle))
+
+    def _anim_find_note(self, shown, total, filtering):
+        """Строка над таблицей: сколько правил видно.
+
+        The line above the table: how many rules are visible.
+        """
+        if not hasattr(self, "lb_anims_count"):
+            return
+        if not filtering:
+            self.lb_anims_count.setText(i18n.tf("Правил: %d", total))
+            return
+        text = i18n.tf("Найдено: %d из %d", shown, total)
+        if not shown:
+            text += " — " + i18n.t("ничего не подходит, очистите поиск")
+        self.lb_anims_count.setText(text)
+
     # ------------------------------------------------ состояние и проверка
     # state and checks
     def _anim_combo_hint(self, combo):
@@ -3416,6 +3664,15 @@ class SettingsWindow(QDialog):
         """
         self._anim_note = (text, time.monotonic() + seconds)
         self.lb_anim_live.setText(text)
+
+    def _anim_row_changed(self, value):
+        """Ползунок высоты строк: сразу перерисовать таблицу.
+
+        The row height spinner: the table is redrawn at once.
+        """
+        self.cfg["anim_row_height"] = int(value)
+        self._anim_row_height(int(value))
+        self._anims_changed()
 
     def _anim_vehicle_changed(self, on):
         """Галочка «В машине»: сразу применить режим / apply the mode at once.
@@ -4004,8 +4261,16 @@ class SettingsWindow(QDialog):
         rules = getattr(self, "_anim_rules", []) or []
         active = sum(1 for rule in rules if rule.ready())
         loops = sum(1 for rule in rules if rule.ready() and rule.loop)
-        self.lb_anims_count.setText(i18n.tf(
-            "Правил: %d, готовы к работе: %d, с зацикливанием: %d", total, active, loops))
+        note = i18n.tf("Правил: %d, готовы к работе: %d, с зацикливанием: %d",
+                       total, active, loops)
+        # поиск не должен теряться за счётчиком: сколько правил он оставил
+        # the search must not disappear behind the counter: how many it left
+        find = getattr(self, "ed_anim_find", None)
+        if find is not None and find.text().strip():
+            shown = sum(1 for row in range(total)
+                        if not self.tbl_anims.isRowHidden(row))
+            note = i18n.tf("Найдено: %d из %d", shown, total) + " · " + note
+        self.lb_anims_count.setText(note)
         for row in range(total):
             combo = self.tbl_anims.cellWidget(row, 3)
             if isinstance(combo, QComboBox):
@@ -5310,6 +5575,8 @@ class SettingsWindow(QDialog):
             # the "In a vehicle" mode was already applied by the checkbox; here it
             # is only written to disk so that it survives a restart
             cfg["anim_in_vehicle"] = bool(self.chk_anim_vehicle.isChecked())
+            cfg["anim_hints"] = bool(self.chk_anim_hints.isChecked())
+            cfg["anim_row_height"] = int(self.sp_anim_row.value())
         cfg["slang_order"] = list(self._slang_order)
         cfg["slang_lang"] = slang.code_for(self._slang_lang)
         # Рабочий язык таблицы переставляет главное окно после сохранения: окно
@@ -5428,6 +5695,16 @@ class SettingsWindow(QDialog):
             self.chk_anim_vehicle.setChecked(live)
             self.chk_anim_vehicle.blockSignals(False)
             self._anim_vehicle_note(live)
+            if hasattr(self, "chk_anim_hints"):
+                self.chk_anim_hints.blockSignals(True)
+                self.chk_anim_hints.setChecked(bool(cfg.get("anim_hints", True)))
+                self.chk_anim_hints.blockSignals(False)
+            if hasattr(self, "sp_anim_row"):
+                self.cfg["anim_row_height"] = int(cfg.get("anim_row_height", 34) or 34)
+                self.sp_anim_row.blockSignals(True)
+                self.sp_anim_row.setValue(self._anim_base_row())
+                self.sp_anim_row.blockSignals(False)
+                self._anim_row_height()
         if hasattr(self, "sp_anim_gap"):
             self.sp_anim_gap.blockSignals(True)
             self.sp_anim_gap.setValue(self._anim_extra(cfg))
