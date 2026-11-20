@@ -952,13 +952,26 @@ def family_of_mode(mode: int) -> str:
     return MODE_FAMILY_MESSAGES
 
 
-def family_hits(mode: int, family: str) -> bool:
+def family_hits(mode: int, family: str, has_action: bool = False) -> bool:
     """Сработает ли правило такого режима в сообщении такого вида.
 
     Would a rule of that mode fire in a message of that family.
+
+    Если в тексте есть действие *...* (или незакрытая звёздочка), подходят и
+    обычные, и «только *…*» правила: слово между звёздочками считается и там,
+    и там. Если звёзд нет — «только *…*» не срабатывает на обычные слова.
+    If the text contains an action *...* (or an unclosed asterisk), both plain
+    and "only *…*" rules fit: a word between asterisks counts there as well.
+    Without asterisks, "only *…*" does not fire on plain words.
     """
     rule_family = family_of_mode(mode)
-    return rule_family == MODE_FAMILY_ALWAYS or rule_family == family
+    if rule_family == MODE_FAMILY_ALWAYS:
+        return True
+    if rule_family == family:
+        return True
+    if has_action and rule_family in (MODE_FAMILY_ACTIONS, MODE_FAMILY_MESSAGES):
+        return True
+    return False
 
 
 @dataclass
@@ -1022,6 +1035,9 @@ def suggestions(rules: Iterable["Rule"], text: str, limit: int = 8) -> list[Hint
     if not need:
         return []
     family = message_family(text)
+    # есть действие *...* — и обычные, и «только *…*» правила могут сработать
+    # there's an action *...* — both plain and "only *…*" rules can fire
+    has_action = "*" in (text or "")
     stem_need = _stem_word(tail)
     starts: list[Hint] = []
     stems: list[Hint] = []
@@ -1029,7 +1045,7 @@ def suggestions(rules: Iterable["Rule"], text: str, limit: int = 8) -> list[Hint
     for rule in rules:
         if not rule.ready():
             continue
-        if not family_hits(rule.mode, family):
+        if not family_hits(rule.mode, family, has_action):
             continue
         names = [choice.label() for choice in rule.variant_list()] or [rule.name]
         label = " / ".join(name for name in names if name)[:60]
