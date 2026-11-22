@@ -1,94 +1,149 @@
-# Chat&AutoAnimations RP Overhaul
+# 🎮 Chat&AutoAnimations RP Overhaul
 
 > Chat overlay with DeepL/Google translation and automatic animation application for roleplay games (GTA 5).
 
 [![Windows 10 / 11](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&logoColor=white)](https://github.com/Ven4esters/RP-Chat-Overlay/releases)
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-312/)
-[![Languages: 13](https://img.shields.io/badge/languages-13-2e7d32)]
-[![Abbreviations: 300×6](https://img.shields.io/badge/abbreviations-300×6-8e6bd8)]
-[![EXE ~47.7 MiB](https://img.shields.io/badge/exe-~47.7%20MiB-66d18b)]
-[![VirusTotal](https://img.shields.io/badge/VirusTotal-отчёт-394eff)](https://www.virustotal.com/gui/file/9a6c8da2e9472ee89ee3a6f6311844ed0a983d00327857a1749dc5782cc34749?nocache=1)
-[![MIT License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+![Языков: 13](https://img.shields.io/badge/languages-13-2e7d32)
+![Сокращений: 300×6](https://img.shields.io/badge/abbreviations-300×6-8e6bd8)
+![EXE ~47.7 MiB](https://img.shields.io/badge/exe-~47.7%20MiB-66d18b)
+[![VirusTotal: report](https://img.shields.io/badge/VirusTotal-отчёт-394eff)](https://www.virustotal.com/gui/file/9a6c8da2e9472ee89ee3a6f6311844ed0a983d00327857a1749dc5782cc34749?nocache=1)
+![Лицензия: MIT](https://img.shields.io/badge/license-MIT-green)
 
 ## Содержание
-- [About the project](#about-the-project)
-- [Features](#features)
-- [Tech stack](#tech-stack)
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Quick start](#quick-start)
-- [Configuration](#configuration)
-- [How to contribute](#how-to-contribute)
-- [License](#license)
-- [Contacts](#contacts)
+- [О проекте](#о-проекте)
+- [Возможности](#возможности)
+- [Стек технологий](#стек-технологий)
+- [Требования](#требования)
+- [Установка](#установка)
+- [Быстрый старт](#быстрый-старт)
+- [Конфигурация](#конфигурация)
+- [Режимы перевода и спецсимволы](#режимы-перевода-испецсимволы)
+- [DeepLX в России](#deeplxвроссии)
+- [Лицензия](#лицензия)
+- [Контакты](#контакты)
 
-## About the project
-The project is an overlay for roleplay chat in GTA 5. It translates incoming and outgoing messages through DeepL (local service) or Google Translate, and automatically applies character animations (`*...*`) based on a configurable rule set. The interface language can be switched between Russian and English without restarting.
+## О проекте
 
-## Features
-- Translate chat messages through DeepL or Google Translate
-- Automatic animation triggers from `*...*` text spans
-- Built-in glossaries and slang expansion for several languages
-- Adjustable overlay transparency, position and hotkeys
-- DLX local service management (install, start, stop, proxy)
-- Russian and English interface
+Проект — оверлей для ролевого чата в GTA 5. Переводит входящие и исходящие
+сообщения через DeepL (локальный сервис) или Google Translate, а также
+автоматически применяет анимации персонажа по совпадению ключевых слов.
+Язык интерфейса можно переключать между русским и английским без перезапуска.
 
-## Tech stack
+## Возможности
+
+- Перевод сообщений чата через DeepL или Google Translate
+- Автоматический запуск анимаций по совпадению ключевых слов
+- Встроенные глоссарии и раскрытие сленга на нескольких языках
+- Управление локальным сервисом DLX (установка, запуск, остановка, прокси)
+- Интерфейс на русском и английском языках
+
+## Стек технологий
+
 Python 3.12 · PySide6 · deep-translator
 
-## Requirements
-- Windows (GTA 5)
-- Python ≥ 3.12 (to run from sources)
-- Internet connection for translation services
+## Требования
 
-## Installation
+- Windows 10 / 11
+- GTA 5
+- Python ≥ 3.12 (для запуска из исходников)
+- Подключение к интернету для сервисов перевода
 
-### Compiled release (recommended)
-Download the latest build from [GitHub Releases](https://github.com/Ven4esters/RP-Chat-Overlay/releases):
+## Установка
 
-| File | SHA-256 | MD5 | Size |
+### Скомпилированный релиз (рекомендуется)
+
+Скачайте последнюю сборку в [GitHub Releases](https://github.com/Ven4esters/RP-Chat-Overlay/releases):
+
+| Файл | SHA-256 | MD5 | Размер |
 |---|---|---|---|
-| `RPChatOverlay.exe` | `9a6c8da2e9472ee89ee3a6f6311844ed0a983d00327857a1749dc5782cc34749` | `d854ac6a2c7d860ec59a5dd7acbc1a9e` | 47.7 MiB (49 990 457 bytes) |
+| `RPChatOverlay.exe` | `9a6c8da2e9472ee89ee3a6f6311844ed0a983d00327857a1749dc5782cc34749` | `d854ac6a2c7d860ec59a5dd7acbc1a9e` | 47,7 MiB (49 990 457 байт) |
 
-Verify the checksum after downloading, then run `RPChatOverlay.exe`.
+После скачивания проверьте контрольную сумму, затем запустите `RPChatOverlay.exe`.
 
-### From sources
+### Из исходников
+
 ```bash
 git clone https://github.com/Ven4esters/RP-Chat-Overlay.git
 cd RP-Chat-Overlay
 ```
-Run `source/start.bat` — it finds or installs Python 3.12, creates a virtual environment, installs dependencies and launches the app.
 
-## Quick start
+Запустите `source/start.bat` — он найдёт или установит Python 3.12, создаст
+виртуальное окружение, установит зависимости и запустит приложение.
+
+## Быстрый старт
+
 ```bash
 source/start.bat
 ```
-The overlay appears as a tray icon. Press the configured hotkey to show the chat window. Incoming/outgoing messages are translated automatically; `*...*` spans trigger animations if a matching rule exists.
 
-Open **Settings** → **DeepL** to configure the local translation service, or **Settings** → **Animations** to manage animation rules.
+Оверлей появляется как значок в трее. Нажмите настроенную горячую клавишу,
+чтобы открыть окно чата. Входящие и исходящие сообщения переводятся
+автоматически; анимации запускаются по совпадению ключевых слов.
 
-## Configuration
+Откройте **Настройки → DeepL** для настройки локального сервиса перевода,
+или **Настройки → Анимации** для управления правилами анимаций.
 
-| Variable | Required | Default | Description |
+## Конфигурация
+
+| Переменная | Обязательна | По умолчанию | Описание |
 |---|---|---|---|
-| `ui_lang` | no | `ru` | Interface language (`ru` / `en`) |
-| `target_lang` | no | `it` | Translation target language |
-| `dlx_url` | no | — | Address of your own DeepL service |
-| `dlx_url_token` | no | — | Bearer token for your own DeepL service |
+| `ui_lang` | нет | `ru` | Язык интерфейса (`ru` / `en`) |
+| `target_lang` | нет | `it` | Целевой язык перевода |
+| `dlx_url` | нет | — | Адрес вашего сервиса DeepL |
+| `dlx_url_token` | нет | — | Bearer-токен для вашего сервиса DeepL |
 
-Settings are stored in `data/config.json` next to the executable. Do not put real keys into the repository — they belong in the local data folder only.
+Настройки сохраняются в `data/config.json` рядом с исполняемым файлом. Не
+добавляйте реальные ключи в репозиторий — они принадлежат только локальной
+папке с данными.
 
-## How to contribute
-1. Fork the repository
-2. Create a branch: `git checkout -b feature/my-change`
-3. Make your changes and commit by [Conventional Commits](https://www.conventionalcommits.org/)
-4. Open a Pull Request
+## Режимы перевода и спецсимволы
 
-Before PR: run lint and tests locally.
+Программа поддерживает несколько способов перевода и особые маркеры в тексте:
 
-## License
+### Автоперевод
+
+Каждое N-е сообщение переводится автоматически. Для команд `/to`, `/lto`, `/l`,
+`/wt`, `/s`, `/st` автоперевод применяется как к обычным сообщениям.
+
+### Форсированный перевода фрагмента `+...+`
+
+Обёрните часть текста в `+` — фрагмент переведётся даже когда автоперевод
+выключен. Например: `+`привет, брат`+` — всегда уйдёт в чат на целевом языке.
+
+### Действия `*...*`
+
+Текст в звёздочках воспринимается как действие персонажа и переводится целиком.
+Служебные команды (`/me`, `/do`, `/to`) и никнеймы не переводятся.
+
+### Слова-паразиты
+
+Это filler-слова, которые вставляются в **каждое** сообщение независимо от
+счётчика автоперевода: `Senti`, `Ma dai`, `Oye`, `那个` и другие. Включаются
+галочкой у фразы в словаре.
+
+### Приоритет Словаря над переводом
+
+Если фраза есть во встроенном или пользовательском словаре, она переводится
+согласно словарной записи (с русской записью «как это читается») и не уходит на
+внешние сервисы перевода. Словарь имеет приоритет над сетевым переводом.
+
+## DeepLX в России
+
+С июня 2025 года DeepL закрыт для российских IP-адресов. Локальный сервис DLX
+запускается, но DeepL возвращает ошибку `503` — состояние
+**«Работает, но DeepL не отвечает (503)»**.
+
+Как обойти: используйте **HTTP-прокси** (v2rayN, Clash, SOCKS5) или разверните
+свой сервер DLX за рубежом ([подробная инструкция](docs/DEEPLX-RUSSIA.md)).
+Если прокси нет — просто отключите DLX, программа вернётся к обычным
+сервисам перевода без ограничений.
+
+## Лицензия
+
 [MIT](LICENSE)
 
-## Contacts
-- Author: [Ven4esters](https://github.com/Ven4esters)
-- Issues and suggestions: [GitHub Issues](https://github.com/Ven4esters/RP-Chat-Overlay/issues)
+## Контакты
+
+- Автор: [Ven4esters](https://github.com/Ven4esters)
+- Вопросы и предложения: [GitHub Issues](https://github.com/Ven4esters/RP-Chat-Overlay/issues)
