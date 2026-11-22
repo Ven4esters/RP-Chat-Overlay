@@ -8,6 +8,18 @@ This file records changes and their reasons so the same problems are not repeate
 
 ---
 
+## 2026-11-15 — Bilingual forum BBCode and refreshed artwork
+
+**What changed:** Added `docs/FORUM_BBCODE.md` with copy-ready RU and EN forum posts. The posts use only supported-style BBCode for text, links and images: no spoilers, tables, internal anchors, or intra-post links. All section headers are left-aligned; only the main title banner is centered. Table content is rendered as PNG images.
+
+**Artwork:** Added `source/images/forum/generate_forum_post.py` and localized hero, section-header, module-summary, and language-summary images. Asset URLs in the BBCode target the stable `main` branch, so merge the assets before posting.
+
+**Reference:** The target thread content could not be retrieved; a shortened route returned the forum index. The redesign follows the user-provided original header image and the existing forum artwork in the repository.
+
+**Checks:** Regenerated all 24 localized PNG assets; verified all BBCode image paths and markup; `ruff check source`, `ruff format --check source`, `py_compile` for the generator, and `git diff --check` passed.
+
+---
+
 ## 2026-11-15 — Recent README and license updates
 
 **Commits:** `8d3b608`, `dc9ed6a`, `f1248c9`, `0ed4fe4`, `72bc046`, `a9634cd`, `2b053b0`.
@@ -132,6 +144,18 @@ Remaining partial items are test coverage and public docstring coverage; the pro
 # Справка о правках
 
 Этот файл фиксирует внесённые правки и их причины, чтобы не наступать на одни и те же грабли повторно.
+
+---
+
+## 2026-11-15 — Двуязычный BBCode для форума и новая графика
+
+**Что изменено:** Добавлен `docs/FORUM_BBCODE.md` с готовыми к копированию русским и английским вариантами поста. Используется BBCode для текста, ссылок и изображений; в публикациях нет спойлеров, таблиц, якорей и внутренних ссылок. Заголовки разделов выровнены влево, по центру расположен только главный баннер. Содержимое таблиц вынесено в PNG.
+
+**Графика:** Добавлен генератор `source/images/forum/generate_forum_post.py` и набор RU/EN-баннеров, заголовков, сводок модулей и языков. Ссылки на изображения в BBCode ведут в стабильную ветку `main`, поэтому перед публикацией нужно влить файлы.
+
+**Источник оформления:** Содержимое нужной темы получить не удалось: короткая ссылка возвращает главную страницу форума. Обновление основано на присланном изображении старой шапки и существующей графике форума в репозитории.
+
+**Проверки:** заново сгенерированы все 24 локализованных PNG; проверены ссылки на изображения и разметка BBCode; прошли `ruff check source`, `ruff format --check source`, `py_compile` генератора и `git diff --check`.
 
 ---
 
