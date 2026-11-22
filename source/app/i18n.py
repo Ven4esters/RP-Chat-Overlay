@@ -822,6 +822,26 @@ STRINGS = {
     "Локальный сервис DeepL снова работает.":
         "The local DeepL service runs again.",
 
+    # ---------------- Переводчик DeepL ----------------
+    # DeepL translator widget
+    "Переводчик DeepL": "DeepL translator",
+    "Язык исходного текста": "Source language",
+    "Язык перевода": "Target language",
+    "Автоопределение языка": "Auto-detect language",
+    "Поменять языки местами": "Swap languages",
+    "Перевести": "Translate",
+    "Очистить": "Clear",
+    "Вставьте или наберите текст…": "Paste or type text…",
+    "Перевод появится здесь": "Translation will appear here",
+    "Сервис не запущен": "Service not running",
+    "Запустите сервис DeepL выше": "Start the DeepL service above",
+    "Слишком длинный текст (макс. 1500 символов)":
+        "Text too long (max 1500 characters)",
+    "Нет связи с сервисом": "No connection to the service",
+    "Перевод не удался: %s": "Translation failed: %s",
+    "Вставлено %d слов": "Pasted %d words",
+    "Перевожу…": "Translating…",
+
     # ---------- окно настроек: страница «Модули» ----------
     # settings window: the "Modules" page
     "Модули": "Modules",

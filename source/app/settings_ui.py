@@ -34,10 +34,10 @@ from PySide6.QtWidgets import (QAbstractButton, QAbstractItemView, QCheckBox, QC
                                QDialog, QFileDialog, QFormLayout, QFrame, QHBoxLayout,
                                QHeaderView, QInputDialog, QLabel, QLineEdit,
                                QListWidget,
-                               QListWidgetItem, QMenu, QMessageBox, QPushButton,
-                               QScrollArea, QSizePolicy, QSpinBox, QStackedWidget,
-                               QTableWidget, QTableWidgetItem, QToolButton,
-                               QVBoxLayout, QWidget)
+                               QListWidgetItem, QMenu, QMessageBox, QPlainTextEdit,
+                               QPushButton, QScrollArea, QSizePolicy, QSpinBox,
+                               QStackedWidget, QTableWidget, QTableWidgetItem,
+                               QToolButton, QVBoxLayout, QWidget)
 
 from app import dlx as dlx_mod
 from app import anims, history, i18n, langs, modules, morph, slang
@@ -183,10 +183,12 @@ QListWidget#nav { background: #17171e; border: none; border-right: 1px solid #26
 QListWidget#nav::item { padding: 10px 12px; border-radius: 8px; margin: 2px 4px; color: #c8c8d2; }
 QListWidget#nav::item:selected { background: #26263a; color: #ffffff; }
 QListWidget#nav::item:hover { background: #20202b; }
-QLineEdit, QSpinBox, QComboBox { background: #0e0e12; border: 1px solid #3a3a48;
-                                 border-radius: 6px; padding: 6px 8px; min-height: 18px; }
-QLineEdit:focus, QSpinBox:focus, QComboBox:focus { border: 1px solid #5b8cff; }
-QLineEdit:read-only { color: #b9c4ff; }
+QLineEdit, QSpinBox, QComboBox, QPlainTextEdit { background: #0e0e12;
+    border: 1px solid #3a3a48; border-radius: 6px; padding: 6px 8px;
+    min-height: 18px; }
+QLineEdit:focus, QSpinBox:focus, QComboBox:focus, QPlainTextEdit:focus {
+    border: 1px solid #5b8cff; }
+QLineEdit:read-only, QPlainTextEdit:read-only { color: #b9c4ff; }
 /* у счётчиков свои кнопки «−» и «+», штатные стрелки убираем совсем, иначе
    они отнимают у поля почти всю ширину. Spin boxes draw their − and + as real
    buttons, so the built-in arrows are given zero width instead of a hidden one. */
@@ -626,6 +628,44 @@ def _hint(text):
     lab.setObjectName("hint")
     lab.setWordWrap(True)
     return lab
+
+
+def _dlx_languages():
+    """Языки DeepL: код и название / DeepL languages: code and name.
+
+    «auto» не входит — его добавляет вызывающий код только для источника.
+    "auto" is not included; the caller adds it for the source side only.
+    """
+    return [
+        ("BG", "Bulgarian"),
+        ("CS", "Czech"),
+        ("DA", "Danish"),
+        ("DE", "German"),
+        ("EL", "Greek"),
+        ("EN", "English"),
+        ("ES", "Spanish"),
+        ("ET", "Estonian"),
+        ("FI", "Finnish"),
+        ("FR", "French"),
+        ("HU", "Hungarian"),
+        ("ID", "Indonesian"),
+        ("IT", "Italian"),
+        ("JA", "Japanese"),
+        ("KO", "Korean"),
+        ("LT", "Lithuanian"),
+        ("LV", "Latvian"),
+        ("NL", "Dutch"),
+        ("PL", "Polish"),
+        ("PT", "Portuguese"),
+        ("RO", "Romanian"),
+        ("RU", "Russian"),
+        ("SK", "Slovak"),
+        ("SL", "Slovenian"),
+        ("SV", "Swedish"),
+        ("TR", "Turkish"),
+        ("UK", "Ukrainian"),
+        ("ZH", "Chinese"),
+    ]
 
 
 def _small_spin(spin, lo, hi, suffix="", width=170, step=None, prefix=None):
@@ -2744,6 +2784,111 @@ class SettingsWindow(QDialog):
         self._dlx_live.setInterval(1000)
         self._dlx_live.timeout.connect(self._dlx_live_tick)
         self._dlx_live.start()
+        # Переводчик DeepL: левое окно — язык источника и текст для перевода,
+        # правое — язык перевода и результат. Как в обычных переводчиках.
+        # DeepL translator: source language and text on the left, target
+        # language and result on the right — like in regular translators.
+        card, cl = _card()
+        cl.addWidget(_title(i18n.t("Переводчик DeepL"), "sec"))
+        cl.addWidget(_hint(
+            i18n.t("Переведите фразу через локальный сервис DeepL. "
+                   "Выберите языки, наберите текст слева и нажмите Перевести.")))
+
+        row = QHBoxLayout()
+        row.setSpacing(16)
+
+        # Левая панель: язык источника + поле ввода
+        # Left panel: source language + input field
+        left = QVBoxLayout()
+        left.setSpacing(8)
+        left.addWidget(QLabel(i18n.t("Язык исходного текста")))
+        self.cb_dlx_src = QComboBox()
+        self.cb_dlx_src.setMinimumWidth(220)
+        self.cb_dlx_src.setEditable(True)
+        self.cb_dlx_src.lineEdit().setPlaceholderText(
+            i18n.t("Выберите язык или наберите для поиска"))
+        self.cb_dlx_src.lineEdit().setReadOnly(True)
+        completer = self.cb_dlx_src.completer()
+        completer.setFilterMode(Qt.MatchFlag.MatchContains)
+        self.cb_dlx_src.addItem(i18n.t("Автоопределение языка"), "auto")
+        for code, name in _dlx_languages():
+            self.cb_dlx_src.addItem(name, code)
+        self.cb_dlx_src.setCurrentIndex(0)
+        self.cb_dlx_src.setToolTip(
+            i18n.t("Язык, с которого переводить. «Автоопределение» — "
+                   "сервис узнает язык сам."))
+        left.addWidget(self.cb_dlx_src)
+        self.ed_dlx_src = QPlainTextEdit()
+        self.ed_dlx_src.setPlaceholderText(
+            i18n.t("Вставьте или наберите текст…"))
+        self.ed_dlx_src.setMinimumHeight(210)
+        self.ed_dlx_src.setObjectName("dlxSrc")
+        left.addWidget(self.ed_dlx_src, 1)
+
+        # Кнопка обмена языками между панелями
+        swap_col = QVBoxLayout()
+        swap_col.addStretch(1)
+        self.b_dlx_swap = QToolButton()
+        self.b_dlx_swap.setText("⇄")
+        self.b_dlx_swap.setToolTip(i18n.t("Поменять языки местами"))
+        self.b_dlx_swap.clicked.connect(self._dlx_swap_langs)
+        swap_col.addWidget(self.b_dlx_swap)
+        swap_col.addStretch(1)
+
+        # Правая панель: язык перевода + поле результата
+        # Right panel: target language + result field
+        right = QVBoxLayout()
+        right.setSpacing(8)
+        right.addWidget(QLabel(i18n.t("Язык перевода")))
+        self.cb_dlx_dst = QComboBox()
+        self.cb_dlx_dst.setMinimumWidth(220)
+        self.cb_dlx_dst.setEditable(True)
+        self.cb_dlx_dst.lineEdit().setPlaceholderText(
+            i18n.t("Выберите язык или наберите для поиска"))
+        self.cb_dlx_dst.lineEdit().setReadOnly(True)
+        self.cb_dlx_dst.completer().setFilterMode(Qt.MatchFlag.MatchContains)
+        for code, name in _dlx_languages():
+            self.cb_dlx_dst.addItem(name, code)
+        # целевой язык по умолчанию — русский, если есть
+        # default target language — Russian when available
+        idx = self.cb_dlx_dst.findData("RU")
+        self.cb_dlx_dst.setCurrentIndex(idx if idx >= 0 else 0)
+        self.cb_dlx_dst.setToolTip(
+            i18n.t("Язык, на который переводить."))
+        right.addWidget(self.cb_dlx_dst)
+        self.ed_dlx_dst = QPlainTextEdit()
+        self.ed_dlx_dst.setPlaceholderText(
+            i18n.t("Перевод появится здесь"))
+        self.ed_dlx_dst.setReadOnly(True)
+        self.ed_dlx_dst.setMinimumHeight(210)
+        self.ed_dlx_dst.setObjectName("dlxDst")
+        right.addWidget(self.ed_dlx_dst, 1)
+
+        row.addLayout(left, 1)
+        row.addLayout(swap_col)
+        row.addLayout(right, 1)
+        cl.addLayout(row)
+
+        # Кнопки под панелями
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(10)
+        self.b_dlx_translate = QPushButton(i18n.t("Перевести"))
+        self.b_dlx_translate.setObjectName("primary")
+        self.b_dlx_translate.setMinimumWidth(140)
+        self.b_dlx_translate.clicked.connect(self._dlx_translate)
+        self.b_dlx_clear = QPushButton(i18n.t("Очистить"))
+        self.b_dlx_clear.clicked.connect(self._dlx_clear)
+        btn_row.addWidget(self.b_dlx_translate)
+        btn_row.addWidget(self.b_dlx_clear)
+        btn_row.addStretch(1)
+        self.lb_dlx_trans_note = QLabel("")
+        self.lb_dlx_trans_note.setProperty("no_i18n", True)
+        self.lb_dlx_trans_note.setWordWrap(True)
+        btn_row.addWidget(self.lb_dlx_trans_note, 1)
+        cl.addLayout(btn_row)
+
+        lay.addWidget(card)
+
         self._dlx_refresh()
         return page
 
@@ -2880,6 +3025,75 @@ class SettingsWindow(QDialog):
         for button in (self.b_dlx_install, self.b_dlx_remove, self.b_dlx_check,
                        self.b_dlx_token):
             button.setEnabled(self.dlx is not None)
+
+    def _dlx_swap_langs(self):
+        """Поменять исходный и целевой языки местами / swap source and target."""
+        src_idx = self.cb_dlx_src.currentIndex()
+        dst_idx = self.cb_dlx_dst.currentIndex()
+        self.cb_dlx_src.setCurrentIndex(dst_idx)
+        self.cb_dlx_dst.setCurrentIndex(src_idx)
+
+    def _dlx_clear(self):
+        """Очистить оба поля / clear both fields."""
+        self.ed_dlx_src.clear()
+        self.ed_dlx_dst.clear()
+        self.lb_dlx_trans_note.setText("")
+
+    def _dlx_translate(self):
+        """Перевести текст через сервис DeepL / translate via DeepL service."""
+        text = self.ed_dlx_src.toPlainText().strip()
+        if not text:
+            self.lb_dlx_trans_note.setText(i18n.t("Вставьте или наберите текст…"))
+            return
+        if len(text) > 1500:
+            self.lb_dlx_trans_note.setStyleSheet("color:#ff8f8f;font-size:11px;")
+            self.lb_dlx_trans_note.setText(
+                i18n.t("Слишком длинный текст (макс. 1500 символов)"))
+            return
+        source = self.cb_dlx_src.currentData()
+        target = self.cb_dlx_dst.currentData()
+        if self.dlx is None:
+            self.lb_dlx_trans_note.setText(i18n.t("Сервис не запущен"))
+            return
+        status = self.dlx.status()
+        state = status.get("state") if status else None
+        running = (state in ("ready", "upstream", "starting")
+                   or bool(status.get("running"))) if status else False
+        if not running:
+            self.lb_dlx_trans_note.setText(i18n.t("Запустите сервис DeepL выше"))
+            return
+
+        self.b_dlx_translate.setEnabled(False)
+        self.lb_dlx_trans_note.setStyleSheet("color:#a9c4ff;font-size:11px;")
+        self.lb_dlx_trans_note.setText("Перевожу…")
+
+        def run():
+            try:
+                result = self.dlx.translate(text, source=source, target=target)
+                self._dlx_trans_result = result
+                self._dlx_trans_error = None
+            except Exception as error:  # noqa: BLE001 — покажем игроку
+                log.exception("DLX: перевод не удался")
+                self._dlx_trans_result = None
+                self._dlx_trans_error = str(error) or type(error).__name__
+            QTimer.singleShot(0, self._dlx_translate_done)
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _dlx_translate_done(self):
+        """Результат перевода на главном потоке / result on the main thread."""
+        self.b_dlx_translate.setEnabled(True)
+        if getattr(self, "_dlx_trans_error", None):
+            self.lb_dlx_trans_note.setStyleSheet("color:#ff8f8f;font-size:11px;")
+            self.lb_dlx_trans_note.setText(
+                i18n.tf("Перевод не удался: %s", self._dlx_trans_error))
+        else:
+            result = getattr(self, "_dlx_trans_result", "")
+            self.ed_dlx_dst.setPlainText(result)
+            self.lb_dlx_trans_note.setStyleSheet("color:#66d18b;font-size:11px;")
+            words = len(result.split())
+            self.lb_dlx_trans_note.setText(
+                i18n.tf("Вставлено %d слов", words))
 
     @staticmethod
     def _dlx_status_key(status):
