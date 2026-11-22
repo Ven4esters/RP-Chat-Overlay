@@ -2,7 +2,13 @@
 
 > Оверлей чата с переводом через DeepL/Google и автоматизация применения анимаций для ролевой игры (GTA 5).
 
-[![license](https://img.shields.io/github/license/Ven4esters/RP-Chat-Overlay)](LICENSE)
+[![Windows 10 / 11](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&logoColor=white)](https://github.com/Ven4esters/RP-Chat-Overlay/releases)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-312/)
+[![Языков: 13](https://img.shields.io/badge/языков-13-2e7d32)]
+[![Сокращений: 300×6](https://img.shields.io/badge/сокращений-300×6-8e6bd8)]
+[![EXE ~47.7 МиБ](https://img.shields.io/badge/exe-~47.7%20МиБ-66d18b)]
+[![VirusTotal: отчёт](https://img.shields.io/badge/VirusTotal-отчёт-394eff)](https://www.virustotal.com/gui/file/9a6c8da2e9472ee89ee3a6f6311844ed0a983d00327857a1749dc5782cc34749?nocache=1)
+[![Лицензия: MIT](https://img.shields.io/badge/лицензия-MIT-green)](LICENSE)
 
 ## Содержание
 - [О проекте](#о-проекте)

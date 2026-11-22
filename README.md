@@ -2,7 +2,13 @@
 
 > Chat overlay with DeepL/Google translation and automatic animation application for roleplay games (GTA 5).
 
-[![license](https://img.shields.io/github/license/Ven4esters/RP-Chat-Overlay)](LICENSE)
+[![Windows 10 / 11](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&logoColor=white)](https://github.com/Ven4esters/RP-Chat-Overlay/releases)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-312/)
+[![Languages: 13](https://img.shields.io/badge/languages-13-2e7d32)]
+[![Abbreviations: 300×6](https://img.shields.io/badge/abbreviations-300×6-8e6bd8)]
+[![EXE ~47.7 MiB](https://img.shields.io/badge/exe-~47.7%20MiB-66d18b)]
+[![VirusTotal](https://img.shields.io/badge/VirusTotal-отчёт-394eff)](https://www.virustotal.com/gui/file/9a6c8da2e9472ee89ee3a6f6311844ed0a983d00327857a1749dc5782cc34749?nocache=1)
+[![MIT License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## Содержание
 - [About the project](#about-the-project)
