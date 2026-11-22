@@ -21,6 +21,7 @@ This file records changes and their reasons so the same problems are not repeate
 7. **Full MIT license.** Added the missing `LICENSE` file with the canonical English text, included the complete text in `README.md`, and added a Russian translation to `README.ru.md`, noting that the English text is authoritative.
 8. **Bilingual change log.** Added this complete English section, language links at the top, and stable language anchors; retained the Russian history below.
 9. **Main replacement preflight.** Fetched the full remote history to establish the common base; compared the current branch tree with `main`. The branch removes only the obsolete `branch-develop.bat` from the main tree. Ruff 0.17.6 reported formatter drift, so 40 Python files were formatted before the PR; all checks and 48 tests then passed.
+10. **CI security-report fix.** The PR CI tried to upload Bandit JSON as SARIF, causing validation failure and preventing the pip-audit report from being generated. Removed the invalid SARIF uploads and now retain both scanner JSON reports as a regular Actions artifact.
 
 **Checks:** Compared the English license text in the README with `LICENSE`; checked localized image links and dimensions; `ruff check source`, `ruff format --check source`, 48 tests, and `git diff --check` passed.
 **Status:** Completed, committed, and pushed.
@@ -147,6 +148,7 @@ Remaining partial items are test coverage and public docstring coverage; the pro
 7. **Полный текст MIT.** Добавлен отсутствовавший файл `LICENSE` с каноническим английским текстом; полный текст включён в `README.md`, русский перевод — в `README.ru.md` с пояснением, что английский вариант является исходным.
 8. **Двуязычный журнал изменений.** Добавлен полный английский раздел, ссылки на оба языка в начале файла и якоря для перехода; русская история сохранена ниже.
 9. **Проверка полной замены main.** Загружена полная удалённая история для определения общего предка, сравнен состав файлов текущей ветки и `main`. Ветка удаляет из дерева main только устаревший `branch-develop.bat`. Ruff 0.17.6 обнаружил расхождения форматирования, поэтому перед PR отформатированы 40 Python-файлов; после этого проверки прошли, все 48 тестов успешны.
+10. **Исправление CI-отчётов безопасности.** CI пытался загрузить JSON Bandit как SARIF, из-за чего проверка формата падала и `pip-audit` не успевал создать отчёт. Удалена некорректная SARIF-загрузка; JSON-отчёты обоих сканеров сохраняются обычным Actions artifact.
 
 **Проверки:** английский текст лицензии в README сравнен с `LICENSE`; ссылки на локализованные изображения и их размеры проверены; успешно пройдены `ruff check source`, `ruff format --check source`, 48 тестов и `git diff --check`.
 **Статус:** выполнено, закоммичено и отправлено.

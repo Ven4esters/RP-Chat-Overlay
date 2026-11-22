@@ -22,7 +22,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   quality-gates:
@@ -67,21 +66,19 @@ jobs:
         run: bandit -r source/app -f json -o bandit-results.json || true
         continue-on-error: true
 
-      - name: Upload Bandit results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: bandit-results.json
-        if: always()
-
       - name: pip-audit SCA (dependency vulnerabilities)
         run: pip-audit -r source/requirements.txt --format json -o pip-audit-results.json || true
         continue-on-error: true
 
-      - name: Upload pip-audit results
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: pip-audit-results.json
+      - name: Upload security scan reports
         if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-reports
+          path: |
+            bandit-results.json
+            pip-audit-results.json
+          if-no-files-found: warn
 
       - name: Secret scanning (trufflehog)
         uses: trufflesecurity/trufflehog@main
