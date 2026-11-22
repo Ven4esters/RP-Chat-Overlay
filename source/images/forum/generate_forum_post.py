@@ -235,6 +235,89 @@ def table(name: str, headers: list[str], rows: list[list[str]], widths: list[int
     save(image, name)
 
 
+def forms_cards(name: str, locale: str) -> None:
+    is_ru = locale == "ru"
+    title_font = font(15, True)
+    body_font = font(11.5)
+    cards = (
+        [
+            (
+                "Точно",
+                "Только написанная форма. «открыл зонт» не совпадёт с «открывает зонт». Для имён и точных фраз.",
+            ),
+            (
+                "Основы",
+                "Сравнение по основе: «открыл / открывает / откроет» → «откр». Без словаря, работает всегда.",
+            ),
+            (
+                "Леммы",
+                "Основа + словарная форма pymorphy3: «зонта / зонт», «люди / человек». Без пакета — как «Основы».",
+            ),
+        ]
+        if is_ru
+        else [
+            (
+                "Exact",
+                "Only the written form. «открыл зонт» will not match «открывает зонт». Useful for names and exact phrases.",
+            ),
+            (
+                "Stems",
+                "Compares word stems: «открыл / открывает / откроет» → «откр». No dictionary required.",
+            ),
+            (
+                "Lemmas",
+                "Stem + pymorphy3 dictionary forms: «зонта / зонт», «люди / человек». Without the package, falls back to Stems.",
+            ),
+        ]
+    )
+    image = Image.new("RGB", (WIDTH * SCALE, 278 * SCALE), BG)
+    draw = ImageDraw.Draw(image)
+    title = (
+        "Выберите, насколько широко искать словоформы"
+        if is_ru
+        else "Choose how broadly to match word forms"
+    )
+    draw.text((18 * SCALE, 24 * SCALE), title, font=font(14, True), fill=MUTED, anchor="lm")
+    gap = 12
+    card_width = (WIDTH - 32 - gap * 2) // 3
+    card_top, card_bottom = 48, 267
+    accent_colors = [BLUE, GREEN, (183, 150, 245)]
+    for index, (label, description) in enumerate(cards):
+        left = 16 + index * (card_width + gap)
+        right = left + card_width
+        draw.rounded_rectangle(
+            (left * SCALE, card_top * SCALE, right * SCALE, card_bottom * SCALE),
+            radius=10 * SCALE,
+            fill=PANEL if index != 1 else PANEL_ALT,
+            outline=BORDER,
+            width=1 * SCALE,
+        )
+        draw.rounded_rectangle(
+            (
+                (left + 13) * SCALE,
+                (card_top + 16) * SCALE,
+                (left + 17) * SCALE,
+                (card_top + 43) * SCALE,
+            ),
+            radius=2 * SCALE,
+            fill=accent_colors[index],
+        )
+        draw.text(
+            ((left + 28) * SCALE, (card_top + 30) * SCALE),
+            label,
+            font=title_font,
+            fill=TEXT,
+            anchor="lm",
+        )
+        lines = wrap(description, body_font, (card_width - 28) * SCALE)
+        y = (card_top + 66) * SCALE
+        line_height = 18 * SCALE
+        for line in lines:
+            draw.text(((left + 14) * SCALE, y), line, font=body_font, fill=MUTED, anchor="la")
+            y += line_height
+    save(image, name)
+
+
 def generate(locale: str) -> None:
     is_ru = locale == "ru"
     labels = (
@@ -244,6 +327,7 @@ def generate(locale: str) -> None:
             "Как устроен перевод",
             "Языки и словари",
             "Модули и настройки",
+            "Анимации: правила и словоформы",
             "Скачать и установить",
             "Проверка безопасности",
             "DeepLX в России",
@@ -256,6 +340,7 @@ def generate(locale: str) -> None:
             "Translation workflow",
             "Languages and glossaries",
             "Modules and settings",
+            "Animations: rules and word forms",
             "Download and installation",
             "Security report",
             "DeepLX in Russia",
@@ -265,6 +350,7 @@ def generate(locale: str) -> None:
     hero("sm_header.png" if is_ru else "sm_header_en.png", locale)
     for number, label in enumerate(labels, start=1):
         section(f"post_section_{number:02d}_{locale}.png", label, number)
+    forms_cards(f"post_animation_forms_{locale}.png", locale)
 
     module_rows = (
         [

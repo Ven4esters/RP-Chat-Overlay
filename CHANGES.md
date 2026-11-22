@@ -8,6 +8,16 @@ This file records changes and their reasons so the same problems are not repeate
 
 ---
 
+## 2026-11-15 — Detailed animation settings and word-form guide
+
+**What changed:** Expanded both forum BBCode versions with a full explanation of animation rule modes, per-rule fields, durations, stopping and looping, the manually controlled in-vehicle silence mode, negation filtering, suggestions, queue order, testing, variants, and import/export. Added bilingual visual cards explaining Exact, Stems, and Lemmas, including the `pymorphy3` fallback.
+
+**Artwork:** Regenerated the bilingual section-header set and added `post_animation_forms_ru.png` / `post_animation_forms_en.png`. All 28 forum PNG assets are generated from the script. The forum BBCode still contains no unsupported table/spoiler/anchor markup.
+
+**Checks:** `ruff check source`, `ruff format --check source`, generator `py_compile`, `git diff --check`, and RU/EN BBCode validation (all 28 image links resolve locally; tag nesting and forbidden-markup checks pass).
+
+---
+
 ## 2026-11-15 — Bilingual forum BBCode and refreshed artwork
 
 **What changed:** Added `docs/FORUM_BBCODE.md` with copy-ready RU and EN forum posts. The posts use only supported-style BBCode for text, links and images: no spoilers, tables, internal anchors, or intra-post links. All section headers are left-aligned; only the main title banner is centered. Table content is rendered as PNG images.
@@ -144,6 +154,16 @@ Remaining partial items are test coverage and public docstring coverage; the pro
 # Справка о правках
 
 Этот файл фиксирует внесённые правки и их причины, чтобы не наступать на одни и те же грабли повторно.
+
+---
+
+## 2026-11-15 — Подробно об анимациях и словоформах
+
+**Что изменено:** В русскую и английскую версии форумного BBCode добавлено подробное описание режимов анализа сообщений, полей правила, длительности, остановки и зацикливания, ручного режима тишины «В машине», отрицаний, подсказок, очереди, проверок, вариантов и импорта/экспорта. Добавлены двуязычные карточки «Точно / Основы / Леммы» с пояснением резервного режима без `pymorphy3`.
+
+**Графика:** Перегенерирован двуязычный комплект заголовков, добавлены `post_animation_forms_ru.png` / `post_animation_forms_en.png`. Все 28 изображений форума создаются скриптом; в BBCode по-прежнему нет неподдерживаемых таблиц, спойлеров и якорей.
+
+**Проверки:** успешно прошли `ruff check source`, `ruff format --check source`, `py_compile` генератора и `git diff --check`; проверены RU/EN-блоки BBCode, вложенность тегов, отсутствие запрещённой разметки и существование всех ссылок на изображения.
 
 ---
 
