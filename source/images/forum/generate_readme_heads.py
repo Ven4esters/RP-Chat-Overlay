@@ -1,28 +1,30 @@
 #!/usr/bin/env python3
 """Генерация изображений-заголовков для README в стиле форума (PIL).
 
-Стиль: тёмная панель #191d26, обводка #2b3140, акцентная полоса слева
-(синий→зелёный градиент), белый текст #f2f4f8, размер 720×48, шрифт 17.
+Стиль по образцу изображения «Что умеет программа»:
+тёмная панель #191d26, обводка #2b3140, акцентная вертикальная полоса слева
+(синий→зелёный градиент), белый жирный текст #f2f4f8 по центру по вертикали.
+Размер 1000×150 — сбалансированное соотношение сторон для отображения на GitHub.
 """
 import pathlib
 from PIL import Image, ImageDraw, ImageFont
 
 OUT = pathlib.Path(__file__).parent
-W, H = 800, 100
+W, H = 1000, 150
 PANEL = (0x19, 0x1D, 0x26)
 BORDER = (0x2B, 0x31, 0x40)
 TXT = (0xF2, 0xF4, 0xF8)
 BLUE = (0x3D, 0x6F, 0xD8)
 GREEN = (0x57, 0xC9, 0x8A)
-BAR_W = 6
-BAR_H = 40
+BAR_W = 8
+BAR_H = 80
 FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 FONT_REG = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 
 
 def fit_size(text, max_w, size, bold=True):
     font = ImageFont.truetype(FONT_BOLD if bold else FONT_REG, size)
-    while size > 8 and font.getlength(text) > max_w:
+    while size > 10 and font.getlength(text) > max_w:
         size -= 1
         font = ImageFont.truetype(FONT_BOLD if bold else FONT_REG, size)
     return size, font
@@ -45,19 +47,18 @@ def head(name, text):
     img = Image.new("RGB", (W, H), PANEL)
     draw = ImageDraw.Draw(img)
 
-    # обводка (скруглённый прямоугольник через обводку по краям)
+    # обводка
     draw.rectangle([0, 0, W - 1, H - 1], outline=BORDER, width=2)
 
-    # акцентная полоса слева
+    # акцентная полоса слева (по центру вертикали)
     bar_y = (H - BAR_H) // 2
     bar = make_accent_bar(BAR_H)
-    img.paste(bar, (14, bar_y))
+    img.paste(bar, (20, bar_y))
 
-    # текст — центрируем по вертикали через anchor="lm" (left, middle),
-    # как на эталонном изображении "Что умеет программа"
-    max_w = W - 2 * 14 - BAR_W - 13 - 10
-    size, font = fit_size(text, max_w, 17, bold=True)
-    draw.text((14 + BAR_W + 13, H / 2), text, font=font, fill=TXT,
+    # текст — центрируем по вертикали через anchor="lm"
+    max_w = W - 2 * 20 - BAR_W - 20
+    size, font = fit_size(text, max_w, 34, bold=True)
+    draw.text((20 + BAR_W + 20, H / 2), text, font=font, fill=TXT,
               anchor="lm")
 
     out = OUT / f"{name}.png"
@@ -66,15 +67,15 @@ def head(name, text):
 
 
 if __name__ == "__main__":
-    # Все изображения единого размера 720×48, шрифт 17, текст центрирован anchor="lm"
     RU = [
         ("hdr_contents_ru", "Содержание"),
         ("hdr_about_ru", "О проекте"),
+        ("hdr_features_ru", "Что умеет программа"),
         ("hdr_stack_ru", "Стек технологий"),
         ("hdr_requirements_ru", "Требования"),
         ("hdr_installation_ru", "Установка"),
         ("hdr_quickstart_ru", "Быстрый старт"),
-        ("hdr_configuration_ru", "Конфигурация"),
+        ("hdr_configuration_ru", "Настройки"),
         ("hdr_modes_ru", "Режимы перевода и спецсимволы"),
         ("hdr_deeplx_ru", "DeepLX в России"),
         ("hdr_license_ru", "Лицензия"),
@@ -83,11 +84,12 @@ if __name__ == "__main__":
     EN = [
         ("hdr_contents_en", "Contents"),
         ("hdr_about_en", "About the project"),
+        ("hdr_features_en", "Features"),
         ("hdr_stack_en", "Tech stack"),
         ("hdr_requirements_en", "Requirements"),
         ("hdr_installation_en", "Installation"),
         ("hdr_quickstart_en", "Quick start"),
-        ("hdr_configuration_en", "Configuration"),
+        ("hdr_configuration_en", "Settings"),
         ("hdr_modes_en", "Translation modes and special symbols"),
         ("hdr_deeplx_en", "DeepLX in Russia"),
         ("hdr_license_en", "License"),
