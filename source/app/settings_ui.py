@@ -631,40 +631,45 @@ def _hint(text):
 
 
 def _dlx_languages():
-    """Языки DeepL: код и название / DeepL languages: code and name.
+    """Языки DeepL: код и название на русском / DeepL languages: code and Russian name.
+
+    Названия на русском, потому что i18n.t() вернёт их как есть на русском интерфейсе
+    и подменит на английские значения из STRINGS на английском.
+    Names are in Russian: i18n.t() returns them as-is on a Russian UI and substitutes
+    the English value from STRINGS on an English UI.
 
     «auto» не входит — его добавляет вызывающий код только для источника.
     "auto" is not included; the caller adds it for the source side only.
     """
     return [
-        ("BG", "Bulgarian"),
-        ("CS", "Czech"),
-        ("DA", "Danish"),
-        ("DE", "German"),
-        ("EL", "Greek"),
-        ("EN", "English"),
-        ("ES", "Spanish"),
-        ("ET", "Estonian"),
-        ("FI", "Finnish"),
-        ("FR", "French"),
-        ("HU", "Hungarian"),
-        ("ID", "Indonesian"),
-        ("IT", "Italian"),
-        ("JA", "Japanese"),
-        ("KO", "Korean"),
-        ("LT", "Lithuanian"),
-        ("LV", "Latvian"),
-        ("NL", "Dutch"),
-        ("PL", "Polish"),
-        ("PT", "Portuguese"),
-        ("RO", "Romanian"),
-        ("RU", "Russian"),
-        ("SK", "Slovak"),
-        ("SL", "Slovenian"),
-        ("SV", "Swedish"),
-        ("TR", "Turkish"),
-        ("UK", "Ukrainian"),
-        ("ZH", "Chinese"),
+        ("BG", "Болгарский"),
+        ("CS", "Чешский"),
+        ("DA", "Датский"),
+        ("DE", "Немецкий"),
+        ("EL", "Греческий"),
+        ("EN", "Английский"),
+        ("ES", "Испанский"),
+        ("ET", "Эстонский"),
+        ("FI", "Финский"),
+        ("FR", "Французский"),
+        ("HU", "Венгерский"),
+        ("ID", "Индонезийский"),
+        ("IT", "Итальянский"),
+        ("JA", "Японский"),
+        ("KO", "Корейский"),
+        ("LT", "Литовский"),
+        ("LV", "Латышский"),
+        ("NL", "Нидерландский"),
+        ("PL", "Польский"),
+        ("PT", "Португальский"),
+        ("RO", "Румынский"),
+        ("RU", "Русский"),
+        ("SK", "Словацкий"),
+        ("SL", "Словенский"),
+        ("SV", "Шведский"),
+        ("TR", "Турецкий"),
+        ("UK", "Украинский"),
+        ("ZH", "Китайский"),
     ]
 
 
@@ -2807,12 +2812,13 @@ class SettingsWindow(QDialog):
         self.cb_dlx_src.setEditable(True)
         self.cb_dlx_src.lineEdit().setPlaceholderText(
             i18n.t("Выберите язык или наберите для поиска"))
-        self.cb_dlx_src.lineEdit().setReadOnly(True)
+        # поле редактируемое — можно набирать название языка для поиска.
+        # строго не read-only, иначе клик по полю не откроет список.
         completer = self.cb_dlx_src.completer()
         completer.setFilterMode(Qt.MatchFlag.MatchContains)
         self.cb_dlx_src.addItem(i18n.t("Автоопределение языка"), "auto")
         for code, name in _dlx_languages():
-            self.cb_dlx_src.addItem(name, code)
+            self.cb_dlx_src.addItem(i18n.t(name), code)
         self.cb_dlx_src.setCurrentIndex(0)
         self.cb_dlx_src.setToolTip(
             i18n.t("Язык, с которого переводить. «Автоопределение» — "
@@ -2845,10 +2851,11 @@ class SettingsWindow(QDialog):
         self.cb_dlx_dst.setEditable(True)
         self.cb_dlx_dst.lineEdit().setPlaceholderText(
             i18n.t("Выберите язык или наберите для поиска"))
-        self.cb_dlx_dst.lineEdit().setReadOnly(True)
-        self.cb_dlx_dst.completer().setFilterMode(Qt.MatchFlag.MatchContains)
+        # поле редактируемое — можно набирать название языка для поиска.
+        completer = self.cb_dlx_dst.completer()
+        completer.setFilterMode(Qt.MatchFlag.MatchContains)
         for code, name in _dlx_languages():
-            self.cb_dlx_dst.addItem(name, code)
+            self.cb_dlx_dst.addItem(i18n.t(name), code)
         # целевой язык по умолчанию — русский, если есть
         # default target language — Russian when available
         idx = self.cb_dlx_dst.findData("RU")
@@ -3050,8 +3057,10 @@ class SettingsWindow(QDialog):
             self.lb_dlx_trans_note.setText(
                 i18n.t("Слишком длинный текст (макс. 1500 символов)"))
             return
-        source = self.cb_dlx_src.currentData()
-        target = self.cb_dlx_dst.currentData()
+        # currentData() на редактируемом комбо может вернуть None, если
+        # введённый текст не совпадает ни с одним пунктом — берём «авто» в этом случае.
+        source = self.cb_dlx_src.currentData() or "auto"
+        target = self.cb_dlx_dst.currentData() or "RU"
         if self.dlx is None:
             self.lb_dlx_trans_note.setText(i18n.t("Сервис не запущен"))
             return
@@ -3065,7 +3074,7 @@ class SettingsWindow(QDialog):
 
         self.b_dlx_translate.setEnabled(False)
         self.lb_dlx_trans_note.setStyleSheet("color:#a9c4ff;font-size:11px;")
-        self.lb_dlx_trans_note.setText("Перевожу…")
+        self.lb_dlx_trans_note.setText(i18n.t("Перевожу…"))
 
         def run():
             try:
@@ -3076,7 +3085,10 @@ class SettingsWindow(QDialog):
                 log.exception("DLX: перевод не удался")
                 self._dlx_trans_result = None
                 self._dlx_trans_error = str(error) or type(error).__name__
-            QTimer.singleShot(0, self._dlx_translate_done)
+            finally:
+                # кнопку всегда возвращаем, даже если перевода не вышло
+                # the button is always re-enabled, even if translation failed
+                QTimer.singleShot(0, self._dlx_translate_done)
 
         threading.Thread(target=run, daemon=True).start()
 
