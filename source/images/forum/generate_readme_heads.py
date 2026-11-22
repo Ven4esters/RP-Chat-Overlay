@@ -66,19 +66,28 @@ def head(name, text):
 
 
 if __name__ == "__main__":
+    # Все изображения единого размера 720×48, шрифт 17, текст центрирован anchor="lm"
     RU = [
+        ("hdr_contents_ru", "Содержание"),
         ("hdr_about_ru", "О проекте"),
         ("hdr_stack_ru", "Стек технологий"),
         ("hdr_requirements_ru", "Требования"),
+        ("hdr_installation_ru", "Установка"),
+        ("hdr_quickstart_ru", "Быстрый старт"),
+        ("hdr_configuration_ru", "Конфигурация"),
         ("hdr_modes_ru", "Режимы перевода и спецсимволы"),
         ("hdr_deeplx_ru", "DeepLX в России"),
         ("hdr_license_ru", "Лицензия"),
         ("hdr_contacts_ru", "Контакты"),
     ]
     EN = [
+        ("hdr_contents_en", "Contents"),
         ("hdr_about_en", "About the project"),
         ("hdr_stack_en", "Tech stack"),
         ("hdr_requirements_en", "Requirements"),
+        ("hdr_installation_en", "Installation"),
+        ("hdr_quickstart_en", "Quick start"),
+        ("hdr_configuration_en", "Configuration"),
         ("hdr_modes_en", "Translation modes and special symbols"),
         ("hdr_deeplx_en", "DeepLX in Russia"),
         ("hdr_license_en", "License"),

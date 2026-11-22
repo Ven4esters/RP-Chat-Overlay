@@ -10,6 +10,9 @@
 
 > Chat overlay with DeepL/Google translation and automatic animation application for roleplay games (GTA 5).
 
+<a id="about-the-project"></a>
+<img src="source/images/forum/hdr_contents_en.png" width="720" alt="Contents">
+
 ## Содержание
 - [About the project](#about-the-project)
 - [Features](#features)
@@ -55,7 +58,7 @@ Python 3.12 · PySide6 · deep-translator
 - Internet connection for translation services
 
 <a id="installation"></a>
-<img src="source/images/forum/hdr_download.png" width="720" alt="Installation">
+<img src="source/images/forum/hdr_installation_en.png" width="720" alt="Installation">
 
 ### Compiled release (recommended)
 
@@ -78,21 +81,24 @@ Run `source/start.bat` — it finds or installs Python 3.12, creates a virtual
 environment, installs dependencies and launches the app.
 
 <a id="quick-start"></a>
-<img src="source/images/forum/hdr_how.png" width="720" alt="Quick start">
-
-```bash
-source/start.bat
-```
+<img src="source/images/forum/hdr_quickstart_en.png" width="720" alt="Quick start">
 
 The overlay appears as a tray icon. Press the configured hotkey to show the
-chat window. Incoming/outgoing messages are translated automatically;
-animations start on keyword match.
+chat window. Type in Russian — the translation is sent to the game chat.
+Type in a foreign language — the Russian translation goes to chat.
+Incoming/outgoing messages are translated automatically; animations start
+on keyword match.
 
 Open **Settings → DeepL** to configure the local translation service, or
 **Settings → Animations** to manage animation rules.
 
 <a id="configuration"></a>
-<img src="source/images/forum/hdr_settings.png" width="720" alt="Configuration">
+<img src="source/images/forum/hdr_configuration_en.png" width="720" alt="Configuration">
+
+The program is built from independent modules. Any module can be disabled
+in settings — a disabled module does not break the rest, the program keeps
+working in a reduced mode. Each module has its own settings block with
+toggles, fields and buttons that can be changed at any time.
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
