@@ -8,6 +8,7 @@
 
 Запускать из каталога source/images/forum.
 """
+
 import pathlib
 
 import make_forum_reverse as base
@@ -15,12 +16,12 @@ import make_forum_reverse as base
 OUT = pathlib.Path(__file__).parent
 PANEL, BORDER = "#191d26", "#2b3140"
 TXT = "#f2f4f8"
-ACCENT_BAR = "url(#bar)"          # синий → зелёный, как на кнопках
+ACCENT_BAR = "url(#bar)"  # синий → зелёный, как на кнопках
 W = 720
 
 
 def esc(s):
-    return (str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+    return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 def head(name, text, level=2):
@@ -53,7 +54,7 @@ def divider(name="div_line"):
         '<stop offset="0.18" stop-color="#2b3140" stop-opacity="0.95"/>'
         '<stop offset="0.82" stop-color="#2b3140" stop-opacity="0.95"/>'
         '<stop offset="1" stop-color="#2b3140" stop-opacity="0"/>'
-        '</linearGradient></defs>'
+        "</linearGradient></defs>"
         f'<rect x="0" y="{h / 2 - 0.5}" width="{w}" height="1" fill="url(#ln)"/>'
         f'<rect x="{w / 2 - 2.5}" y="{h / 2 - 2.5}" width="5" height="5" rx="2.5" '
         f'fill="#57c98a" fill-opacity="0.5"/>'

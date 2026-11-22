@@ -14,24 +14,50 @@
 With sending into the game or the global hotkey disabled the behaviour changes,
 yet the program keeps working (see app.modules).
 """
+
 import sys
 import threading
 import time
 
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer, Signal
-from PySide6.QtGui import (QAction, QActionGroup, QColor, QFont, QGuiApplication, QIcon,
-                           QPainter, QPixmap)
-from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QLineEdit,
-                               QMenu, QScrollArea, QSizePolicy, QSystemTrayIcon,
-                               QVBoxLayout, QWidget)
+from PySide6.QtGui import (
+    QAction,
+    QActionGroup,
+    QColor,
+    QFont,
+    QGuiApplication,
+    QIcon,
+    QPainter,
+    QPixmap,
+)
+from PySide6.QtWidgets import (
+    QApplication,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMenu,
+    QScrollArea,
+    QSizePolicy,
+    QSystemTrayIcon,
+    QVBoxLayout,
+    QWidget,
+)
 
 from app import APP_NAME, gamesend as gs, i18n, langs, modules, slang
 from app import animchoice
 from app import anims as anims_mod
 from app.autoplan import AutoPlan
 from app.config import log, resource_path, save_config
-from app.engine import (Engine, Result, has_fillers, has_markers, is_counted_command,
-                      load_glossary, strip_markers)
+from app.engine import (
+    Engine,
+    Result,
+    has_fillers,
+    has_markers,
+    is_counted_command,
+    load_glossary,
+    strip_markers,
+)
 from app.hotkey import HotkeyThread, parse_hotkey
 from app import dlx as dlx_mod
 from app.settings_ui import ask_dlx_consent, open_settings
@@ -62,12 +88,12 @@ QLabel#hintKey { color: #9bb0ff; font-size: 11px; padding: 3px 2px; }
 class Bridge(QObject):
     hotkey = Signal()
     fail = Signal(str)
-    translated = Signal(int, object, str)    # номер запроса, Result | None, ошибка
+    translated = Signal(int, object, str)  # номер запроса, Result | None, ошибка
     sent = Signal(bool, str)
-    game_chat_opened = Signal(bool, int)    # чат игры открыт?, hwnd игры
-    dlx_text = Signal(str, bool)            # сообщение сервиса DLX, ошибка?
-                                            # DLX message, is it an error
-    anims_text = Signal(str, bool)          # сообщение модуля анимаций / animation module message
+    game_chat_opened = Signal(bool, int)  # чат игры открыт?, hwnd игры
+    dlx_text = Signal(str, bool)  # сообщение сервиса DLX, ошибка?
+    # DLX message, is it an error
+    anims_text = Signal(str, bool)  # сообщение модуля анимаций / animation module message
 
 
 class Worker(threading.Thread):
@@ -151,8 +177,8 @@ def set_app_id() -> None:
         return
     try:
         import ctypes
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
-            "RPChatOverlay.Overlay.1")
+
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("RPChatOverlay.Overlay.1")
     except Exception:
         log.exception("Не удалось задать AppUserModelID для панели задач")
 
@@ -165,28 +191,31 @@ class Overlay(QWidget):
         self.plan = AutoPlan(cfg)
         self.hwnd = 0
         self.rid = 0
-        self.cur = None            # готовый Result для текущего текста
+        self.cur = None  # готовый Result для текущего текста
         self.err = ""
         self.want_send = False
         self.sending = False
         self.game_hwnd = None
         self.prev_hwnd = None
         self.shown_at = 0.0
-        self.game_chat_open = False   # чат игры уже открыт клавишей T
-        self.anims = None             # очередь анимаций, создаётся при запуске
-                                      # the animation queue, created on startup
-        self._anim_text = ""          # текст, ждущий проверки правилами анимаций
-                                      # text waiting for the animation rules
-        self.opening = False          # чат игры открывается (оверлей ещё не виден)
-        self._hints = []              # подсказки ключевых слов / keyword hints
-        self._hint_pick = -1          # которая выбрана пролистыванием / picked
-        self._hint_done = ""          # только что подставленный ключ / just applied
-        self._pending_text = ""       # набранное, сохранённое при закрытии оверлея
-                                      # typed text saved when the overlay closes, so it
-                                      # survives minimising/restoring the game
+        self.game_chat_open = False  # чат игры уже открыт клавишей T
+        self.anims = None  # очередь анимаций, создаётся при запуске
+        # the animation queue, created on startup
+        self._anim_text = ""  # текст, ждущий проверки правилами анимаций
+        # text waiting for the animation rules
+        self.opening = False  # чат игры открывается (оверлей ещё не виден)
+        self._hints = []  # подсказки ключевых слов / keyword hints
+        self._hint_pick = -1  # которая выбрана пролистыванием / picked
+        self._hint_done = ""  # только что подставленный ключ / just applied
+        self._pending_text = ""  # набранное, сохранённое при закрытии оверлея
+        # typed text saved when the overlay closes, so it
+        # survives minimising/restoring the game
 
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
-                            | Qt.WindowType.Tool)
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Tool
+        )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -221,12 +250,11 @@ class Overlay(QWidget):
         self.hints_scroll.setWidgetResizable(True)
         self.hints_scroll.setWidget(self.hints_row)
         self.hints_scroll.setFixedHeight(34)
-        self.hints_scroll.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.hints_scroll.setVerticalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.hints_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.hints_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.hints_scroll.setStyleSheet(
-            "QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; }")
+            "QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; }"
+        )
         hints_lay.addWidget(self.hints_scroll)
         self.hints_hint = QLabel("")
         self.hints_hint.setObjectName("hintKey")
@@ -237,8 +265,7 @@ class Overlay(QWidget):
         self.hints_hint.setWordWrap(True)
         # подсказка не должна требовать ширины: она подстраивается под оверлей
         # the note must not demand width: it fits the overlay instead
-        self.hints_hint.setSizePolicy(QSizePolicy.Policy.Ignored,
-                                      QSizePolicy.Policy.Preferred)
+        self.hints_hint.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         hints_lay.addWidget(self.hints_hint)
         self.hints_box.hide()
 
@@ -259,12 +286,14 @@ class Overlay(QWidget):
         self.input.installEventFilter(self)
         self.worker = Worker(
             lambda j: self._run_engine(j),
-            lambda j, r, e: self.bridge.translated.emit(j[0], r, str(e) if e else ""))
+            lambda j, r, e: self.bridge.translated.emit(j[0], r, str(e) if e else ""),
+        )
         self.worker.start()
         bridge.translated.connect(self.on_done, Qt.ConnectionType.QueuedConnection)
         bridge.sent.connect(self.on_sent, Qt.ConnectionType.QueuedConnection)
-        bridge.game_chat_opened.connect(self.on_game_chat_opened,
-                                        Qt.ConnectionType.QueuedConnection)
+        bridge.game_chat_opened.connect(
+            self.on_game_chat_opened, Qt.ConnectionType.QueuedConnection
+        )
 
     # ----- показ / скрытие -----
     def open_overlay(self, *_args) -> None:
@@ -283,12 +312,15 @@ class Overlay(QWidget):
             return
         self.prev_hwnd = gs.user32.GetForegroundWindow()
         self.game_hwnd = self.tracker.get(True)
-        if (modules.is_enabled(self.cfg, "game_send")
-                and self.cfg.get("game_open_chat_first", True)
-                and self.game_hwnd):
+        if (
+            modules.is_enabled(self.cfg, "game_send")
+            and self.cfg.get("game_open_chat_first", True)
+            and self.game_hwnd
+        ):
             self.opening = True
-            threading.Thread(target=self._open_chat_job,
-                             args=(self.game_hwnd,), daemon=True).start()
+            threading.Thread(
+                target=self._open_chat_job, args=(self.game_hwnd,), daemon=True
+            ).start()
             return
         self._show_overlay()
 
@@ -323,13 +355,13 @@ class Overlay(QWidget):
             self._pending_text = ""
         if self._rev():
             self.input.setPlaceholderText(
-                i18n.t("Фраза на вашем языке — перевод уйдёт в чат по Enter"))
+                i18n.t("Фраза на вашем языке — перевод уйдёт в чат по Enter")
+            )
         else:
-            self.input.setPlaceholderText(
-                i18n.t("Текст, +фраза для перевода+, *действие*"))
+            self.input.setPlaceholderText(i18n.t("Текст, +фраза для перевода+, *действие*"))
         self.place()
         self._count()
-        self.on_text()          # подсказки ключевых слов для восстановленного текста
+        self.on_text()  # подсказки ключевых слов для восстановленного текста
         self.shown_at = time.time()
         self.show()
         self.raise_()
@@ -348,8 +380,7 @@ class Overlay(QWidget):
             g = scr.geometry()
             left, top, right, bottom = (g.left(), g.top(), g.right(), g.bottom())
         fx, fy = self.cfg.get("overlay_pos", [0.01, 0.28])
-        self.move(int(left + (right - left) * fx),
-                  int(top + (bottom - top) * fy))
+        self.move(int(left + (right - left) * fx), int(top + (bottom - top) * fy))
 
     def _reset(self):
         self.rid += 1
@@ -429,16 +460,20 @@ class Overlay(QWidget):
             self._hint_hide()
         elif e.key() == Qt.Key.Key_Escape:
             self.close_overlay()
-        elif ctrl and e.nativeVirtualKey() == 0x52:          # Ctrl+R в любой раскладке
+        elif ctrl and e.nativeVirtualKey() == 0x52:  # Ctrl+R в любой раскладке
             self.plan.reroll()
             self.on_text()
         else:
             super().keyPressEvent(e)
 
     def changeEvent(self, e):
-        if (e.type() == QEvent.Type.ActivationChange and self.isVisible()
-                and not self.isActiveWindow()
-                and not self.sending and time.time() - self.shown_at > 0.8):
+        if (
+            e.type() == QEvent.Type.ActivationChange
+            and self.isVisible()
+            and not self.isActiveWindow()
+            and not self.sending
+            and time.time() - self.shown_at > 0.8
+        ):
             QTimer.singleShot(250, self._lost_focus)
         super().changeEvent(e)
 
@@ -473,9 +508,9 @@ class Overlay(QWidget):
         depending on the direction and the send_mode setting.
         """
         if self._rev():
-            return res.text or res.native     # в обратном режиме показываем русский
+            return res.text or res.native  # в обратном режиме показываем русский
         if self._full():
-            return res.native or res.text     # в полном — только текст на языке
+            return res.native or res.text  # в полном — только текст на языке
         mode = str(self.cfg.get("send_mode", "reading")).lower()
         if mode in ("native", "lang", "text", "target"):
             return res.native or res.text
@@ -560,8 +595,10 @@ class Overlay(QWidget):
         if obj is getattr(self, "input", None) and event.type() == QEvent.Type.KeyPress:
             key = event.key()
             if key in (Qt.Key.Key_Tab, Qt.Key.Key_Backtab):
-                back = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier
-                            or key == Qt.Key.Key_Backtab)
+                back = bool(
+                    event.modifiers() & Qt.KeyboardModifier.ShiftModifier
+                    or key == Qt.Key.Key_Backtab
+                )
                 if self._hints:
                     self._hint_walk(-1 if back else 1)
                     return True
@@ -650,8 +687,7 @@ class Overlay(QWidget):
             return
         if tail != self._hint_done:
             self._hint_done = ""
-        found = anims_mod.suggestions(rules, text,
-                                     int(self.cfg.get("anim_hints_max", 8) or 8))
+        found = anims_mod.suggestions(rules, text, int(self.cfg.get("anim_hints_max", 8) or 8))
         if [hint.keyword for hint in found] != [hint.keyword for hint in self._hints]:
             self._hint_pick = -1
         self._hints = found
@@ -713,12 +749,15 @@ class Overlay(QWidget):
             # что нажимать, иначе строка занимает две строки впустую
             # the animation label is already scrolled into the strip above, so
             # this line carries the keys only, or it wastes a second row
-            self.hints_hint.setText(i18n.t(
-                "Tab — дальше · Enter — подставить · Esc — скрыть список"))
+            self.hints_hint.setText(
+                i18n.t("Tab — дальше · Enter — подставить · Esc — скрыть список")
+            )
         else:
-            self.hints_hint.setText(i18n.tf(
-                "Ключевые слова: %d · Tab — пролистать · Enter — отправить",
-                len(self._hints)))
+            self.hints_hint.setText(
+                i18n.tf(
+                    "Ключевые слова: %d · Tab — пролистать · Enter — отправить", len(self._hints)
+                )
+            )
         self.hints_box.show()
         self.adjustSize()
 
@@ -738,10 +777,12 @@ class Overlay(QWidget):
         self._count()
         if not text.strip():
             self._show_result("", "")
-        elif (self._auto_now(text) or has_markers(text, self.cfg)
-                or self._full()          # полный режим: переводим всё, без условий
-                or (self._partial_fillers()
-                    and has_fillers(text, self.cfg, self.engine.g))):
+        elif (
+            self._auto_now(text)
+            or has_markers(text, self.cfg)
+            or self._full()  # полный режим: переводим всё, без условий
+            or (self._partial_fillers() and has_fillers(text, self.cfg, self.engine.g))
+        ):
             # слова-паразиты переводятся всегда, вне зависимости от счётчика серии
             # fillers are translated in every message, whatever the series counter says
             self._show_result("перевожу…", "")
@@ -763,7 +804,7 @@ class Overlay(QWidget):
         self.worker.submit((self.rid, text, self._auto_now(text), self.plan.seed, self._rev()))
 
     def on_done(self, rid, res, err):
-        if rid != self.rid:                       # устаревший ответ
+        if rid != self.rid:  # устаревший ответ
             return
         mx = int(self.cfg.get("max_chars", 256))
         if err:
@@ -776,8 +817,10 @@ class Overlay(QWidget):
         sent = self._pick(res)
         other = res.native if sent == res.text else res.text
         self._show_result(sent, other if res.translated else "")
-        self.set_stat(i18n.tf("В чат уйдёт %d/%d · Enter — отправить · Esc — отмена",
-                              len(sent), mx), len(sent) > mx)
+        self.set_stat(
+            i18n.tf("В чат уйдёт %d/%d · Enter — отправить · Esc — отмена", len(sent), mx),
+            len(sent) > mx,
+        )
         if self.want_send:
             self.want_send = False
             self.finish(sent)
@@ -802,7 +845,7 @@ class Overlay(QWidget):
             self.close_overlay()
         elif self.cur is not None:
             self.finish(self._pick(self.cur))
-        elif self.err:                             # второй Enter после ошибки
+        elif self.err:  # второй Enter после ошибки
             self.finish(strip_markers(text, self.cfg))
         else:
             self.want_send = True
@@ -834,26 +877,27 @@ class Overlay(QWidget):
         self._anim_text = self.input.text() or out
         # в счётчик серии идут обычные сообщения и /to /lto /l /wt /s /st
         if not out.startswith("/") or is_counted_command(out):
-            self.plan.advance()                    # счётчик серии автоперевода
+            self.plan.advance()  # счётчик серии автоперевода
         QApplication.clipboard().setText(out)
         log.info("Готово к отправке: %r", out)
         hwnd = self.game_hwnd or self.tracker.get(True)
-        chat_open = self.game_chat_open            # чат уже открыт при открытии оверлея
+        chat_open = self.game_chat_open  # чат уже открыт при открытии оверлея
         self.game_chat_open = False
         self._reset()
-        self._pending_text = ""   # отправленное не возвращаем при следующем открытии
+        self._pending_text = ""  # отправленное не возвращаем при следующем открытии
         # sent text is not brought back on the next open
         self.hide()
         if modules.is_enabled(self.cfg, "game_send") and hwnd:
             self.sending = True
-            threading.Thread(target=self._send_job, args=(hwnd, out, chat_open),
-                             daemon=True).start()
+            threading.Thread(
+                target=self._send_job, args=(hwnd, out, chat_open), daemon=True
+            ).start()
         else:
             if chat_open and hwnd:
                 # чат был открыт, а отправка в игру выключена — закрыть чат
                 # the chat was open while sending to the game is off, so close the chat
                 threading.Thread(target=self._close_chat_job, args=(hwnd,), daemon=True).start()
-            self._anim_text = ""           # анимациям нужен чат игры
+            self._anim_text = ""  # анимациям нужен чат игры
             h = self.prev_hwnd
             if h:
                 threading.Thread(target=gs.focus, args=(h,), daemon=True).start()
@@ -879,8 +923,7 @@ class Overlay(QWidget):
         if ok and text and self.anims is not None:
             QTimer.singleShot(250, lambda: self.anims.feed(text))
         if not ok:
-            self.notify(msg + i18n.t(" Текст в буфере обмена — вставьте вручную (Ctrl+V)."),
-                        True)
+            self.notify(msg + i18n.t(" Текст в буфере обмена — вставьте вручную (Ctrl+V)."), True)
 
     def notify(self, msg, warn=False):
         kind = QSystemTrayIcon.MessageIcon
@@ -890,15 +933,16 @@ class Overlay(QWidget):
 
 # Подписи режимов: одна таблица на уведомление, меню и подсказку.
 # Mode captions: one table shared by the notification, the menu and the tooltip.
-MODE_TITLES = (("full", "Режим: всё сообщение на язык перевода"),
-               ("partial", "Режим: только выделенные слова и фразы"),
-               ("to_ru", "Режим: ваш язык → русский"))
+MODE_TITLES = (
+    ("full", "Режим: всё сообщение на язык перевода"),
+    ("partial", "Режим: только выделенные слова и фразы"),
+    ("to_ru", "Режим: ваш язык → русский"),
+)
 
 MODE_HINTS = {
-    "full": "Всё сообщение уходит на языке перевода. Автоперевод и слова-паразиты "
-            "не участвуют.",
+    "full": "Всё сообщение уходит на языке перевода. Автоперевод и слова-паразиты не участвуют.",
     "partial": "Переводятся только выделенные +слова и фразы+, плюс автоперевод "
-               "по счётчику и слова-паразиты.",
+    "по счётчику и слова-паразиты.",
     "to_ru": "Пишете на своём языке — в чат уходит русский текст.",
 }
 
@@ -922,6 +966,7 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
     # leaves every thread stack in the error log, so the cause is visible
     try:
         from app import errorlog
+
         errorlog.watch_main_thread(20.0, parent=app)
     except Exception:
         log.exception("Не удалось включить сторож главного потока")
@@ -931,6 +976,7 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
     # settings afterwards
     if not cfg.get("ui_lang_chosen"):
         from app.ui_lang import ask_ui_language
+
         cfg["ui_lang"] = ask_ui_language(style=STYLE)
         cfg["ui_lang_chosen"] = True
         save_config(cfg)
@@ -975,8 +1021,9 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
         log.info("DLX: %s", text)
         bridge.dlx_text.emit(i18n.t(text), kind == "stopped")
 
-    bridge.dlx_text.connect(lambda text, error: win.notify(text, error),
-                            Qt.ConnectionType.QueuedConnection)
+    bridge.dlx_text.connect(
+        lambda text, error: win.notify(text, error), Qt.ConnectionType.QueuedConnection
+    )
 
     dlx = dlx_mod.service_for(cfg, on_event=dlx_event)
     state["dlx"] = dlx
@@ -1120,8 +1167,9 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
         else:
             log.info("Анимации: %s — %s", kind, text)
 
-    bridge.anims_text.connect(lambda text, error: win.notify(text, error),
-                              Qt.ConnectionType.QueuedConnection)
+    bridge.anims_text.connect(
+        lambda text, error: win.notify(text, error), Qt.ConnectionType.QueuedConnection
+    )
     # выбор варианта анимации: у правила с двумя и более /anim открывается
     # оверлей, и в чат уходит то, что выбрал игрок
     # the variant chooser: a rule with two or more /anim commands opens an
@@ -1130,11 +1178,15 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
     # `rule_finished`, которыми очередь закрывает окно и снимает пометки.
     # The chooser object itself is passed, not a wrapper: it carries `cancel` and
     # `rule_finished`, which the queue uses to close the window and clear marks.
-    runner = anims_mod.Runner(cfg, send=anims_send, on_event=anims_event,
-                              equivalent=anim_equivalent,
-                              press_key=anims_press_key,
-                              text_keys=anim_text_keys,
-                              chooser=animchoice.chooser())
+    runner = anims_mod.Runner(
+        cfg,
+        send=anims_send,
+        on_event=anims_event,
+        equivalent=anim_equivalent,
+        press_key=anims_press_key,
+        text_keys=anim_text_keys,
+        chooser=animchoice.chooser(),
+    )
     win.anims = runner
     # окно настроек проверяет этим словарём, доходит ли команда до игры
     # the settings window uses this mapping to check whether a command arrives
@@ -1167,7 +1219,8 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
         watcher = anims_mod.StopWatcher(
             str(cfg.get("anim_stop_key", "f") or "f"),
             runner.stop_user,
-            lambda: bool(runner.state().get("loop")))
+            lambda: bool(runner.state().get("loop")),
+        )
         state["stop"] = watcher
         watcher.start()
 
@@ -1187,15 +1240,18 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
         # включили DeepL в настройках — поднимаем сервис в фоне, не задерживая окно
         # DeepL was switched on in the settings — start the service in the
         # background instead of holding the window
-        if (cfg.get("dlx_enabled") and modules.is_enabled(cfg, "dlx")
-                and dlx.installed() and not dlx.status().get("running")):
+        if (
+            cfg.get("dlx_enabled")
+            and modules.is_enabled(cfg, "dlx")
+            and dlx.installed()
+            and not dlx.status().get("running")
+        ):
             dlx_job()
         elif dlx.needs_restart():
             # прокси или токен поменяли — сервис перезапускаем с новыми ключами
             # the proxy or the token changed, so restart with the new flags
             log.info("DLX: параметры запуска изменились, перезапуск")
-            threading.Thread(target=dlx.restart, name="dlx-restart",
-                             daemon=True).start()
+            threading.Thread(target=dlx.restart, name="dlx-restart", daemon=True).start()
         # Язык таблицы сокращений следует за настройками: на немецком сервере
         # первой работает немецкая таблица, а свой выбор игрок задаёт вручную.
         # Здесь, в главном потоке, и только здесь: окно настроек и проверка
@@ -1206,17 +1262,18 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
         # not switch the working language under the running engine.
         slang.use_for(cfg)
         win.engine = Engine(cfg, load_glossary(code), translator)
-        win.plan = AutoPlan(cfg)              # новая серия под новые параметры
-        runner.reload(cfg)                    # новые правила анимаций
-        start_stop_watcher()                  # и, возможно, новая клавиша остановки
+        win.plan = AutoPlan(cfg)  # новая серия под новые параметры
+        runner.reload(cfg)  # новые правила анимаций
+        start_stop_watcher()  # и, возможно, новая клавиша остановки
         restart_hotkey()
         build_menu()
         i18n.set_lang(cfg.get("ui_lang", "ru"))
         i18n.retranslate(win)
         key = cfg["hotkey"] if modules.is_enabled(cfg, "hotkey") else "без клавиши"
         tray.setToolTip(f"{APP_NAME} · {key} · {langs.label(code)}")
-        win.notify(i18n.tf("Настройки сохранены. Язык: %s, клавиша: %s.",
-                           langs.label(code), cfg["hotkey"]))
+        win.notify(
+            i18n.tf("Настройки сохранены. Язык: %s, клавиша: %s.", langs.label(code), cfg["hotkey"])
+        )
 
     def set_mode(mode):
         """Переключение режима перевода из меню трея.
@@ -1256,8 +1313,11 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
         cfg["anim_in_vehicle"] = on
         save_config(cfg)
         build_menu()
-        win.notify(i18n.t("Режим «В машине» включён: анимации не играют.")
-                   if on else i18n.t("Анимации снова работают."))
+        win.notify(
+            i18n.t("Режим «В машине» включён: анимации не играют.")
+            if on
+            else i18n.t("Анимации снова работают.")
+        )
 
     def set_direction(direction):
         """Устаревшее имя переключателя режима / legacy name for set_mode."""
@@ -1270,8 +1330,7 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
             state["dlg"].raise_()
             state["dlg"].activateWindow()
             return
-        dlg = open_settings(cfg, parent=None, first_run=first_run, dlx=dlx,
-                            anims_api=anims_api)
+        dlg = open_settings(cfg, parent=None, first_run=first_run, dlx=dlx, anims_api=anims_api)
         dlg.saved.connect(apply_settings)
         dlg.finished.connect(lambda *_: state.update(dlg=None))
         state["dlg"] = dlg
@@ -1304,7 +1363,7 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
             old.stop()
             state["hk"] = None
         if modules.is_enabled(cfg, "hotkey"):
-            QTimer.singleShot(450, start_hotkey)   # старый поток успевает снять регистрацию
+            QTimer.singleShot(450, start_hotkey)  # старый поток успевает снять регистрацию
 
     # ---------- меню трея ----------
     def build_menu():
@@ -1329,24 +1388,23 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
         elif mode == "full":
             status = QAction(i18n.tf("Статус: всё сообщение → %s", label), menu)
         else:
-            status = QAction(i18n.tf("Статус: выделенные слова и фразы → %s", label),
-                             menu)
+            status = QAction(i18n.tf("Статус: выделенные слова и фразы → %s", label), menu)
         status.setEnabled(False)
         menu.addAction(status)
         menu.addSeparator()
 
         group = QActionGroup(menu)
         group.setExclusive(True)
-        for value, text in (("full", i18n.tf("Всё сообщение → %s", label)),
-                            ("partial", i18n.tf(
-                                "Только выделенные слова и фразы → %s", label)),
-                            ("to_ru", i18n.t("Ваш язык → русский"))):
+        for value, text in (
+            ("full", i18n.tf("Всё сообщение → %s", label)),
+            ("partial", i18n.tf("Только выделенные слова и фразы → %s", label)),
+            ("to_ru", i18n.t("Ваш язык → русский")),
+        ):
             act = QAction(text, menu)
             act.setCheckable(True)
             act.setChecked(value == mode)
             act.setToolTip(MODE_HINTS[value])
-            act.triggered.connect(
-                lambda _c=False, v=value: set_mode(v) if v != mode else None)
+            act.triggered.connect(lambda _c=False, v=value: set_mode(v) if v != mode else None)
             group.addAction(act)
             menu.addAction(act)
 
@@ -1364,9 +1422,12 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
         act_vehicle.blockSignals(True)
         act_vehicle.setChecked(bool(runner.vehicle()))
         act_vehicle.blockSignals(False)
-        act_vehicle.setToolTip(i18n.t(
-            "Пока галочка стоит, ни /anim, ни /sa в игру не уходят: в машине "
-            "анимации ломают позу и выбрасывают из транспорта."))
+        act_vehicle.setToolTip(
+            i18n.t(
+                "Пока галочка стоит, ни /anim, ни /sa в игру не уходят: в машине "
+                "анимации ломают позу и выбрасывают из транспорта."
+            )
+        )
         act_vehicle.toggled.connect(set_vehicle)
         menu.addAction(act_vehicle)
 
@@ -1378,8 +1439,11 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
 
         state["menu"] = menu
         tray.setContextMenu(menu)
-        short = {"full": i18n.t("всё на язык"), "partial": i18n.t("по маркерам"),
-                 "to_ru": i18n.t("на русский")}[mode]
+        short = {
+            "full": i18n.t("всё на язык"),
+            "partial": i18n.t("по маркерам"),
+            "to_ru": i18n.t("на русский"),
+        }[mode]
         key = cfg["hotkey"] if modules.is_enabled(cfg, "hotkey") else "без клавиши"
         tray.setToolTip(f"{APP_NAME} · {key} · {short} · {label}")
 
@@ -1394,8 +1458,9 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
     build_menu()
     # двойной клик по значку в трее открывает оверлей (пункта в меню нет)
     # a double click on the tray icon opens the overlay (there is no menu item)
-    tray.activated.connect(lambda r: win.open_overlay()
-                          if r == QSystemTrayIcon.ActivationReason.DoubleClick else None)
+    tray.activated.connect(
+        lambda r: win.open_overlay() if r == QSystemTrayIcon.ActivationReason.DoubleClick else None
+    )
     tray.show()
 
     bridge.hotkey.connect(win.open_overlay, Qt.ConnectionType.QueuedConnection)
@@ -1409,8 +1474,14 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
 
     game = i18n.t("найдена") if tracker.get(True) else i18n.t("не найдена")
     key = cfg["hotkey"] if modules.is_enabled(cfg, "hotkey") else i18n.t("не назначена")
-    win.notify(i18n.tf("Клавиша: %s. Язык: %s. Игра: %s.", key,
-                       langs.label(langs.code_of(cfg.get("target_lang", "it"))), game))
+    win.notify(
+        i18n.tf(
+            "Клавиша: %s. Язык: %s. Игра: %s.",
+            key,
+            langs.label(langs.code_of(cfg.get("target_lang", "it"))),
+            game,
+        )
+    )
 
     def dlx_say(text, error=False):
         """Сообщение игроку из любого потока / a message to the player from any thread."""
@@ -1424,6 +1495,7 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
         Everything that can take seconds (download, start, update check) lives here
         so the window never freezes. The interface is touched through signals only.
         """
+
         def work():
             try:
                 # файла нет или он оказался битым — скачиваем заново: согласие
@@ -1432,38 +1504,61 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
                 if download or not dlx.installed():
                     dlx_say(i18n.t("Скачиваю локальный сервис DeepL…"))
                     if not dlx.install():
-                        dlx_say(i18n.tf("Сервис DeepL не установился: %s",
-                                        dlx.status().get("reason") or ""), True)
+                        dlx_say(
+                            i18n.tf(
+                                "Сервис DeepL не установился: %s", dlx.status().get("reason") or ""
+                            ),
+                            True,
+                        )
                         return
                 if not dlx.installed():
-                    dlx_say(i18n.t("Сервис DeepL не установлен — работаю через "
-                                   "стандартные сервисы."), True)
+                    dlx_say(
+                        i18n.t("Сервис DeepL не установлен — работаю через стандартные сервисы."),
+                        True,
+                    )
                     return
                 if dlx.ensure():
                     # свой сервис по адресу живёт сам: обновлять нечего
                     # a service of your own lives outside, nothing to update
                     if dlx.external_url():
-                        dlx_say(i18n.t("Своя служба DeepL отвечает — перевожу "
-                                       "через неё."))
+                        dlx_say(i18n.t("Своя служба DeepL отвечает — перевожу через неё."))
                         return
                     dlx_say(i18n.t("DeepL рядом готов — перевожу через него."))
                 elif dlx.status().get("state") == "upstream":
-                    dlx_say(i18n.t("Сервис DeepL запущен, но DeepL не отвечает "
-                                   "(503). Помогает прокси: Настройки → DeepL."), True)
+                    dlx_say(
+                        i18n.t(
+                            "Сервис DeepL запущен, но DeepL не отвечает "
+                            "(503). Помогает прокси: Настройки → DeepL."
+                        ),
+                        True,
+                    )
                 else:
-                    dlx_say(i18n.tf("Сервис DeepL не запустился (%s) — перевожу через "
-                                    "стандартные сервисы.",
-                                    dlx.status().get("reason") or ""), True)
+                    dlx_say(
+                        i18n.tf(
+                            "Сервис DeepL не запустился (%s) — перевожу через стандартные сервисы.",
+                            dlx.status().get("reason") or "",
+                        ),
+                        True,
+                    )
                 if cfg.get("dlx_auto_update", True):
                     newest = dlx.check_update()
                     if newest:
-                        dlx_say(i18n.tf("Для сервиса DeepL есть версия %s: "
-                                        "Настройки → DeepL → Обновить.", newest))
+                        dlx_say(
+                            i18n.tf(
+                                "Для сервиса DeepL есть версия %s: Настройки → DeepL → Обновить.",
+                                newest,
+                            )
+                        )
             except Exception:
                 log.exception("DLX: сбой при запуске сервиса")
-                dlx_say(i18n.tf("Сервис DeepL не запустился (%s) — перевожу "
-                                "через стандартные сервисы.",
-                                i18n.t("см. logs/errors.log")), True)
+                dlx_say(
+                    i18n.tf(
+                        "Сервис DeepL не запустился (%s) — перевожу через стандартные сервисы.",
+                        i18n.t("см. logs/errors.log"),
+                    ),
+                    True,
+                )
+
         threading.Thread(target=work, name="dlx-boot", daemon=True).start()
 
     def dlx_boot():
@@ -1490,6 +1585,5 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
     QTimer.singleShot(1200, dlx_boot)
 
     if open_settings_on_start or not cfg.get("setup_done") or cfg.get("show_settings_on_start"):
-        QTimer.singleShot(250, lambda: open_settings_window(
-            first_run=not cfg.get("setup_done")))
+        QTimer.singleShot(250, lambda: open_settings_window(first_run=not cfg.get("setup_done")))
     return app.exec()

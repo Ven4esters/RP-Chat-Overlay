@@ -20,6 +20,7 @@ the phrases, the filler words and optional replacement tables.
 PyInstaller не находит их при сборке exe и программа падает с
 «No module named langpacks.it».
 """
+
 from . import de as _de
 from . import en as _en
 from . import es as _es
@@ -71,5 +72,11 @@ def empty_pack(code, version=1):
 
     An empty glossary for a language without a built-in pack.
     """
-    return {"code": code, "version": version, "phrases": {}, "fillers": [],
-            "replace": {}, "exceptions": {}}
+    return {
+        "code": code,
+        "version": version,
+        "phrases": {},
+        "fillers": [],
+        "replace": {},
+        "exceptions": {},
+    }

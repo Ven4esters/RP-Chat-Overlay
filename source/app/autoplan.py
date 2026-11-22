@@ -8,6 +8,7 @@ The series counter is advanced by ordinary messages and by the counted commands
 /to /lto /l /wt /s /st; other commands do not move it. Filler words are still
 translated in every message, whatever the position in the series.
 """
+
 from __future__ import annotations
 
 import random
@@ -25,8 +26,8 @@ class AutoPlan:
 
     def __init__(self, cfg: Mapping[str, Any]) -> None:
         self.cfg = cfg
-        self.pos = 0              # сколько сообщений уже отправлено в текущей серии
-        self.target = None        # номер (1..N) переводимого сообщения в серии
+        self.pos = 0  # сколько сообщений уже отправлено в текущей серии
+        self.target = None  # номер (1..N) переводимого сообщения в серии
         self.seed = random.random()
 
     def n(self) -> int:

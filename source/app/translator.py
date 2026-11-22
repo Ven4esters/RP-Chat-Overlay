@@ -41,23 +41,29 @@ from app.langs import code_of, get as get_lang
 
 # --------------------------------------------------------------- настройки сети
 UA: dict[str, str] = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-MIN_GAP = 0.35          # секунд между сетевыми запросами / seconds between requests
-TIMEOUT = 4             # секунд на один запрос / seconds per request
-DEADLINE = 16           # секунд на всю цепочку / seconds for the whole chain
-COOL = 120              # секунд «отдыха» занятого сервиса / cooldown for a busy service
-CACHE_MAX = 2000        # сколько переводов помнить / cached translations kept
+MIN_GAP = 0.35  # секунд между сетевыми запросами / seconds between requests
+TIMEOUT = 4  # секунд на один запрос / seconds per request
+DEADLINE = 16  # секунд на всю цепочку / seconds for the whole chain
+COOL = 120  # секунд «отдыха» занятого сервиса / cooldown for a busy service
+CACHE_MAX = 2000  # сколько переводов помнить / cached translations kept
 CACHE_SAVE_EVERY = 2.0  # как часто писать кэш на диск / how often to persist
 RU = "ru"
 IN_ALIASES = ("in", "reverse", "to_ru", "tо_ru", "ru")
 
 # Публичные зеркала живут нестабильно, поэтому идём по списку адресов,
 # а не по одному. Public mirrors are unstable, so a list is tried in order.
-LINGVA_HOSTS = ("https://lingva.ml", "https://lingva.garudalinux.org",
-                "https://translate.plausibility.cloud")
-LIBRE_HOSTS = ("https://libretranslate.de", "https://translate.terraprint.co",
-               "https://trans.zillyhuhn.com")
+LINGVA_HOSTS = (
+    "https://lingva.ml",
+    "https://lingva.garudalinux.org",
+    "https://translate.plausibility.cloud",
+)
+LIBRE_HOSTS = (
+    "https://libretranslate.de",
+    "https://translate.terraprint.co",
+    "https://trans.zillyhuhn.com",
+)
 
-_cool: dict[str, float] = {}          # сервис -> до какого времени не пробовать
+_cool: dict[str, float] = {}  # сервис -> до какого времени не пробовать
 _cool_lock = threading.Lock()
 
 ServiceFunc = Callable[[str, str, str], str]
@@ -91,8 +97,7 @@ def _is_busy(error: Exception) -> bool:
     True when the service answered "too many requests" and deserves a cooldown.
     """
     text = str(error).lower()
-    return ("429" in text or "too many" in text or "rate limit" in text
-            or "quota" in text)
+    return "429" in text or "too many" in text or "rate limit" in text or "quota" in text
 
 
 # ------------------------------------------------------------------ Google
@@ -122,8 +127,7 @@ def _google_clients5(text: str, target: str, source: str = RU) -> str:
         if data and isinstance(data[0], str):
             return data[0]
         if data and isinstance(data[0], dict):
-            return "".join(sentence.get("trans", "")
-                           for sentence in data[0].get("sentences") or [])
+            return "".join(sentence.get("trans", "") for sentence in data[0].get("sentences") or [])
     if isinstance(data, dict):
         return str(data.get("translation") or data.get("trans") or "")
     return ""
@@ -132,6 +136,7 @@ def _google_clients5(text: str, target: str, source: str = RU) -> str:
 def _google_web(text: str, target: str, source: str = RU) -> str:
     """Google через deep-translator — последний адрес Google / deep-translator."""
     from deep_translator import GoogleTranslator
+
     return GoogleTranslator(source=source, target=target).translate(text)
 
 
@@ -144,14 +149,18 @@ def _lingva(text: str, target: str, source: str = RU) -> str:
     last: Exception | None = None
     for host in LINGVA_HOSTS:
         try:
-            url = "%s/api/v1/%s/%s/%s" % (host, source or "auto", target,
-                                          urllib.parse.quote(text, safe=""))
+            url = "%s/api/v1/%s/%s/%s" % (
+                host,
+                source or "auto",
+                target,
+                urllib.parse.quote(text, safe=""),
+            )
             data = _http_json(url)
             result = (data.get("translation") or "").strip()
             if result:
                 return result
             last = RuntimeError("пустой ответ %s" % host)
-        except Exception as error:            # зеркало могло умереть / mirror is down
+        except Exception as error:  # зеркало могло умереть / mirror is down
             last = error
     raise last or RuntimeError("Lingva недоступна")
 
@@ -213,11 +222,33 @@ LOCAL_NAME = "DeepL рядом"
 # Коды DeepL отличаются от наших: es-MX у DeepL нет, зато есть PT-BR и ZH.
 # DeepL codes differ from ours: it has no es-MX but knows PT-BR and ZH.
 DLX_CODES: Final[dict[str, str]] = {
-    "ru": RU, "it": "IT", "es": "ES", "es-mx": "ES", "pt": "PT-PT", "pt-br": "PT-BR",
-    "zh": "ZH", "ja": "JA", "de": "DE", "fr": "FR", "en": "EN-US", "tr": "TR",
-    "pl": "PL", "nl": "NL", "ko": "KO", "uk": "UK", "ar": "AR", "cs": "CS",
-    "da": "DA", "fi": "FI", "el": "EL", "hu": "HU", "id": "ID", "nb": "NB",
-    "ro": "RO", "sk": "SK", "sv": "SV",
+    "ru": RU,
+    "it": "IT",
+    "es": "ES",
+    "es-mx": "ES",
+    "pt": "PT-PT",
+    "pt-br": "PT-BR",
+    "zh": "ZH",
+    "ja": "JA",
+    "de": "DE",
+    "fr": "FR",
+    "en": "EN-US",
+    "tr": "TR",
+    "pl": "PL",
+    "nl": "NL",
+    "ko": "KO",
+    "uk": "UK",
+    "ar": "AR",
+    "cs": "CS",
+    "da": "DA",
+    "fi": "FI",
+    "el": "EL",
+    "hu": "HU",
+    "id": "ID",
+    "nb": "NB",
+    "ro": "RO",
+    "sk": "SK",
+    "sv": "SV",
 }
 
 
@@ -237,8 +268,12 @@ def _short(errors: list[str]) -> str:
     text = " ".join(errors).lower()
     if "429" in text or "too many" in text or "quota" in text:
         return "сервисы заняты, Google ограничил запросы (429)"
-    if ("urlopen error" in text or "timed out" in text or "getaddrinfo" in text
-            or "connection" in text):
+    if (
+        "urlopen error" in text
+        or "timed out" in text
+        or "getaddrinfo" in text
+        or "connection" in text
+    ):
         return "нет соединения с сервисами перевода"
     return "сервисы не ответили"
 
@@ -256,12 +291,12 @@ class Translator:
         self.cache: dict[str, str] = cache if isinstance(cache, dict) else {}
         self.net_lock = threading.Lock()
         self.last = 0.0
-        self.out_target = "it"        # выбранный язык перевода / chosen language
-        self.direction = "out"        # "out" | "in"
+        self.out_target = "it"  # выбранный язык перевода / chosen language
+        self.direction = "out"  # "out" | "in"
         self.target = "it"
         self.source = "ru"
-        self._saved_at = 0.0          # когда кэш писался на диск / last flush
-        self._dirty = False           # есть несохранённое / unsaved changes
+        self._saved_at = 0.0  # когда кэш писался на диск / last flush
+        self._dirty = False  # есть несохранённое / unsaved changes
         # локальный сервис DeepL: подключается, только если модуль включён
         # the local DeepL service: attached only while the module is enabled
         self.local: Any = None
@@ -346,15 +381,16 @@ class Translator:
         key = text.strip()
         if not key:
             return ""
-        cache_key = (("in" if self.direction == "in" else "out") + "\x1f"
-                     + self.target + "\x1f" + key)
+        cache_key = (
+            ("in" if self.direction == "in" else "out") + "\x1f" + self.target + "\x1f" + key
+        )
         if cache_key in self.cache:
             return self.cache[cache_key]
 
         errors: list[str] = []
         target, source = self.target, self.source
         started = time.time()
-        with self.net_lock:                      # запросы строго по одному / one at a time
+        with self.net_lock:  # запросы строго по одному / one at a time
             if cache_key in self.cache:
                 return self.cache[cache_key]
             for name, func in self._chain():
@@ -373,8 +409,9 @@ class Translator:
                     self.last = time.time()
                     if result:
                         self._store(cache_key, result)
-                        log.info("Перевод через %s (%s->%s): %r -> %r",
-                                 name, source, target, key, result)
+                        log.info(
+                            "Перевод через %s (%s->%s): %r -> %r", name, source, target, key, result
+                        )
                         return result
                     errors.append(f"{name}: пустой ответ")
                 except Exception as error:

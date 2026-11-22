@@ -13,6 +13,7 @@ letters inside turns to mush, so those sizes keep just the big white letters on
 the green tile. From 24 pixels on the letters inside the bubble read fine and
 the main design comes back.
 """
+
 from __future__ import annotations
 
 import io
@@ -22,17 +23,17 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-GREEN = (46, 125, 50)          # #2e7d32 — фон плитки / the tile colour
-GREEN_DARK = (27, 94, 32)      # #1b5e20 — буквы в пузыре / letters in the bubble
+GREEN = (46, 125, 50)  # #2e7d32 — фон плитки / the tile colour
+GREEN_DARK = (27, 94, 32)  # #1b5e20 — буквы в пузыре / letters in the bubble
 WHITE = (255, 255, 255)
 
 # размеры, которые запрашивает Windows: заголовок окна, панель задач, Alt+Tab,
 # проводник / the sizes Windows asks for: title bar, taskbar, Alt+Tab, Explorer
 SIZES = (16, 20, 24, 32, 40, 48, 64, 96, 128, 256)
 
-SS = 8                         # суперсэмплинг: рисуем крупно, уменьшаем ровно
+SS = 8  # суперсэмплинг: рисуем крупно, уменьшаем ровно
 FONT_CANDIDATES = (
-    "C:/Windows/Fonts/arialbd.ttf",                 # Windows
+    "C:/Windows/Fonts/arialbd.ttf",  # Windows
     "C:/Windows/Fonts/segoeuib.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     "/Library/Fonts/Arial Bold.ttf",
@@ -47,8 +48,9 @@ def _font(every_px: int) -> ImageFont.FreeTypeFont:
     return ImageFont.load_default(every_px)
 
 
-def _fit(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont,
-         limit: float) -> ImageFont.FreeTypeFont:
+def _fit(
+    draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont, limit: float
+) -> ImageFont.FreeTypeFont:
     """Уменьшать кегль, пока текст не влезет в limit пикселей / shrink to fit."""
     while True:
         left, _, right, _ = draw.textbbox((0, 0), text, font=font)
@@ -58,8 +60,9 @@ def _fit(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont,
         font = _font(font.size - step)
 
 
-def _center(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont,
-            cx: float, cy: float) -> tuple[float, float]:
+def _center(
+    draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont, cx: float, cy: float
+) -> tuple[float, float]:
     """Левый верхний угол для центрирования текста / top-left corner to centre."""
     left, top, right, bottom = draw.textbbox((0, 0), text, font=font)
     return cx - (right - left) / 2 - left, cy - (bottom - top) / 2 - top
@@ -84,16 +87,20 @@ def render_bubble(size: int) -> Image.Image:
     width = n - 2 * left
     height = (n - 2 * top) * 0.665
     radius = n * 0.088
-    draw.rounded_rectangle((left, top, left + width, top + height),
-                           radius=radius, fill=WHITE)
+    draw.rounded_rectangle((left, top, left + width, top + height), radius=radius, fill=WHITE)
 
     # хвостик вниз-влево, потолще: в мелком размере тонкий пропадает
     # the tail down-left, drawn thick: a thin one disappears when small
     tail = width * 0.30
     start = left + width * 0.22
-    draw.polygon([(start, top + height - radius * 0.35),
-                  (start + tail, top + height - radius * 0.35),
-                  (start + tail * 0.50, top + height + n * 0.135)], fill=WHITE)
+    draw.polygon(
+        [
+            (start, top + height - radius * 0.35),
+            (start + tail, top + height - radius * 0.35),
+            (start + tail * 0.50, top + height + n * 0.135),
+        ],
+        fill=WHITE,
+    )
 
     font = _fit(draw, "RP", _font(int(height * 0.66 * 1.30)), width * 0.74)
     x, y = _center(draw, "RP", font, left + width / 2, top + height * 0.47)
@@ -143,8 +150,9 @@ def _dib(img: Image.Image) -> bytes:
                 row[x // 8] |= 0x80 >> (x % 8)
         mask += row
 
-    header = struct.pack("<IiiHHIIiiII", 40, width, height * 2, 1, 32, 0,
-                         len(bitmap) + len(mask), 0, 0, 0, 0)
+    header = struct.pack(
+        "<IiiHHIIiiII", 40, width, height * 2, 1, 32, 0, len(bitmap) + len(mask), 0, 0, 0, 0
+    )
     return header + bitmap + bytes(mask)
 
 
@@ -165,7 +173,7 @@ def write_ico(path: Path, images: dict[int, Image.Image]) -> None:
     offset = 6 + 16 * len(entries)
     out = bytearray(struct.pack("<HHH", 0, 1, len(entries)))
     for (size, length), _payload in zip(entries, blobs):
-        side = 0 if size >= 256 else size           # 256 записывается как 0
+        side = 0 if size >= 256 else size  # 256 записывается как 0
         out += struct.pack("<BBBBHHII", side, side, 0, 0, 1, 32, length, offset)
         offset += length
     for payload in blobs:
@@ -190,5 +198,4 @@ if __name__ == "__main__":
     out = Path(sys.argv[1]) if len(sys.argv) > 1 else here / "icon.ico"
     png = out.with_suffix(".png")
     build(out, png)
-    print(f"готово: {out} ({out.stat().st_size} байт, {len(SIZES)} размеров) "
-          f"и {png.name}")
+    print(f"готово: {out} ({out.stat().st_size} байт, {len(SIZES)} размеров) и {png.name}")

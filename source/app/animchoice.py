@@ -51,9 +51,16 @@ import time
 
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel,
-                               QPushButton, QScrollArea, QVBoxLayout,
-                               QWidget)
+from PySide6.QtWidgets import (
+    QApplication,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
 
 from app import i18n
 from app.config import log
@@ -209,7 +216,8 @@ class _Card(QFrame):
     def mouseReleaseEvent(self, event):
         """Клик по карточке = выбор варианта / a click picks the variant."""
         if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(
-                event.position().toPoint()):
+            event.position().toPoint()
+        ):
             self.setFocus(Qt.FocusReason.MouseFocusReason)
             self._on_pick(self.index)
             return
@@ -237,8 +245,7 @@ class ChoiceWindow(QWidget):
     ``done_callback`` is called on every pick with a ``Choice`` or None.
     """
 
-    def __init__(self, title, subtitle, variants, done_callback, parent=None,
-                 on_closed=None):
+    def __init__(self, title, subtitle, variants, done_callback, parent=None, on_closed=None):
         super().__init__(parent)
         self.done_callback = done_callback
         # меню, которое сейчас показано: выбор уходит в него, а не в глобальное
@@ -253,9 +260,11 @@ class ChoiceWindow(QWidget):
         # who to tell when the window is closed: the player, not a timer
         self.on_closed = on_closed
         self._variants = list(variants)
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint
-                            | Qt.WindowType.WindowStaysOnTopHint
-                            | Qt.WindowType.Tool)
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Tool
+        )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setStyleSheet(STYLE)
         self.setWindowTitle(i18n.t("Выбор анимации"))
@@ -305,7 +314,7 @@ class ChoiceWindow(QWidget):
         # Groups: the variants of one group sit together under its title and
         # different groups are separated by a rule. A bare heading is not enough —
         # without the rule it reads as just another variant and the list blurs.
-        self._groups = []          # (название, [карточки]) / (title, [cards])
+        self._groups = []  # (название, [карточки]) / (title, [cards])
         previous = None
         for index, choice in enumerate(self._variants):
             group = (choice.group or "").strip()
@@ -332,8 +341,12 @@ class ChoiceWindow(QWidget):
         self._holder = holder
 
         bottom = QHBoxLayout()
-        hint = QLabel(i18n.t("Окно не закроется само: другой вариант можно "
-                             "выбрать в любой момент · Esc — закрыть"))
+        hint = QLabel(
+            i18n.t(
+                "Окно не закроется само: другой вариант можно "
+                "выбрать в любой момент · Esc — закрыть"
+            )
+        )
         hint.setObjectName("choiceKeys")
         hint.setWordWrap(True)
         bottom.addWidget(hint, 1)
@@ -469,8 +482,9 @@ class ChoiceWindow(QWidget):
             # on the right, centred: the game is on the left, and the window does
             # not cover what is being played
             margin = 24
-            self.move(area.right() - width - margin,
-                      area.top() + (area.height() - self.height()) // 2)
+            self.move(
+                area.right() - width - margin, area.top() + (area.height() - self.height()) // 2
+            )
 
     def _content_height(self, width: int) -> int:
         """Сколько высоты просит содержимое при такой ширине.
@@ -522,8 +536,9 @@ class ChoiceWindow(QWidget):
         # the list is at least two cards and at most half the screen
         list_h = max(min(list_h, 520), 150)
 
-        return (margins.top() + margins.bottom() + head_h + sub_h
-                + list_h + bottom_h + spacing * 4 + 8)
+        return (
+            margins.top() + margins.bottom() + head_h + sub_h + list_h + bottom_h + spacing * 4 + 8
+        )
 
     # --- ответ ---
     def _answer(self, choice):
@@ -625,8 +640,8 @@ class _Bridge(QObject):
     """
 
     show = Signal(object)
-    wake = Signal()          # пересобрать очередь меню / rebuild the menu queue
-    hide = Signal()          # убрать окно / take the window away
+    wake = Signal()  # пересобрать очередь меню / rebuild the menu queue
+    hide = Signal()  # убрать окно / take the window away
 
 
 def _key(rule):
@@ -680,17 +695,17 @@ class _Menu:
         self.rule = rule
         self.variants = _grouped_order(variants)
         self.on_change = on_change
-        self.first = threading.Event()      # первый ответ / the first answer
-        self.shown = threading.Event()      # окно показано / the window is up
-        self.picks = []                     # [(Choice|None)] по порядку
-        self.finished = False               # правило доиграло
-        self.focused = False                # меню подняли повторно
-        self.window = None                  # окно, где оно сейчас
-        self.settle_timer = None            # пауза перед следующим меню
+        self.first = threading.Event()  # первый ответ / the first answer
+        self.shown = threading.Event()  # окно показано / the window is up
+        self.picks = []  # [(Choice|None)] по порядку
+        self.finished = False  # правило доиграло
+        self.focused = False  # меню подняли повторно
+        self.window = None  # окно, где оно сейчас
+        self.settle_timer = None  # пауза перед следующим меню
         # сейчас ли это меню на экране: по этому признаку снимаются пометки
         # whether this menu is the one on screen: that decides the marks
         self.on_screen = False
-        self.settle_until = 0.0             # до какого времени ждать паузу
+        self.settle_until = 0.0  # до какого времени ждать паузу
         # чем сыграть выбор, если правило уже доиграло (ставит Runner)
         # what to play the pick with when the rule has already finished (set by
         # Runner)
@@ -843,8 +858,7 @@ class Chooser:
         but the "playing" mark is cleared, because nothing is playing any more.
         """
         with self._lock:
-            dead = [entry for entry in self._order
-                    if rule is None or entry.matches(rule)]
+            dead = [entry for entry in self._order if rule is None or entry.matches(rule)]
             for entry in dead:
                 if entry.settle_timer is not None:
                     entry.settle_timer.stop()
@@ -962,10 +976,8 @@ class Chooser:
         # иначе окно не появится, а ожидание в `ask` упрётся в SHOW_TIMEOUT_S.
         # The menu queue lives on the main thread: it must be woken by a signal,
         # otherwise no window appears and `ask` waits out SHOW_TIMEOUT_S.
-        self._bridge.wake.connect(self._render,
-                                  Qt.ConnectionType.QueuedConnection)
-        self._bridge.hide.connect(self._close_window,
-                                  Qt.ConnectionType.QueuedConnection)
+        self._bridge.wake.connect(self._render, Qt.ConnectionType.QueuedConnection)
+        self._bridge.hide.connect(self._close_window, Qt.ConnectionType.QueuedConnection)
         return True
 
     def ask(self, rule, on_change=None) -> "object | None":
@@ -1020,8 +1032,7 @@ class Chooser:
         # The appearance is a separate event from the answer, otherwise the answer
         # would come back at once, before anything was pressed.
         if not entry.shown.wait(SHOW_TIMEOUT_S):
-            log.warning("Выбор анимации: окно не показалось за %d с",
-                            int(SHOW_TIMEOUT_S))
+            log.warning("Выбор анимации: окно не показалось за %d с", int(SHOW_TIMEOUT_S))
             with self._lock:
                 if entry in self._menus:
                     self._menus.remove(entry)
@@ -1072,13 +1083,14 @@ class Chooser:
         self._close_window()
         subtitle = i18n.t("Выбор отправится в чат игры как /anim.")
         if waiting > 0:
-            subtitle += " " + i18n.tf(
-                "Ещё меню в очереди: %d — после этого.", waiting)
-        window = ChoiceWindow(i18n.t("Какую анимацию вы собираетесь "
-                                     "использовать?"),
-                              subtitle, entry.variants,
-                              entry.pick,
-                              on_closed=lambda: self._window_closed(entry))
+            subtitle += " " + i18n.tf("Ещё меню в очереди: %d — после этого.", waiting)
+        window = ChoiceWindow(
+            i18n.t("Какую анимацию вы собираетесь использовать?"),
+            subtitle,
+            entry.variants,
+            entry.pick,
+            on_closed=lambda: self._window_closed(entry),
+        )
         window.entry = entry
         window.on_pick = lambda: self._settle(entry)
         self._window = window
@@ -1128,8 +1140,7 @@ class Chooser:
         entry.first.set()
         entry.finished = True
         self.open = bool(self._menus)
-        log.info("Выбор анимации: окно закрыто игроком, в очереди меню: %d",
-                 len(self._menus))
+        log.info("Выбор анимации: окно закрыто игроком, в очереди меню: %d", len(self._menus))
         if was_first:
             # Следующее меню (если оно придёт) покажется не мгновенно: между
             # закрытием окна и новым показом должна быть пауза, иначе окно
@@ -1396,8 +1407,7 @@ class Chooser:
                 if entry in self._order:
                     self._order.remove(entry)
         if pending:
-            log.info("Выбор анимации: остановка сняла меню без выбора: %d",
-                     len(pending))
+            log.info("Выбор анимации: остановка сняла меню без выбора: %d", len(pending))
             # Окно показывало именно такое меню, и спрашивать больше некого:
             # убираем его с экрана. Иначе на нём остаются кнопки, которые уже
             # ничего не делают, — игрок жмёт вариант, а в игру ничего не уходит.
@@ -1405,8 +1415,7 @@ class Chooser:
             # to ask: it leaves the screen. Otherwise its buttons stay and do
             # nothing — the player presses a variant and nothing reaches the game.
             window = self._window
-            if window is not None and any(window.entry is entry
-                                          for entry in pending):
+            if window is not None and any(window.entry is entry for entry in pending):
                 if self._bridge is not None:
                     self._bridge.hide.emit()
                 else:

@@ -69,6 +69,7 @@ token is substituted after translation instead.
 "xD", "x)", ":)" and "^^" are faces rather than abbreviations: in the /b, /ab and
 /f service chats they stay as typed. One guard covers every table.
 """
+
 import re
 from typing import Final
 
@@ -86,10 +87,7 @@ RUSSIAN: Final[dict[str, str]] = slang_data.RUSSIAN
 # Они не словарные записи, а шаблоны, поэтому и лежат здесь.
 # Extra laughter patterns that the tables do not hold: "looool", "lmaooo".
 # They are patterns rather than entries, so they stay here.
-LAUGH = ((r"l+o+l+", "haha"),
-         (r"lma+o+", "haha"),
-         (r"rofl+", "haha"),
-         (r"ke+k+", "haha"))
+LAUGH = ((r"l+o+l+", "haha"), (r"lma+o+", "haha"), (r"rofl+", "haha"), (r"ke+k+", "haha"))
 
 CYR_RX = re.compile(r"[а-яё]", re.IGNORECASE)
 
@@ -108,8 +106,8 @@ def is_russian_token(token):
 # All of this is the state of the ONE language chosen through set_language():
 # every language has its own table, and switching languages rebuilds the dicts.
 _lang = slang_data.DEFAULT_LANG
-_user = {}                 # сокращение -> (разворот, русский вариант)
-_user_all = {}             # язык -> то же самое / language -> the same
+_user = {}  # сокращение -> (разворот, русский вариант)
+_user_all = {}  # язык -> то же самое / language -> the same
 _foreign = dict(FOREIGN)
 _russian = dict(RUSSIAN)
 _loaded = False
@@ -141,8 +139,11 @@ def _token_rx(words):
     if not words:
         return None
     parts = sorted(words, key=len, reverse=True)
-    return re.compile(r"(?<![0-9A-Za-z_а-яёА-ЯЁ])(?:%s)(?![0-9A-Za-z_а-яёА-ЯЁ])"
-                      % "|".join(re.escape(p) for p in parts), re.IGNORECASE)
+    return re.compile(
+        r"(?<![0-9A-Za-z_а-яёА-ЯЁ])(?:%s)(?![0-9A-Za-z_а-яёА-ЯЁ])"
+        % "|".join(re.escape(p) for p in parts),
+        re.IGNORECASE,
+    )
 
 
 _RX_LAUGH = None
@@ -160,8 +161,10 @@ def _laugh_rx():
     """
     if _lang != "en":
         return None
-    return re.compile(r"(?<![0-9A-Za-z_])(?:%s)(?![0-9A-Za-z_])"
-                      % "|".join(p for p, _en in LAUGH), re.IGNORECASE)
+    return re.compile(
+        r"(?<![0-9A-Za-z_])(?:%s)(?![0-9A-Za-z_])" % "|".join(p for p, _en in LAUGH), re.IGNORECASE
+    )
+
 
 # «I'm afk» → «I'm not at the keyboard», а не «I'm I'm away…»:
 # если перед сокращением уже стоит подлежащее или форма to be, берём вариант
@@ -171,7 +174,8 @@ _SUBJECT_RX = re.compile(
     r"(?:\b(?:i'm|im|i am|i'll|i've|he's|she's|it's|we're|they're|you're|"
     r"is|are|am|was|were)\s*,?\s*"
     r"(?:(?:not|never|still|really|always|so|just|probably|already)\s+){0,2})$",
-    re.IGNORECASE)
+    re.IGNORECASE,
+)
 
 
 def _tail_form(english):
@@ -253,8 +257,10 @@ def builtin(code=None):
     :func:`_russian_side`, and it never has a second column.
     """
     code = _norm(code or _lang)
-    return {token: (expand, slang_data.RU_SHORT.get(token.lower(), ""))
-            for token, expand in slang_data.table(code).items()}
+    return {
+        token: (expand, slang_data.RU_SHORT.get(token.lower(), ""))
+        for token, expand in slang_data.table(code).items()
+    }
 
 
 def _table_for(code):
@@ -292,7 +298,7 @@ def _rebuild():
     _RX_LAUGH = _laugh_rx()
     _TAILS = {token: _tail_form(item[0]) for token, item in _foreign.items() if item[0]}
     _user = _user_all.get(_lang) or {}
-    _mixed = None                      # общий набор соберётся заново
+    _mixed = None  # общий набор соберётся заново
 
 
 # ---------- язык таблицы ----------
@@ -337,8 +343,9 @@ def use_for(cfg):
     The player may pick a table explicitly (``slang_lang``); otherwise the table
     follows the translation language: a German server wants German first.
     """
-    return set_language((cfg or {}).get("slang_lang")
-                        or (cfg or {}).get("target_lang") or slang_data.DEFAULT_LANG)
+    return set_language(
+        (cfg or {}).get("slang_lang") or (cfg or {}).get("target_lang") or slang_data.DEFAULT_LANG
+    )
 
 
 def language():
@@ -358,8 +365,7 @@ def languages():
     expanded before translating into the server language, and they are not shown
     among the foreign tables — otherwise the player would look for "спс" there.
     """
-    return [(code, slang_data.LANG_TITLES.get(code, code.upper()))
-            for code in slang_data.BY_LANG]
+    return [(code, slang_data.LANG_TITLES.get(code, code.upper())) for code in slang_data.BY_LANG]
 
 
 # ---------- свои сокращения игрока ----------
@@ -528,8 +534,12 @@ def known():
     How many abbreviations the tables hold, for reference and self-check.
     """
     laughs = len(LAUGH) if _lang == "en" else 0
-    return {"язык": _lang, "иностранные": len(_foreign) + laughs,
-            "русские": len(_russian), "свои": len(_user)}
+    return {
+        "язык": _lang,
+        "иностранные": len(_foreign) + laughs,
+        "русские": len(_russian),
+        "свои": len(_user),
+    }
 
 
 def _ensure():
@@ -615,7 +625,7 @@ def _capitalize(word):
 def _at_sentence_start(text, pos):
     """True, если перед позицией конец строки или знак конца предложения."""
     before = text[:pos].rstrip()
-    return (not before) or before[-1] in ".!?…;:—-*\"«("
+    return (not before) or before[-1] in '.!?…;:—-*"«('
 
 
 def _replace(text, rx, pick):
@@ -628,7 +638,7 @@ def _replace(text, rx, pick):
         new = pick(token, m.start())
         if new is None:
             continue
-        out.append(text[pos:m.start()])
+        out.append(text[pos : m.start()])
         out.append(new)
         pos = m.end()
         hits.append((token, new))

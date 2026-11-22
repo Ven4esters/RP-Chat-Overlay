@@ -17,6 +17,7 @@ Auto-translation, Game chat, Glossary, Abbreviations, Test and Modules.
   * модули, выключенные на странице «Модули», не мешают остальным страницам.
     Modules switched off on their page do not break the other pages.
 """
+
 import csv
 import io
 import json
@@ -24,28 +25,73 @@ import threading
 import time
 from pathlib import Path
 
-from PySide6.QtCore import (QEasingCurve, QObject, QPoint, QRect, QRectF, QSize, Qt,
-                            QTimer, QVariantAnimation, Signal)
-from PySide6.QtGui import (QColor, QDrag, QGuiApplication, QKeySequence, QPainter,
-                           QPixmap, QPolygon)
+from PySide6.QtCore import (
+    QEasingCurve,
+    QObject,
+    QPoint,
+    QRect,
+    QRectF,
+    QSize,
+    Qt,
+    QTimer,
+    QVariantAnimation,
+    Signal,
+)
+from PySide6.QtGui import QColor, QDrag, QGuiApplication, QKeySequence, QPainter, QPixmap, QPolygon
 import urllib.parse
 
-from PySide6.QtWidgets import (QAbstractButton, QAbstractItemView, QCheckBox, QComboBox,
-                               QDialog, QFileDialog, QFormLayout, QFrame, QHBoxLayout,
-                               QHeaderView, QInputDialog, QLabel, QLineEdit,
-                               QListWidget,
-                               QListWidgetItem, QMenu, QMessageBox, QPushButton,
-                               QScrollArea, QSizePolicy, QSpinBox, QStackedWidget,
-                               QTableWidget, QTableWidgetItem, QToolButton,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (
+    QAbstractButton,
+    QAbstractItemView,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QFileDialog,
+    QFormLayout,
+    QFrame,
+    QHBoxLayout,
+    QHeaderView,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMenu,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QSpinBox,
+    QStackedWidget,
+    QTableWidget,
+    QTableWidgetItem,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from app import dlx as dlx_mod
 from app import anims, history, i18n, langs, modules, morph, slang
-from app.config import (CONFIG_PATH, DATA, DEFAULT_CONFIG, SLANG_PATH, log,
-                        read_json, save_config, write_json)
-from app.engine import (Engine, Glossary, glossary_path, load_glossary_data,
-                        reset_glossary, save_glossary_data)
+from app.config import (
+    CONFIG_PATH,
+    DATA,
+    DEFAULT_CONFIG,
+    SLANG_PATH,
+    log,
+    read_json,
+    save_config,
+    write_json,
+)
+from app.engine import (
+    Engine,
+    Glossary,
+    glossary_path,
+    load_glossary_data,
+    reset_glossary,
+    save_glossary_data,
+)
 from app.translator import TranslateError, Translator
+
 
 def _table_state(table):
     """Содержимое таблицы для снимка: текст, галочки, виджеты-ячейки.
@@ -63,12 +109,15 @@ def _table_state(table):
         for column in range(table.columnCount()):
             item = table.item(row, column)
             widget = table.cellWidget(row, column) if hasattr(table, "cellWidget") else None
-            cells.append((
-                item.text() if item is not None else None,
-                item.checkState() if item is not None and hasattr(item, "checkState") else None,
-                (widget.currentIndex(), widget.count()) if widget is not None
-                and hasattr(widget, "currentIndex") else None,
-            ))
+            cells.append(
+                (
+                    item.text() if item is not None else None,
+                    item.checkState() if item is not None and hasattr(item, "checkState") else None,
+                    (widget.currentIndex(), widget.count())
+                    if widget is not None and hasattr(widget, "currentIndex")
+                    else None,
+                )
+            )
         rows.append(tuple(cells))
     return tuple(rows)
 
@@ -83,7 +132,8 @@ def _restore_table(table, rows):
     table.blockSignals(True)
     try:
         if len(rows) != table.rowCount() or any(
-                len(cells) != table.columnCount() for cells in rows):
+            len(cells) != table.columnCount() for cells in rows
+        ):
             table.setRowCount(len(rows))
             table.setColumnCount(len(rows[0]) if rows else table.columnCount())
         for row, cells in enumerate(rows):
@@ -114,6 +164,7 @@ def _read_disk_state():
     docs = {}
     try:
         from app.engine import glossary_path
+
         folder = glossary_path("it").parent
         for path in sorted(folder.glob("*.json")):
             data = read_json(path, None)
@@ -126,8 +177,11 @@ def _read_disk_state():
     # The player's own abbreviations change in the window, and an undo has to put
     # the file back: otherwise the table is old on screen and new in game.
     slang_file = read_json(SLANG_PATH, None)
-    return {"cfg": cfg if isinstance(cfg, dict) else {}, "docs": docs,
-            "slang": slang_file if isinstance(slang_file, dict) else {}}
+    return {
+        "cfg": cfg if isinstance(cfg, dict) else {},
+        "docs": docs,
+        "slang": slang_file if isinstance(slang_file, dict) else {},
+    }
 
 
 STYLE = """
@@ -300,9 +354,18 @@ def style_sheet(scale=1.0):
         "QToolButton#step { min-width: %dpx; min-height: %dpx; font-size: %dpx; }\n"
         "QCheckBox::indicator { width: %dpx; height: %dpx; }\n"
         "QTableWidget::indicator, QTableView::indicator { width: %dpx; height: %dpx; }\n"
-        % (int(round(20 * k)), int(round(8 * k)), int(round(16 * k)),
-           int(round(26 * k)), int(round(24 * k)), int(round(15 * k)),
-           int(round(16 * k)), int(round(16 * k)), int(round(18 * k)), int(round(18 * k)))
+        % (
+            int(round(20 * k)),
+            int(round(8 * k)),
+            int(round(16 * k)),
+            int(round(26 * k)),
+            int(round(24 * k)),
+            int(round(15 * k)),
+            int(round(16 * k)),
+            int(round(16 * k)),
+            int(round(18 * k)),
+            int(round(18 * k)),
+        )
     )
     return out + extra
 
@@ -324,8 +387,9 @@ def _fit_dialog(win, ratio=0.94):
         return
     area = screen.availableGeometry()
     win.resize(int(area.width() * ratio), int(area.height() * ratio))
-    win.move(area.x() + (area.width() - win.width()) // 2,
-             area.y() + (area.height() - win.height()) // 2)
+    win.move(
+        area.x() + (area.width() - win.width()) // 2, area.y() + (area.height() - win.height()) // 2
+    )
 
 
 def _scroll_page(page):
@@ -346,21 +410,43 @@ def _scroll_page(page):
     page.setAutoFillBackground(False)
     return area
 
+
 # строка подвала, когда всё сохранено / the footer line in its idle state
 _FOOTER_IDLE = "Изменения применятся после «Сохранить»."
 
 
-MODIFIER_KEYS = {Qt.Key.Key_Control, Qt.Key.Key_Alt, Qt.Key.Key_Shift,
-                 Qt.Key.Key_Meta, Qt.Key.Key_AltGr}
+MODIFIER_KEYS = {
+    Qt.Key.Key_Control,
+    Qt.Key.Key_Alt,
+    Qt.Key.Key_Shift,
+    Qt.Key.Key_Meta,
+    Qt.Key.Key_AltGr,
+}
 NAMED_KEYS = {
-    Qt.Key.Key_Insert: "insert", Qt.Key.Key_Delete: "delete", Qt.Key.Key_Home: "home",
-    Qt.Key.Key_End: "end", Qt.Key.Key_PageUp: "pageup", Qt.Key.Key_PageDown: "pagedown",
-    Qt.Key.Key_Pause: "pause", Qt.Key.Key_Tab: "tab", Qt.Key.Key_Space: "space",
+    Qt.Key.Key_Insert: "insert",
+    Qt.Key.Key_Delete: "delete",
+    Qt.Key.Key_Home: "home",
+    Qt.Key.Key_End: "end",
+    Qt.Key.Key_PageUp: "pageup",
+    Qt.Key.Key_PageDown: "pagedown",
+    Qt.Key.Key_Pause: "pause",
+    Qt.Key.Key_Tab: "tab",
+    Qt.Key.Key_Space: "space",
     Qt.Key.Key_QuoteLeft: "`",
 }
 
-ALLOWED_PLAIN = {"insert", "delete", "home", "end", "pageup", "pagedown", "pause",
-                 "tab", "space", "`"}
+ALLOWED_PLAIN = {
+    "insert",
+    "delete",
+    "home",
+    "end",
+    "pageup",
+    "pagedown",
+    "pause",
+    "tab",
+    "space",
+    "`",
+}
 ALLOWED_MODS = {"ctrl", "alt", "shift", "win"}
 
 
@@ -377,13 +463,17 @@ def check_hotkey(spec):
     if len(keys) != 1:
         return False, "Нужна ровно одна клавиша (например, F6 или Ctrl+Alt+T)."
     k = keys[0]
-    ok_key = (k in ALLOWED_PLAIN or (len(k) == 1 and k.isascii() and k.isalnum())
-              or (k.startswith("f") and k[1:].isdigit() and 1 <= int(k[1:]) <= 24))
+    ok_key = (
+        k in ALLOWED_PLAIN
+        or (len(k) == 1 and k.isascii() and k.isalnum())
+        or (k.startswith("f") and k[1:].isdigit() and 1 <= int(k[1:]) <= 24)
+    )
     if not ok_key:
         return False, f"Клавиша «{k}» не поддерживается."
     if not mods and not (k.startswith("f") or k in ALLOWED_PLAIN):
-        return False, ("Одиночная буква/цифра будет мешать печати — добавьте Ctrl/Alt "
-                      "или выберите F-клавишу.")
+        return False, (
+            "Одиночная буква/цифра будет мешать печати — добавьте Ctrl/Alt или выберите F-клавишу."
+        )
     return True, ""
 
 
@@ -522,10 +612,10 @@ class ToggleSwitch(QAbstractButton):
     style.
     """
 
-    WIDTH = 46                     # ширина дорожки / the track width
-    HEIGHT = 24                    # высота дорожки / the track height
-    KNOB = 18                      # диаметр бегунка / the knob diameter
-    ON_COLOR = QColor("#2e7d55")   # зелёная дорожка: включено / on
+    WIDTH = 46  # ширина дорожки / the track width
+    HEIGHT = 24  # высота дорожки / the track height
+    KNOB = 18  # диаметр бегунка / the knob diameter
+    ON_COLOR = QColor("#2e7d55")  # зелёная дорожка: включено / on
     ON_EDGE = QColor("#3d9a6b")
     OFF_COLOR = QColor("#2b2b36")  # серая дорожка: выключено / off
     OFF_EDGE = QColor("#3c3c4a")
@@ -539,7 +629,7 @@ class ToggleSwitch(QAbstractButton):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
         self.setFixedSize(self.WIDTH, self.HEIGHT)
-        self._pos = 0.0            # 0 — выключен, 1 — включён / 0 off, 1 on
+        self._pos = 0.0  # 0 — выключен, 1 — включён / 0 off, 1 on
         self._anim = QVariantAnimation(self)
         self._anim.setDuration(140)
         self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
@@ -581,7 +671,7 @@ class ToggleSwitch(QAbstractButton):
                 self._pos = 1.0 if on else 0.0
                 self.update()
 
-    def paintEvent(self, event):          # noqa: N802 — имя из Qt / a Qt name
+    def paintEvent(self, event):  # noqa: N802 — имя из Qt / a Qt name
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         rect = QRectF(0.5, 0.5, self.WIDTH - 1, self.HEIGHT - 1)
@@ -616,8 +706,8 @@ class ToggleSwitch(QAbstractButton):
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.setPen(QColor("#7ea6ff"))
             painter.drawRoundedRect(
-                QRectF(-2.5, -2.5, self.WIDTH + 4, self.HEIGHT + 4),
-                radius + 2, radius + 2)
+                QRectF(-2.5, -2.5, self.WIDTH + 4, self.HEIGHT + 4), radius + 2, radius + 2
+            )
         painter.end()
 
 
@@ -737,15 +827,15 @@ class DragTable(QTableWidget):
     # цвета линии вставки и «призрака» перетаскиваемой строки
     # the drop line and the dragged row colours
     LINE_COLOR = QColor("#5b8cff")
-    DRAG_BG = QColor(91, 140, 255, 46)     # подсветка исходной строки / dragged row
-    TARGET_BG = QColor(91, 140, 255, 22)   # цель перетаскивания / the drop target
+    DRAG_BG = QColor(91, 140, 255, 46)  # подсветка исходной строки / dragged row
+    TARGET_BG = QColor(91, 140, 255, 22)  # цель перетаскивания / the drop target
     LINE_WIDTH = 3
 
     def __init__(self, on_move=None, rows=0, columns=0, parent=None):
         super().__init__(rows, columns, parent)
         self.on_move = on_move
         self._drag_row = -1
-        self._drop_at = -1        # перед какой строкой встанет / the row it lands before
+        self._drop_at = -1  # перед какой строкой встанет / the row it lands before
         self.setDragEnabled(True)
         self.setAcceptDrops(True)
         # штатный индикатор выключен: рисуем свой, заметный
@@ -799,8 +889,7 @@ class DragTable(QTableWidget):
         height = self.rowHeight(row)
         if height <= 0:
             return None
-        pixmap = QPixmap(self.viewport().width(),
-                         min(height, self.viewport().height()))
+        pixmap = QPixmap(self.viewport().width(), min(height, self.viewport().height()))
         pixmap.fill(Qt.GlobalColor.transparent)
         painter = QPainter(pixmap)
         painter.setOpacity(0.85)
@@ -808,8 +897,9 @@ class DragTable(QTableWidget):
         # the table area is drawn as is, one row only
         painter.fillRect(pixmap.rect(), QColor("#1c1c24"))
         painter.end()
-        self.viewport().render(pixmap, QPoint(0, 0),
-                               QRect(0, top, self.viewport().width(), pixmap.height()))
+        self.viewport().render(
+            pixmap, QPoint(0, 0), QRect(0, top, self.viewport().width(), pixmap.height())
+        )
         return pixmap
 
     def dragEnterEvent(self, event):
@@ -841,7 +931,7 @@ class DragTable(QTableWidget):
         event.accept()
         if source < 0 or self.on_move is None:
             return
-        if target in (source, source + 1):        # на то же место / same place
+        if target in (source, source + 1):  # на то же место / same place
             return
         self.on_move(source, target)
 
@@ -886,30 +976,30 @@ class DragTable(QTableWidget):
         # the row being dragged is tinted, so it is not lost from sight
         if 0 <= self._drag_row < self.rowCount():
             top = self.rowViewportPosition(self._drag_row)
-            painter.fillRect(0, top, width, self.rowHeight(self._drag_row),
-                             self.DRAG_BG)
+            painter.fillRect(0, top, width, self.rowHeight(self._drag_row), self.DRAG_BG)
 
         # строка, на которую сейчас упадёт переносимая: лёгкая подсветка
         # the row the dragged one will land on: a light tint
         if 0 <= self._drop_at < self.rowCount():
             top = self.rowViewportPosition(self._drop_at)
-            painter.fillRect(0, top, width, self.rowHeight(self._drop_at),
-                             self.TARGET_BG)
+            painter.fillRect(0, top, width, self.rowHeight(self._drop_at), self.TARGET_BG)
 
         # сама линия вставки: место, куда строка встанет
         # the drop line itself: exactly where the row will land
         if self._drop_at >= 0:
             y = self._line_y(self._drop_at)
             if y is not None:
-                painter.fillRect(0, y - self.LINE_WIDTH // 2, width,
-                                 self.LINE_WIDTH, self.LINE_COLOR)
+                painter.fillRect(
+                    0, y - self.LINE_WIDTH // 2, width, self.LINE_WIDTH, self.LINE_COLOR
+                )
                 # треугольник-указатель слева: видно даже на светлой строке
                 # an arrow on the left: visible even on a light row
                 painter.setBrush(self.LINE_COLOR)
                 painter.setPen(Qt.PenStyle.NoPen)
                 size = 7
-                painter.drawPolygon(QPolygon([
-                    QPoint(0, y - size), QPoint(size, y), QPoint(0, y + size)]))
+                painter.drawPolygon(
+                    QPolygon([QPoint(0, y - size), QPoint(size, y), QPoint(0, y + size)])
+                )
         painter.end()
 
     def _line_y(self, row: int) -> int | None:
@@ -946,8 +1036,10 @@ class DragTable(QTableWidget):
         """
         if source < 0 or source >= table.rowCount():
             return
-        rows = [[table.takeItem(row, col) for col in range(table.columnCount())]
-                for row in range(table.rowCount())]
+        rows = [
+            [table.takeItem(row, col) for col in range(table.columnCount())]
+            for row in range(table.rowCount())
+        ]
         moved = rows.pop(source)
         if target > source:
             target -= 1
@@ -972,7 +1064,7 @@ class DlxJob(QObject):
     the window only receives the result, through a signal, on the main thread.
     """
 
-    finished = Signal(bool, str)        # получилось?, причина / ok?, reason
+    finished = Signal(bool, str)  # получилось?, причина / ok?, reason
 
     def __init__(self, fn, parent=None):
         super().__init__(parent)
@@ -980,14 +1072,16 @@ class DlxJob(QObject):
 
     def start(self) -> None:
         """Запускает действие в отдельном потоке / starts the action in a thread."""
+
         def run():
             ok, reason = False, ""
             try:
                 ok = bool(self.fn())
-            except Exception as error:      # noqa: BLE001 — причину покажем игроку
+            except Exception as error:  # noqa: BLE001 — причину покажем игроку
                 log.exception("DLX: фоновое действие не удалось")
                 reason = str(error) or type(error).__name__
             self.finished.emit(ok, reason)
+
         threading.Thread(target=run, daemon=True, name="dlx-job").start()
 
 
@@ -995,8 +1089,8 @@ class SettingsWindow(QDialog):
     """Окно настроек. signal saved(cfg) — после сохранения."""
 
     saved = Signal(dict)
-    anim_test_done = Signal(bool, str)     # ручная отправка /anim: успех и ответ игры
-                                          # manual /anim send: success and reply
+    anim_test_done = Signal(bool, str)  # ручная отправка /anim: успех и ответ игры
+    # manual /anim send: success and reply
 
     def __init__(self, cfg, parent=None, first_run=False, dlx=None, anims_api=None):
         """Окно настроек; dlx — сервис DeepL, если он уже создан программой.
@@ -1012,8 +1106,8 @@ class SettingsWindow(QDialog):
         self.dlx = dlx
         self.anims_api = anims_api
         self.cfg = dict(cfg)
-        self.docs = {}            # код языка -> данные словаря
-        self.dirty = set()        # языки с несохранёнными правками словаря
+        self.docs = {}  # код языка -> данные словаря
+        self.dirty = set()  # языки с несохранёнными правками словаря
         # свой порядок строк в таблице сокращений: встроенные идут
         # по алфавиту, а перетаскивание мышью его меняет
         # the user's row order in the slang table: built-ins come
@@ -1036,10 +1130,10 @@ class SettingsWindow(QDialog):
         # Undo and redo: a history per section, snapshots include what already
         # reached the disk.
         self._hist = history.History()
-        self._hist_applying = False     # сейчас применяем снимок / applying a snapshot
-        self._hist_busy = False         # запись шага идёт / recording a step
-        self._hist_field = {}           # поле -> последнее значение / field metadata
-        self._disk_cache = {"cfg": {}, "docs": {}}   # диск на момент снимка / disk view
+        self._hist_applying = False  # сейчас применяем снимок / applying a snapshot
+        self._hist_busy = False  # запись шага идёт / recording a step
+        self._hist_field = {}  # поле -> последнее значение / field metadata
+        self._disk_cache = {"cfg": {}, "docs": {}}  # диск на момент снимка / disk view
 
         self.setWindowTitle("Настройки — RP Chat Overlay")
         self.setStyleSheet(style_sheet(self._ui_scale()))
@@ -1059,18 +1153,20 @@ class SettingsWindow(QDialog):
         self.nav.setFixedWidth(210)
         self.stack = QStackedWidget()
         self.stack.setObjectName("page")
-        self._views = []                 # страницы в прокрутке, по порядку
-        self._page_rows = {}             # имя страницы -> строка в списке слева
-        self._anims_row = 0               # номер строки «Анимации» в списке разделов
-        pages = (("Основные", "page_main", self._page_main),
-                 ("Автоперевод", "page_auto", self._page_auto),
-                 ("Чат игры", "page_game", self._page_game),
-                 ("Словарь", "page_glossary", self._page_glossary),
-                 ("Сокращения", "page_slang", self._page_slang),
-                 ("Проверка", "page_test", self._page_test),
-                 ("DeepL", "page_dlx", self._page_dlx),
-                 ("Анимации", "page_anims", self._page_anims),
-                 ("Модули", "page_modules", self._page_modules))
+        self._views = []  # страницы в прокрутке, по порядку
+        self._page_rows = {}  # имя страницы -> строка в списке слева
+        self._anims_row = 0  # номер строки «Анимации» в списке разделов
+        pages = (
+            ("Основные", "page_main", self._page_main),
+            ("Автоперевод", "page_auto", self._page_auto),
+            ("Чат игры", "page_game", self._page_game),
+            ("Словарь", "page_glossary", self._page_glossary),
+            ("Сокращения", "page_slang", self._page_slang),
+            ("Проверка", "page_test", self._page_test),
+            ("DeepL", "page_dlx", self._page_dlx),
+            ("Анимации", "page_anims", self._page_anims),
+            ("Модули", "page_modules", self._page_modules),
+        )
         for page_index, (name, attr, maker) in enumerate(pages):
             item = QListWidgetItem(name)
             item.setSizeHint(item.sizeHint().expandedTo(item.sizeHint() + _sz(0, 10)))
@@ -1132,8 +1228,8 @@ class SettingsWindow(QDialog):
         lay.setContentsMargins(20, 14, 20, 12)
         lay.setSpacing(2)
         self.header_title = _title(
-            "Настройки" if not self.first_run else "Добро пожаловать в RP Chat Overlay",
-            "h1")
+            "Настройки" if not self.first_run else "Добро пожаловать в RP Chat Overlay", "h1"
+        )
         lay.addWidget(self.header_title)
         self.header_sub = QLabel()
         self.header_sub.setProperty("no_i18n", True)
@@ -1144,8 +1240,7 @@ class SettingsWindow(QDialog):
     def _build_footer(self):
         w = QWidget()
         w.setObjectName("footer")
-        w.setStyleSheet("QWidget#footer { background:#17171e;"
-                        "border-top:1px solid #26262f; }")
+        w.setStyleSheet("QWidget#footer { background:#17171e;border-top:1px solid #26262f; }")
         lay = QHBoxLayout(w)
         lay.setContentsMargins(20, 12, 20, 12)
         lay.setSpacing(10)
@@ -1230,8 +1325,10 @@ class SettingsWindow(QDialog):
         self.resize(w, h)
         self.nav.setFixedWidth(max(140, min(int(210 * k), int(w * 0.26))))
         if center and avail is not None:
-            self.move(avail.x() + max(0, (avail.width() - w) // 2),
-                      avail.y() + max(0, (avail.height() - h) // 2))
+            self.move(
+                avail.x() + max(0, (avail.width() - w) // 2),
+                avail.y() + max(0, (avail.height() - h) // 2),
+            )
 
     def resizeEvent(self, e):
         """Меню разделов подстраивается под ширину окна, а не режет подписи.
@@ -1240,8 +1337,9 @@ class SettingsWindow(QDialog):
         """
         super().resizeEvent(e)
         if hasattr(self, "nav"):
-            self.nav.setFixedWidth(max(132, min(int(210 * self._ui_scale()),
-                                                int(self.width() * 0.28))))
+            self.nav.setFixedWidth(
+                max(132, min(int(210 * self._ui_scale()), int(self.width() * 0.28)))
+            )
 
     def _ui_scale_changed(self, value=None):
         """Ползунок масштаба: сразу меняет шрифт и размер окна.
@@ -1253,8 +1351,9 @@ class SettingsWindow(QDialog):
         self.cfg["ui_scale"] = round(k, 2)
         self.setStyleSheet(style_sheet(k))
         self._apply_adaptive_size(center=False)
-        self.lb_ui_scale.setText(i18n.tf(
-            "Шрифт и отступы окна: %d %%. На маленьком экране поставьте меньше.", pct))
+        self.lb_ui_scale.setText(
+            i18n.tf("Шрифт и отступы окна: %d %%. На маленьком экране поставьте меньше.", pct)
+        )
 
     def _nav_changed(self, row):
         self._sync_glossary()
@@ -1283,15 +1382,18 @@ class SettingsWindow(QDialog):
         cl.addWidget(_title("Режим перевода", "sec"))
         self.cb_mode = QComboBox()
         self.cb_mode.setMinimumWidth(340)
-        for val, text in (("full", "Всё сообщение — на язык перевода"),
-                          ("partial", "Только выделенные слова и фразы (обычный режим)"),
-                          ("to_ru", "Ваш язык → русский")):
+        for val, text in (
+            ("full", "Всё сообщение — на язык перевода"),
+            ("partial", "Только выделенные слова и фразы (обычный режим)"),
+            ("to_ru", "Ваш язык → русский"),
+        ):
             self.cb_mode.addItem(text, val)
         self.cb_mode.setToolTip(
             "Полный: в чат уходит весь текст на языке перевода.\n"
             "Частичный: переводятся только выделенные +слова и фразы+, "
             "остальное — как написали.\n"
-            "Обратный: пишете на своём языке, в чат уходит русский текст.")
+            "Обратный: пишете на своём языке, в чат уходит русский текст."
+        )
         self.cb_mode.currentIndexChanged.connect(self._mode_changed)
         row_mode = QHBoxLayout()
         row_mode.addWidget(QLabel("Что переводить:"))
@@ -1339,7 +1441,8 @@ class SettingsWindow(QDialog):
         self.cb_send_mode.setMinimumWidth(220)
         self.cb_send_mode.setToolTip(
             "«Русская запись» — в чат уходит «Чао» (кириллицей), как в исходной версии.\n"
-            "«Текст на языке» — в чат уходит «Ciao» (для серверов, где читают латиницу).")
+            "«Текст на языке» — в чат уходит «Ciao» (для серверов, где читают латиницу)."
+        )
         self.cb_send_mode.currentIndexChanged.connect(lambda *_: self._do_preview())
         row.addWidget(self.cb_send_mode)
         row.addStretch(1)
@@ -1362,21 +1465,25 @@ class SettingsWindow(QDialog):
         # сленг и сокращения
         card, cl = _card()
         cl.addWidget(_title("Сленг и сокращения", "sec"))
-        cl.addWidget(_hint("Сокращения из живого чата раскрываются до перевода, поэтому "
-                           "в русском тексте сразу верные падеж, род и время: "
-                           "«brb» → «я скоро вернусь», «afk» → «я не за клавиатурой», "
-                           "«ty» → «спасибо». Если сервис всё же вернёт «afk» или «gg» "
-                           "латиницей, подставляется короткий русский вариант. "
-                           "В обратную сторону так же раскрываются русские сокращения: "
-                           "«спс» → «спасибо», «мб» → «может быть»."))
+        cl.addWidget(
+            _hint(
+                "Сокращения из живого чата раскрываются до перевода, поэтому "
+                "в русском тексте сразу верные падеж, род и время: "
+                "«brb» → «я скоро вернусь», «afk» → «я не за клавиатурой», "
+                "«ty» → «спасибо». Если сервис всё же вернёт «afk» или «gg» "
+                "латиницей, подставляется короткий русский вариант. "
+                "В обратную сторону так же раскрываются русские сокращения: "
+                "«спс» → «спасибо», «мб» → «может быть»."
+            )
+        )
         self.chk_slang = QCheckBox("Разворачивать сленг и сокращения")
-        self.chk_slang.toggled.connect(
-            lambda on: self._mirror_own_flag("slang", on))
+        self.chk_slang.toggled.connect(lambda on: self._mirror_own_flag("slang", on))
         self.chk_slang.setToolTip(
             "lol, brb, afk, idk, idc, omw, gtg, gg, wp, ez, ty, thx, np, pls, sry,\n"
             "btw, imo, tbh, ngl, rn, asap, wdym, wbu, sup, cya, gn, gm, tmrw, cuz,\n"
             "ppl, rp, ooc, ic и растянутый смех (looool, lmaooo, xD).\n"
-            "Обратное направление: спс, пж, нз, мб, крч, ща, оч, тож, збс, норм, прив.")
+            "Обратное направление: спс, пж, нз, мб, крч, ща, оч, тож, збс, норм, прив."
+        )
         cl.addWidget(self.chk_slang)
         lay.addWidget(card)
 
@@ -1414,8 +1521,8 @@ class SettingsWindow(QDialog):
         self.sp_ui_scale.setValue(int(round(self._ui_scale() * 100)))
         self.sp_ui_scale.setToolTip(
             "Размер шрифта и окна настроек. 100 % — обычный; на экране 1366×768 "
-
-            "или при масштабе Windows 150 % удобнее 120–130 %.")
+            "или при масштабе Windows 150 % удобнее 120–130 %."
+        )
         self.sp_ui_scale.valueChanged.connect(self._ui_scale_changed)
         row_scale.addWidget(_num_row(self.sp_ui_scale))
         row_scale.addStretch(1)
@@ -1462,8 +1569,9 @@ class SettingsWindow(QDialog):
         self.sp_debounce.setToolTip("Пауза после последнего символа, перед переводом")
         form.addRow("Задержка перевода", _num_row(self.sp_debounce))
         cl.addLayout(form)
-        cl.addWidget(_hint("Внутри таких скобок текст переводится принудительно: "
-                           "«+привет+» → «Ciao»."))
+        cl.addWidget(
+            _hint("Внутри таких скобок текст переводится принудительно: «+привет+» → «Ciao».")
+        )
         lay.addWidget(card)
         lay.addStretch(1)
         return page
@@ -1496,7 +1604,9 @@ class SettingsWindow(QDialog):
                 continue
             names = ", ".join(
                 (modules.get(dep).title_en if i18n.is_en() else modules.get(dep).title_ru)
-                for dep in module.requires if modules.get(dep))
+                for dep in module.requires
+                if modules.get(dep)
+            )
             label.setText(i18n.t("Зависит от модуля: ") + names)
         self._refresh_dynamic()
 
@@ -1518,9 +1628,12 @@ class SettingsWindow(QDialog):
                     self._anims_test()
             self._test_dir_changed(silent=True)
             if hasattr(self, "lb_ui_scale"):
-                self.lb_ui_scale.setText(i18n.tf(
-                    "Шрифт и отступы окна: %d %%. На маленьком экране "
-                    "поставьте меньше.", int(self.sp_ui_scale.value())))
+                self.lb_ui_scale.setText(
+                    i18n.tf(
+                        "Шрифт и отступы окна: %d %%. На маленьком экране поставьте меньше.",
+                        int(self.sp_ui_scale.value()),
+                    )
+                )
             if hasattr(self, "_dlx_refresh"):
                 self._dlx_refresh()
         except Exception:
@@ -1535,21 +1648,30 @@ class SettingsWindow(QDialog):
             return
         mode = self._mode()
         if mode == "to_ru":
-            self.lb_mode.setText(i18n.t(
-                "Режим переводчика: пишете на своём языке — в чат уходит русский текст. "
-                "Переводится каждое сообщение целиком, включая действия *...*; команды "
-                "/… остаются как есть. Автоперевод, слова-паразиты и выбор «что уходит "
-                "в чат» здесь не работают."))
+            self.lb_mode.setText(
+                i18n.t(
+                    "Режим переводчика: пишете на своём языке — в чат уходит русский текст. "
+                    "Переводится каждое сообщение целиком, включая действия *...*; команды "
+                    "/… остаются как есть. Автоперевод, слова-паразиты и выбор «что уходит "
+                    "в чат» здесь не работают."
+                )
+            )
         elif mode == "full":
-            self.lb_mode.setText(i18n.t(
-                "Полный перевод: в чат уходит всё сообщение на языке перевода. Словарь "
-                "важнее сервисов, слова-паразиты и автоперевод не участвуют, скобки "
-                "+…+ не нужны — переводится всё."))
+            self.lb_mode.setText(
+                i18n.t(
+                    "Полный перевод: в чат уходит всё сообщение на языке перевода. Словарь "
+                    "важнее сервисов, слова-паразиты и автоперевод не участвуют, скобки "
+                    "+…+ не нужны — переводится всё."
+                )
+            )
         else:
-            self.lb_mode.setText(i18n.t(
-                "Обычный режим: в чат уходит ваш русский текст, а переведёнными — только "
-                "выделенные +слова и фразы+ и то, что выбрал автоперевод. Работают "
-                "слова-паразиты и выбор «что уходит в чат»."))
+            self.lb_mode.setText(
+                i18n.t(
+                    "Обычный режим: в чат уходит ваш русский текст, а переведёнными — только "
+                    "выделенные +слова и фразы+ и то, что выбрал автоперевод. Работают "
+                    "слова-паразиты и выбор «что уходит в чат»."
+                )
+            )
 
     def _mode(self):
         """Текущий режим из списка / the mode chosen in the list."""
@@ -1596,11 +1718,14 @@ class SettingsWindow(QDialog):
         self._do_preview()
 
     def _update_header(self):
-        self.header_sub.setText(i18n.tf(
-            "Язык: %s · горячая клавиша: %s · частота автоперевода: каждое %d-е",
-            langs.label(langs.code_of(self.cb_lang.currentData() or "it")),
-            _pretty_hotkey(self.ed_hotkey.text()),
-            int(self.sp_every.value())))
+        self.header_sub.setText(
+            i18n.tf(
+                "Язык: %s · горячая клавиша: %s · частота автоперевода: каждое %d-е",
+                langs.label(langs.code_of(self.cb_lang.currentData() or "it")),
+                _pretty_hotkey(self.ed_hotkey.text()),
+                int(self.sp_every.value()),
+            )
+        )
 
     def _load_language(self, code, reload_table=False):
         """Показывает описание языка и (при необходимости) словарь этого языка.
@@ -1609,14 +1734,17 @@ class SettingsWindow(QDialog):
         """
         code = langs.code_of(code)
         meta = langs.get(code)
-        about = i18n.t(meta["about_en"]) if (i18n.is_en()
-                                             and meta.get("about_en")) else meta["about"]
+        about = (
+            i18n.t(meta["about_en"]) if (i18n.is_en() and meta.get("about_en")) else meta["about"]
+        )
         self.lb_lang_about.setText(about)
         note = ""
         if not langs.reading(code):
-            note = i18n.t("Для этого языка русская запись по звучанию не делается — "
-                          "в оверлее показывается сам текст. Чтение есть только "
-                          "у фраз из словаря.")
+            note = i18n.t(
+                "Для этого языка русская запись по звучанию не делается — "
+                "в оверлее показывается сам текст. Чтение есть только "
+                "у фраз из словаря."
+            )
         self.lb_lang_note.setText(note)
         self.lb_lang_note.setVisible(bool(note))
         self.glang = code
@@ -1655,11 +1783,14 @@ class SettingsWindow(QDialog):
         card, cl = _card()
         self.gb_auto = card
         cl.addWidget(_title("Автоперевод", "sec"))
-        cl.addWidget(_hint("Перевод вставляется в обычную русскую речь, чтобы она выглядела живой. "
-                           "Например: «мне срочно нужна помощь» → «мне срочно нужна Aiutami»."))
+        cl.addWidget(
+            _hint(
+                "Перевод вставляется в обычную русскую речь, чтобы она выглядела живой. "
+                "Например: «мне срочно нужна помощь» → «мне срочно нужна Aiutami»."
+            )
+        )
         self.chk_auto = QCheckBox("Включить автоперевод")
-        self.chk_auto.toggled.connect(
-            lambda on: self._mirror_own_flag("autotranslate", on))
+        self.chk_auto.toggled.connect(lambda on: self._mirror_own_flag("autotranslate", on))
         cl.addWidget(self.chk_auto)
         form = QFormLayout()
         form.setHorizontalSpacing(18)
@@ -1669,9 +1800,11 @@ class SettingsWindow(QDialog):
         form.addRow("Частота", _num_row(self.sp_every))
         self.cb_pos = QComboBox()
         self.cb_pos.setMaximumWidth(340)
-        for val, text in (("last", "последнее в серии (каждое N-е)"),
-                          ("first", "первое в серии"),
-                          ("random", "случайное в серии")):
+        for val, text in (
+            ("last", "последнее в серии (каждое N-е)"),
+            ("first", "первое в серии"),
+            ("random", "случайное в серии"),
+        ):
             self.cb_pos.addItem(text, val)
         form.addRow("Какое сообщение", self.cb_pos)
         self.sp_frag = _small_spin(QSpinBox(), 1, 3, " фрагм.", 170)
@@ -1721,7 +1854,8 @@ class SettingsWindow(QDialog):
         cl.addWidget(self.chk_send)
         self.chk_chat_first = QCheckBox("Сначала открывать чат игры (клавиша T), потом оверлей")
         self.chk_chat_first.setToolTip(
-            "Окружающие видят, что вы печатаете, а не стоите без действия")
+            "Окружающие видят, что вы печатаете, а не стоите без действия"
+        )
         cl.addWidget(self.chk_chat_first)
         self.chk_submit = QCheckBox("Отправлять сразу (Enter в игре)")
         cl.addWidget(self.chk_submit)
@@ -1729,10 +1863,18 @@ class SettingsWindow(QDialog):
 
         card, cl = _card()
         cl.addWidget(_title("Клавиша чата и задержки", "sec"))
-        cl.addWidget(_hint("Задержки нужны, чтобы игра успевала открыть чат и вставить текст. "
-                           "Если сообщения пропадают — увеличьте «после чата»."))
-        cl.addWidget(_hint("Перед вставкой поле ввода чата полностью очищается (Ctrl+A, "
-                           "Backspace): остаток прошлой строки не приклеится к команде."))
+        cl.addWidget(
+            _hint(
+                "Задержки нужны, чтобы игра успевала открыть чат и вставить текст. "
+                "Если сообщения пропадают — увеличьте «после чата»."
+            )
+        )
+        cl.addWidget(
+            _hint(
+                "Перед вставкой поле ввода чата полностью очищается (Ctrl+A, "
+                "Backspace): остаток прошлой строки не приклеится к команде."
+            )
+        )
         form = QFormLayout()
         form.setHorizontalSpacing(18)
         form.setVerticalSpacing(10)
@@ -1778,8 +1920,9 @@ class SettingsWindow(QDialog):
         head.insertWidget(1, self.lb_gcount)
 
         self.tbl = DragTable(self._move_glossary_row, 0, 4)
-        self.tbl.setHorizontalHeaderLabels(["Паразит", "Фраза", "Русская запись",
-                                            "Русские значения (через ;)"])
+        self.tbl.setHorizontalHeaderLabels(
+            ["Паразит", "Фраза", "Русская запись", "Русские значения (через ;)"]
+        )
         head = self.tbl.horizontalHeader()
         head.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
         self.tbl.setColumnWidth(0, 78)
@@ -1790,10 +1933,13 @@ class SettingsWindow(QDialog):
         self.tbl.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.tbl.itemChanged.connect(self._table_edited)
         lay.addWidget(self.tbl, 1)
-        lay.addWidget(_hint(
-            "Строки перетаскиваются мышью — порядок сохраняется вместе со "
-            "словарём. Он важен: если у двух фраз одинаковое русское значение, "
-            "срабатывает та, что ниже в таблице."))
+        lay.addWidget(
+            _hint(
+                "Строки перетаскиваются мышью — порядок сохраняется вместе со "
+                "словарём. Он важен: если у двух фраз одинаковое русское значение, "
+                "срабатывает та, что ниже в таблице."
+            )
+        )
 
         btns = QHBoxLayout()
         b_add = QPushButton("Добавить фразу")
@@ -1812,17 +1958,24 @@ class SettingsWindow(QDialog):
             btns.addWidget(b)
         btns.addStretch(1)
         lay.addLayout(btns)
-        lay.addWidget(_hint("Галочка в первой колонке — слово-паразит: фраза переводится в каждом "
-                            "сообщении, даже когда автоперевод ещё не сработал. Выбор сохраняется "
-                            "вместе со словарём. Значения — это то, что вы печатаете по-русски; "
-                            "«е/ё» и «и/й» считаются одной буквой."))
+        lay.addWidget(
+            _hint(
+                "Галочка в первой колонке — слово-паразит: фраза переводится в каждом "
+                "сообщении, даже когда автоперевод ещё не сработал. Выбор сохраняется "
+                "вместе со словарём. Значения — это то, что вы печатаете по-русски; "
+                "«е/ё» и «и/й» считаются одной буквой."
+            )
+        )
         return page
 
     def _fill_table(self, data):
         self.tbl.blockSignals(True)
         phrases = data.get("phrases") or {}
-        fillers = {self._norm_key(f.get("target")) for f in (data.get("_fillers") or [])
-                   if isinstance(f, dict)}
+        fillers = {
+            self._norm_key(f.get("target"))
+            for f in (data.get("_fillers") or [])
+            if isinstance(f, dict)
+        }
         self.tbl.setRowCount(0)
         for phrase, val in phrases.items():
             ru, _, meanings = str(val).partition("|")
@@ -1833,15 +1986,23 @@ class SettingsWindow(QDialog):
             # a checkbox instead of a star: it looks switchable and can be
             # toggled by mouse or by the space key
             mark = QTableWidgetItem("")
-            mark.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled
-                          | Qt.ItemFlag.ItemIsSelectable)
-            mark.setCheckState(Qt.CheckState.Checked if self._norm_key(phrase) in fillers
-                               else Qt.CheckState.Unchecked)
+            mark.setFlags(
+                Qt.ItemFlag.ItemIsUserCheckable
+                | Qt.ItemFlag.ItemIsEnabled
+                | Qt.ItemFlag.ItemIsSelectable
+            )
+            mark.setCheckState(
+                Qt.CheckState.Checked
+                if self._norm_key(phrase) in fillers
+                else Qt.CheckState.Unchecked
+            )
             mark.setToolTip(i18n.t("Переводить эту фразу в каждом сообщении"))
-            items = [mark,
-                     QTableWidgetItem(str(phrase)),
-                     QTableWidgetItem(ru.strip()),
-                     QTableWidgetItem(meanings.strip().lstrip(";").strip())]
+            items = [
+                mark,
+                QTableWidgetItem(str(phrase)),
+                QTableWidgetItem(ru.strip()),
+                QTableWidgetItem(meanings.strip().lstrip(";").strip()),
+            ]
             for c, it in enumerate(items):
                 it.setData(Qt.ItemDataRole.UserRole, str(phrase))
                 if c:
@@ -1867,8 +2028,11 @@ class SettingsWindow(QDialog):
             self.tbl.setRowHidden(r, not match)
             shown += 1 if match else 0
         total = self.tbl.rowCount()
-        self.lb_gcount.setText(i18n.tf("показано %d из %d", shown, total) if needle
-                               else i18n.tf("всего фраз: %d", total))
+        self.lb_gcount.setText(
+            i18n.tf("показано %d из %d", shown, total)
+            if needle
+            else i18n.tf("всего фраз: %d", total)
+        )
 
     def _table_edited(self, item):
         """Правка ячейки словаря / a glossary cell was edited.
@@ -1924,7 +2088,7 @@ class SettingsWindow(QDialog):
         self.glossary_changed = False
 
     def _move_glossary_row(self, source, target):
-        self._hist_shadow = self._hist_state()   # состояние до перетаскивания
+        self._hist_shadow = self._hist_state()  # состояние до перетаскивания
         """Перетащили строку словаря / a glossary row was dragged.
 
         Порядок фраз сохраняется вместе со словарём и значит больше, чем кажется:
@@ -1945,20 +2109,24 @@ class SettingsWindow(QDialog):
         data = self.docs.get(self.glang) or {}
         names = [f.get("target") for f in (data.get("_fillers") or []) if f.get("target")]
         self.lb_fillers.setText(
-            i18n.tf("Для этого языка: %s",
-                    ", ".join(names) if names else i18n.t("список не задан")))
+            i18n.tf("Для этого языка: %s", ", ".join(names) if names else i18n.t("список не задан"))
+        )
         has_pack = langs.get(self.glang).get("pack")
-        self.lb_gcount.setText(i18n.tf("всего фраз: %d",
-                                       len(data.get("phrases") or {}))
-                               + ("" if has_pack else i18n.t(" · встроенного словаря нет")))
+        self.lb_gcount.setText(
+            i18n.tf("всего фраз: %d", len(data.get("phrases") or {}))
+            + ("" if has_pack else i18n.t(" · встроенного словаря нет"))
+        )
 
     def _add_phrase(self):
         self.tbl.blockSignals(True)
         r = self.tbl.rowCount()
         self.tbl.insertRow(r)
         mark = QTableWidgetItem("")
-        mark.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled
-                      | Qt.ItemFlag.ItemIsSelectable)
+        mark.setFlags(
+            Qt.ItemFlag.ItemIsUserCheckable
+            | Qt.ItemFlag.ItemIsEnabled
+            | Qt.ItemFlag.ItemIsSelectable
+        )
         mark.setCheckState(Qt.CheckState.Unchecked)
         self.tbl.setItem(r, 0, mark)
         for c in (1, 2, 3):
@@ -1971,8 +2139,9 @@ class SettingsWindow(QDialog):
     def _del_phrase(self):
         rows = sorted({i.row() for i in self.tbl.selectedIndexes()}, reverse=True)
         if not rows:
-            QMessageBox.information(self, i18n.t("Словарь"),
-                                    i18n.t("Сначала выберите строку (строки)."))
+            QMessageBox.information(
+                self, i18n.t("Словарь"), i18n.t("Сначала выберите строку (строки).")
+            )
             return
         for r in rows:
             self.tbl.removeRow(r)
@@ -1982,15 +2151,19 @@ class SettingsWindow(QDialog):
 
     def _import(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, i18n.t("Загрузить словарь"), str(DATA),
-            i18n.t("Словари (*.json *.csv *.txt);;Все файлы (*)"))
+            self,
+            i18n.t("Загрузить словарь"),
+            str(DATA),
+            i18n.t("Словари (*.json *.csv *.txt);;Все файлы (*)"),
+        )
         if not path:
             return
         try:
             text = Path(path).read_text(encoding="utf-8-sig")
         except OSError as e:
-            QMessageBox.warning(self, i18n.t("Импорт"),
-                                i18n.t("Не удалось прочитать файл:\n") + str(e))
+            QMessageBox.warning(
+                self, i18n.t("Импорт"), i18n.t("Не удалось прочитать файл:\n") + str(e)
+            )
             return
         phrases = {}
         try:
@@ -2013,12 +2186,10 @@ class SettingsWindow(QDialog):
                     meanings = "; ".join(x.strip() for x in row[2:] if x.strip())
                     phrases[phrase] = reading + " | " + meanings if meanings else reading + " | "
         except Exception as e:
-            QMessageBox.warning(self, i18n.t("Импорт"),
-                                i18n.t("Файл не подошёл:\n") + str(e))
+            QMessageBox.warning(self, i18n.t("Импорт"), i18n.t("Файл не подошёл:\n") + str(e))
             return
         if not phrases:
-            QMessageBox.information(self, i18n.t("Импорт"),
-                                    i18n.t("В файле не нашлось фраз."))
+            QMessageBox.information(self, i18n.t("Импорт"), i18n.t("В файле не нашлось фраз."))
             return
         data = self._doc(self.glang)
         cur = dict(data.get("phrases") or {})
@@ -2035,15 +2206,23 @@ class SettingsWindow(QDialog):
         self.glossary_changed = False
         self._fill_table(data)
         QMessageBox.information(
-            self, i18n.t("Импорт"),
-            i18n.tf("Загружено в «%s»: новых %d, обновлено %d.\n"
-                    "Нажмите «Сохранить», чтобы применить.",
-                    langs.label(self.glang), added, replaced))
+            self,
+            i18n.t("Импорт"),
+            i18n.tf(
+                "Загружено в «%s»: новых %d, обновлено %d.\nНажмите «Сохранить», чтобы применить.",
+                langs.label(self.glang),
+                added,
+                replaced,
+            ),
+        )
 
     def _export(self):
         path, _ = QFileDialog.getSaveFileName(
-            self, i18n.t("Сохранить словарь"), str(glossary_path(self.glang)),
-            "JSON (*.json);;CSV (*.csv)")
+            self,
+            i18n.t("Сохранить словарь"),
+            str(glossary_path(self.glang)),
+            "JSON (*.json);;CSV (*.csv)",
+        )
         if not path:
             return
         data = self._doc(self.glang)
@@ -2056,20 +2235,26 @@ class SettingsWindow(QDialog):
                         ru, _, mean = str(val).partition("|")
                         w.writerow([phrase, ru.strip(), mean.strip()])
             else:
-                Path(path).write_text(json.dumps(data, ensure_ascii=False, indent=2),
-                                      encoding="utf-8")
+                Path(path).write_text(
+                    json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+                )
         except OSError as e:
-            QMessageBox.warning(self, i18n.t("Экспорт"),
-                                i18n.t("Не удалось записать файл:\n") + str(e))
+            QMessageBox.warning(
+                self, i18n.t("Экспорт"), i18n.t("Не удалось записать файл:\n") + str(e)
+            )
             return
-        QMessageBox.information(self, i18n.t("Экспорт"),
-                                i18n.t("Словарь сохранён:\n") + str(path))
+        QMessageBox.information(self, i18n.t("Экспорт"), i18n.t("Словарь сохранён:\n") + str(path))
 
     def _reset_glossary(self):
         ans = QMessageBox.question(
-            self, i18n.t("Сбросить словарь"),
-            i18n.tf("Вернуть встроенный словарь для «%s»?\nВаши добавленные фразы "
-                    "этого языка будут потеряны.", langs.label(self.glang)))
+            self,
+            i18n.t("Сбросить словарь"),
+            i18n.tf(
+                "Вернуть встроенный словарь для «%s»?\nВаши добавленные фразы "
+                "этого языка будут потеряны.",
+                langs.label(self.glang),
+            ),
+        )
         if ans != QMessageBox.StandardButton.Yes:
             return
         data = reset_glossary(self.glang)
@@ -2104,7 +2289,8 @@ class SettingsWindow(QDialog):
         self.cb_slang_lang.setToolTip(
             "Сокращения языка сервера разворачиваются перед переводом на русский. "
             "Русские сокращения («спс», «мб») работают всегда и в списке не нужны: "
-            "это обратное направление.")
+            "это обратное направление."
+        )
         self.cb_slang_lang.currentIndexChanged.connect(self._slang_lang_changed)
         lang_row.addWidget(self.cb_slang_lang)
         self.lb_slang_lang_hint = _hint("")
@@ -2133,17 +2319,22 @@ class SettingsWindow(QDialog):
 
         self.tbl_slang = DragTable(self._move_slang_row, 0, 3)
         self.tbl_slang.setHorizontalHeaderLabels(
-            ["Сокращение", "Разворот (полная фраза)", "Русский вариант"])
+            ["Сокращение", "Разворот (полная фраза)", "Русский вариант"]
+        )
         for c in range(3):
             self.tbl_slang.horizontalHeader().setSectionResizeMode(
-                c, QHeaderView.ResizeMode.Stretch)
+                c, QHeaderView.ResizeMode.Stretch
+            )
         self.tbl_slang.verticalHeader().setVisible(False)
         self.tbl_slang.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.tbl_slang.itemChanged.connect(self._slang_edited)
         lay.addWidget(self.tbl_slang, 1)
-        lay.addWidget(_hint(
-            "Строки перетаскиваются мышью — порядок запоминается в настройках "
-            "и остаётся таким при следующем открытии окна."))
+        lay.addWidget(
+            _hint(
+                "Строки перетаскиваются мышью — порядок запоминается в настройках "
+                "и остаётся таким при следующем открытии окна."
+            )
+        )
 
         btns = QHBoxLayout()
         b_add = QPushButton("Добавить сокращение")
@@ -2163,14 +2354,17 @@ class SettingsWindow(QDialog):
         btns.addStretch(1)
         lay.addLayout(btns)
 
-        lay.addWidget(_hint(
-            "У каждого языка своя таблица: выберите его в списке сверху, правки "
-            "запоминаются отдельно и не мешают друг другу. Свои сокращения работают "
-            "так же, как встроенные, и перекрывают их: «afaik» → «as far as I know» → "
-            "«насколько знаю». Во второй колонке — полная фраза на языке собеседника: её "
-            "получает переводчик, поэтому падеж и род выходят верными. В третьей — "
-            "короткая подстановка, если сервис вернул латиницу. Пустые колонки "
-            "выключают сокращение. Смайлы вроде «xD» и «x)» не трогаются никогда."))
+        lay.addWidget(
+            _hint(
+                "У каждого языка своя таблица: выберите его в списке сверху, правки "
+                "запоминаются отдельно и не мешают друг другу. Свои сокращения работают "
+                "так же, как встроенные, и перекрывают их: «afaik» → «as far as I know» → "
+                "«насколько знаю». Во второй колонке — полная фраза на языке собеседника: её "
+                "получает переводчик, поэтому падеж и род выходят верными. В третьей — "
+                "короткая подстановка, если сервис вернул латиницу. Пустые колонки "
+                "выключают сокращение. Смайлы вроде «xD» и «x)» не трогаются никогда."
+            )
+        )
         return page
 
     # заполнение и сбор таблицы сокращений
@@ -2234,9 +2428,7 @@ class SettingsWindow(QDialog):
         for token, (expand, ru) in rows:
             r = self.tbl_slang.rowCount()
             self.tbl_slang.insertRow(r)
-            items = [QTableWidgetItem(token),
-                     QTableWidgetItem(expand),
-                     QTableWidgetItem(ru)]
+            items = [QTableWidgetItem(token), QTableWidgetItem(expand), QTableWidgetItem(ru)]
             for c, it in enumerate(items):
                 it.setData(Qt.ItemDataRole.UserRole, token)
                 it.setToolTip(it.text())
@@ -2261,8 +2453,10 @@ class SettingsWindow(QDialog):
         total = self.tbl_slang.rowCount()
         own = len(slang.user_entries(self._slang_lang))
         self.lb_slang_count.setText(
-            i18n.tf("Показано: %d из %d\nСвоих: %d", shown, total, own) if needle
-            else i18n.tf("Всего: %d\nСвоих: %d", total, own))
+            i18n.tf("Показано: %d из %d\nСвоих: %d", shown, total, own)
+            if needle
+            else i18n.tf("Всего: %d\nСвоих: %d", total, own)
+        )
 
     def _update_slang_ui(self):
         if hasattr(self, "lb_slang_count"):
@@ -2271,8 +2465,8 @@ class SettingsWindow(QDialog):
             self.lb_slang_count.setText(i18n.tf("Всего: %d\nСвоих: %d", total, own))
         if hasattr(self, "lb_slang_lang_hint"):
             self.lb_slang_lang_hint.setText(
-                i18n.t("Таблица языка сервера: разворот уходит в переводчик "
-                       "до перевода."))
+                i18n.t("Таблица языка сервера: разворот уходит в переводчик до перевода.")
+            )
 
     def _slang_edited(self, item):
         """Правка ячейки сокращений / an abbreviation cell was edited.
@@ -2337,11 +2531,11 @@ class SettingsWindow(QDialog):
         slate = {}
         for token, (expand, ru) in rows.items():
             if token in built and [expand, ru] == list(built[token]):
-                continue                     # встроенное не тронуто / untouched
+                continue  # встроенное не тронуто / untouched
             slate[token] = [expand, ru]
         for token in built:
             if token not in rows:
-                slate[token] = ["", ""]       # выключено игроком / switched off
+                slate[token] = ["", ""]  # выключено игроком / switched off
         return slate
 
     def _move_slang_row(self, source, target):
@@ -2355,9 +2549,13 @@ class SettingsWindow(QDialog):
         """
         DragTable.move_cells(self.tbl_slang, source, target)
         self._slang_order = [
-            (self.tbl_slang.item(row, 0).text().lstrip("★ ").strip()
-             if self.tbl_slang.item(row, 0) else "")
-            for row in range(self.tbl_slang.rowCount())]
+            (
+                self.tbl_slang.item(row, 0).text().lstrip("★ ").strip()
+                if self.tbl_slang.item(row, 0)
+                else ""
+            )
+            for row in range(self.tbl_slang.rowCount())
+        ]
         self._slang_pending = True
         self._collect_slang()
         self._filter_slang()
@@ -2375,8 +2573,9 @@ class SettingsWindow(QDialog):
         if not hasattr(self, "tbl_slang"):
             return
         self._collect_slang()
-        slang.save_languages({code: self._slate_of(code, rows)
-                              for code, rows in self._slang_drafts.items()})
+        slang.save_languages(
+            {code: self._slate_of(code, rows) for code, rows in self._slang_drafts.items()}
+        )
         self._slang_pending = False
 
     def _add_slang(self):
@@ -2392,8 +2591,9 @@ class SettingsWindow(QDialog):
     def _del_slang(self):
         rows = sorted({i.row() for i in self.tbl_slang.selectedIndexes()}, reverse=True)
         if not rows:
-            QMessageBox.information(self, i18n.t("Сокращения"),
-                                    i18n.t("Сначала выберите строку (строки)."))
+            QMessageBox.information(
+                self, i18n.t("Сокращения"), i18n.t("Сначала выберите строку (строки).")
+            )
             return
         for r in rows:
             self.tbl_slang.removeRow(r)
@@ -2402,18 +2602,22 @@ class SettingsWindow(QDialog):
 
     def _import_slang(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, i18n.t("Загрузить сокращения"), str(DATA),
-            i18n.t("Сокращения (*.json *.csv *.txt);;Все файлы (*)"))
+            self,
+            i18n.t("Загрузить сокращения"),
+            str(DATA),
+            i18n.t("Сокращения (*.json *.csv *.txt);;Все файлы (*)"),
+        )
         if not path:
             return
         try:
             text = Path(path).read_text(encoding="utf-8-sig")
         except OSError as e:
-            QMessageBox.warning(self, i18n.t("Импорт"),
-                                i18n.t("Не удалось прочитать файл:\n") + str(e))
+            QMessageBox.warning(
+                self, i18n.t("Импорт"), i18n.t("Не удалось прочитать файл:\n") + str(e)
+            )
             return
         loaded = {}
-        foreign = {}                 # запись чужого языка -> его код / other languages
+        foreign = {}  # запись чужого языка -> его код / other languages
         try:
             if path.lower().endswith(".json"):
                 obj = json.loads(text)
@@ -2441,15 +2645,17 @@ class SettingsWindow(QDialog):
                         continue
                     if row[0].strip().lower() in ("сокращение", "abbr", "token"):
                         continue
-                    loaded[row[0].strip()] = [row[1].strip(),
-                                              row[2].strip() if len(row) > 2 else ""]
+                    loaded[row[0].strip()] = [
+                        row[1].strip(),
+                        row[2].strip() if len(row) > 2 else "",
+                    ]
         except Exception as e:
-            QMessageBox.warning(self, i18n.t("Импорт"),
-                                i18n.t("Файл не подошёл:\n") + str(e))
+            QMessageBox.warning(self, i18n.t("Импорт"), i18n.t("Файл не подошёл:\n") + str(e))
             return
         if not loaded and not foreign:
-            QMessageBox.information(self, i18n.t("Импорт"),
-                                    i18n.t("В файле не нашлось сокращений."))
+            QMessageBox.information(
+                self, i18n.t("Импорт"), i18n.t("В файле не нашлось сокращений.")
+            )
             return
         total = len(loaded) + sum(len(rows) for rows in foreign.values())
         added = 0
@@ -2460,14 +2666,22 @@ class SettingsWindow(QDialog):
         self._fill_slang()
         self._slang_pending = True
         QMessageBox.information(
-            self, i18n.t("Импорт"),
-            i18n.tf("Загружено сокращений: %d (новых %d).\n"
-                    "Нажмите «Сохранить», чтобы применить.", total, added))
+            self,
+            i18n.t("Импорт"),
+            i18n.tf(
+                "Загружено сокращений: %d (новых %d).\nНажмите «Сохранить», чтобы применить.",
+                total,
+                added,
+            ),
+        )
 
     def _export_slang(self):
         path, _ = QFileDialog.getSaveFileName(
-            self, i18n.t("Сохранить сокращения"), str(DATA / "slang-export.json"),
-            "JSON (*.json);;CSV (*.csv)")
+            self,
+            i18n.t("Сохранить сокращения"),
+            str(DATA / "slang-export.json"),
+            "JSON (*.json);;CSV (*.csv)",
+        )
         if not path:
             return
         data = slang.entries(self._slang_lang)
@@ -2481,29 +2695,43 @@ class SettingsWindow(QDialog):
             else:
                 code = self._slang_lang
                 own = slang.user_entries(code)
-                payload = {"custom": {
-                    token: {"lang": code, "expand": expand, "ru": ru}
-                    for token, expand, ru, _o in data if token in own}}
-                if not payload["custom"]:
-                    payload = {"custom": {
+                payload = {
+                    "custom": {
                         token: {"lang": code, "expand": expand, "ru": ru}
-                        for token, expand, ru, _o in data}}
-                Path(path).write_text(json.dumps(payload, ensure_ascii=False, indent=2),
-                                      encoding="utf-8")
+                        for token, expand, ru, _o in data
+                        if token in own
+                    }
+                }
+                if not payload["custom"]:
+                    payload = {
+                        "custom": {
+                            token: {"lang": code, "expand": expand, "ru": ru}
+                            for token, expand, ru, _o in data
+                        }
+                    }
+                Path(path).write_text(
+                    json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+                )
         except OSError as e:
-            QMessageBox.warning(self, i18n.t("Экспорт"),
-                                i18n.t("Не удалось записать файл:\n") + str(e))
+            QMessageBox.warning(
+                self, i18n.t("Экспорт"), i18n.t("Не удалось записать файл:\n") + str(e)
+            )
             return
-        QMessageBox.information(self, i18n.t("Экспорт"),
-                                i18n.t("Сокращения сохранены:\n") + str(path))
+        QMessageBox.information(
+            self, i18n.t("Экспорт"), i18n.t("Сокращения сохранены:\n") + str(path)
+        )
 
     def _reset_slang(self):
         ans = QMessageBox.question(
-            self, i18n.t("Сбросить сокращения"),
-            i18n.tf("Вернуть встроенный список сокращений для языка «%s»?\n"
-                    "Ваши добавления на этом языке будут потеряны, остальные "
-                    "языки не изменятся.",
-                    self.cb_slang_lang.currentText()))
+            self,
+            i18n.t("Сбросить сокращения"),
+            i18n.tf(
+                "Вернуть встроенный список сокращений для языка «%s»?\n"
+                "Ваши добавления на этом языке будут потеряны, остальные "
+                "языки не изменятся.",
+                self.cb_slang_lang.currentText(),
+            ),
+        )
         if ans != QMessageBox.StandardButton.Yes:
             return
         code = self._slang_lang
@@ -2525,26 +2753,32 @@ class SettingsWindow(QDialog):
         # the first question any player has: "do I need this?" — answered first
         card, cl = _card()
         cl.addWidget(_title("Кому это нужно", "sec"))
-        cl.addWidget(_hint(
-            "Никому не обязательно. Без DeepL программа переводит через Google и "
-            "остальные сервисы — так она работает сразу после установки, и "
-            "большинству игроков этого достаточно. DeepL — это шаг в качестве для "
-            "тех, кто готов потратить пять минут: либо включите VPN с зарубежным "
-            "выходом, либо разверните свой сервис и впишите его адрес ниже (как "
-            "это сделать — VERCEL.md в папке source/tools/deeplx-local). Общий "
-            "адрес у всех быть не может: DeepL быстро упирается в лимиты частоты, "
-            "и один перегруженный сервис отказывает всем сразу."))
+        cl.addWidget(
+            _hint(
+                "Никому не обязательно. Без DeepL программа переводит через Google и "
+                "остальные сервисы — так она работает сразу после установки, и "
+                "большинству игроков этого достаточно. DeepL — это шаг в качестве для "
+                "тех, кто готов потратить пять минут: либо включите VPN с зарубежным "
+                "выходом, либо разверните свой сервис и впишите его адрес ниже (как "
+                "это сделать — VERCEL.md в папке source/tools/deeplx-local). Общий "
+                "адрес у всех быть не может: DeepL быстро упирается в лимиты частоты, "
+                "и один перегруженный сервис отказывает всем сразу."
+            )
+        )
         lay.addWidget(card)
 
         card, cl = _card()
         cl.addWidget(_title("DeepL рядом (DLX)", "sec"))
-        cl.addWidget(_hint(
-            "DLX — отдельная бесплатная программа с открытым кодом (лицензия MIT), "
-            "которая работает на вашем компьютере и переводит через движок DeepL. "
-            "Она занимает около 15 МБ и запускается вместе с программой. Текст при "
-            "этом уходит на серверы DeepL — так же, как сейчас уходит в Google. "
-            "Сервис неофициальный: DeepL может ограничить запросы, и тогда перевод "
-            "автоматически вернётся к стандартным сервисам."))
+        cl.addWidget(
+            _hint(
+                "DLX — отдельная бесплатная программа с открытым кодом (лицензия MIT), "
+                "которая работает на вашем компьютере и переводит через движок DeepL. "
+                "Она занимает около 15 МБ и запускается вместе с программой. Текст при "
+                "этом уходит на серверы DeepL — так же, как сейчас уходит в Google. "
+                "Сервис неофициальный: DeepL может ограничить запросы, и тогда перевод "
+                "автоматически вернётся к стандартным сервисам."
+            )
+        )
         self.chk_dlx = QCheckBox("Переводить через DeepL в первую очередь")
         self.chk_dlx.toggled.connect(lambda on: self._mirror_own_flag("dlx", on))
         self.chk_dlx.setToolTip("Без этого флажка работает обычная цепочка сервисов")
@@ -2567,8 +2801,7 @@ class SettingsWindow(QDialog):
         self.lb_dlx_state.setObjectName("dlxState")
         self.lb_dlx_state.setProperty("no_i18n", True)
         self.lb_dlx_state.setWordWrap(True)
-        self.lb_dlx_state.setSizePolicy(QSizePolicy.Policy.Preferred,
-                                        QSizePolicy.Policy.Minimum)
+        self.lb_dlx_state.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         cl.addWidget(self.lb_dlx_state)
         # Тумблер с надписью вместо пары кнопок: положение бегунка и слово
         # отвечают на один вопрос — работает сервис или нет. Слева тумблер,
@@ -2584,7 +2817,7 @@ class SettingsWindow(QDialog):
         self.sw_dlx.clicked.connect(self._dlx_toggle)
         self.b_dlx_start = QPushButton("Остановлено")
         self.b_dlx_start.setObjectName("dlxSwitch")
-        self.b_dlx_start.setProperty("no_i18n", True)   # текст меняется в коде
+        self.b_dlx_start.setProperty("no_i18n", True)  # текст меняется в коде
         self.b_dlx_start.setFlat(True)
         self.b_dlx_start.setCursor(Qt.CursorShape.PointingHandCursor)
         self.b_dlx_start.clicked.connect(self._dlx_toggle)
@@ -2618,10 +2851,13 @@ class SettingsWindow(QDialog):
 
         card, cl = _card()
         cl.addWidget(_title("Доступ к сервису", "sec"))
-        cl.addWidget(_hint(
-            "Сервис слушает только ваш компьютер. Порт выбирается свободный, а "
-            "запросы подписываются токеном, чтобы чужие программы не могли гонять "
-            "трафик через ваш DeepL."))
+        cl.addWidget(
+            _hint(
+                "Сервис слушает только ваш компьютер. Порт выбирается свободный, а "
+                "запросы подписываются токеном, чтобы чужие программы не могли гонять "
+                "трафик через ваш DeepL."
+            )
+        )
         form = QFormLayout()
         form.setHorizontalSpacing(18)
         form.setVerticalSpacing(10)
@@ -2639,21 +2875,21 @@ class SettingsWindow(QDialog):
         self.ed_dlx_pro = QLineEdit()
         self.ed_dlx_pro.setEchoMode(QLineEdit.EchoMode.Password)
         self.ed_dlx_pro.setPlaceholderText("необязательно")
-        self.ed_dlx_pro.setToolTip("OAuth-токен DeepL Pro; без него работает "
-                                   "бесплатный путь")
+        self.ed_dlx_pro.setToolTip("OAuth-токен DeepL Pro; без него работает бесплатный путь")
         form.addRow("Токен DeepL Pro", self.ed_dlx_pro)
         # свой сервис вместо бинарника: локальный сервер на Node.js или
         # развёрнутый DeepLX / a service of your own instead of the binary
         self.ed_dlx_url = QLineEdit()
         self.ed_dlx_url.setPlaceholderText("http://127.0.0.1:1188")
         self.ed_dlx_url.setToolTip(
-            "Пусто — работать через dlx.exe. Адрес своего сервиса — и файл "
-            "скачивать не нужно")
+            "Пусто — работать через dlx.exe. Адрес своего сервиса — и файл скачивать не нужно"
+        )
         form.addRow("Свой адрес сервиса", self.ed_dlx_url)
         self.ed_dlx_url_token = QLineEdit()
         self.ed_dlx_url_token.setPlaceholderText("необязательно")
         self.ed_dlx_url_token.setToolTip(
-            "Токен, с которым запущен ваш сервис (TOKEN=…); если он не задан — пусто")
+            "Токен, с которым запущен ваш сервис (TOKEN=…); если он не задан — пусто"
+        )
         form.addRow("Токен своего сервиса", self.ed_dlx_url_token)
         cl.addLayout(form)
         # пояснение под полем адреса: откуда взяться своему сервису
@@ -2662,7 +2898,8 @@ class SettingsWindow(QDialog):
             "Свой адрес нужен, когда dlx.exe не скачивается или не запускается: "
             "сервер из source/tools/deeplx-local (npm start) слушает 1188 и "
             "говорит на том же языке, что и DLX. Адрес можно вставить целиком, "
-            "вместе с /translate — лишний хвост программа отрежет сама.")
+            "вместе с /translate — лишний хвост программа отрежет сама."
+        )
         self.lb_dlx_url_note.setWordWrap(True)
         self.lb_dlx_url_note.setStyleSheet("color:#8a8fa3;font-size:11px;")
         cl.addWidget(self.lb_dlx_url_note)
@@ -2677,20 +2914,23 @@ class SettingsWindow(QDialog):
 
         card, cl = _card()
         cl.addWidget(_title("Если DeepL не отвечает", "sec"))
-        cl.addWidget(_hint(
-            "С июня 2025 года DeepL закрыт для российских адресов: сервис DLX "
-            "работает, а DeepL отвечает отказом. Своего прокси DLX не поднимает — "
-            "он только ходит через тот, что вы укажете, и этот прокси должен "
-            "выходить не из России: адрес российского сервера DeepL так же не "
-            "примет. Cloudflare WARP и One Client тут не помогут: они не меняют "
-            "страну, ближайший узел у них в России. DNS-сервисы вроде NextDNS — "
-            "тоже: они только находят адрес по имени, а DeepL смотрит на адрес. "
-            "Годится VPN или клиент с "
-            "зарубежным выходом, поднявший локальный порт: v2rayN 10809, "
-            "Clash 7890, Hiddify 2080, Nekoray 2080. Порт 1080 — обычно SOCKS5, "
-            "и программа сама подставит socks5://, если вы написали http://. "
-            "Токен DeepL Pro региональную блокировку не снимает — он только для "
-            "владельцев подписки и снимает лимиты."))
+        cl.addWidget(
+            _hint(
+                "С июня 2025 года DeepL закрыт для российских адресов: сервис DLX "
+                "работает, а DeepL отвечает отказом. Своего прокси DLX не поднимает — "
+                "он только ходит через тот, что вы укажете, и этот прокси должен "
+                "выходить не из России: адрес российского сервера DeepL так же не "
+                "примет. Cloudflare WARP и One Client тут не помогут: они не меняют "
+                "страну, ближайший узел у них в России. DNS-сервисы вроде NextDNS — "
+                "тоже: они только находят адрес по имени, а DeepL смотрит на адрес. "
+                "Годится VPN или клиент с "
+                "зарубежным выходом, поднявший локальный порт: v2rayN 10809, "
+                "Clash 7890, Hiddify 2080, Nekoray 2080. Порт 1080 — обычно SOCKS5, "
+                "и программа сама подставит socks5://, если вы написали http://. "
+                "Токен DeepL Pro региональную блокировку не снимает — он только для "
+                "владельцев подписки и снимает лимиты."
+            )
+        )
         form = QFormLayout()
         form.setHorizontalSpacing(18)
         form.setVerticalSpacing(10)
@@ -2701,17 +2941,18 @@ class SettingsWindow(QDialog):
         cl.addLayout(form)
         # замечание к адресу прокси: опечатку видно сразу, до запуска сервиса
         # a remark about the proxy address: a typo shows up before the service runs
-        self.chk_dlx_sysproxy = QCheckBox(
-            "Брать прокси из настроек Windows, если свой не задан")
+        self.chk_dlx_sysproxy = QCheckBox("Брать прокси из настроек Windows, если свой не задан")
         self.chk_dlx_sysproxy.setToolTip(
             "VPN в режиме «системный прокси» прописывает адрес в Windows — "
-            "сервис будет ходить через него")
+            "сервис будет ходить через него"
+        )
         cl.addWidget(self.chk_dlx_sysproxy)
         row = QHBoxLayout()
         self.b_dlx_proxy_check = QPushButton("Проверить выход")
         self.b_dlx_proxy_check.setAutoDefault(False)
         self.b_dlx_proxy_check.setToolTip(
-            "Покажет адрес и страну, из которой выходит прокси (запрос идёт через него)")
+            "Покажет адрес и страну, из которой выходит прокси (запрос идёт через него)"
+        )
         self.b_dlx_proxy_check.clicked.connect(self._dlx_proxy_exit)
         row.addWidget(self.b_dlx_proxy_check)
         row.addStretch(1)
@@ -2729,8 +2970,9 @@ class SettingsWindow(QDialog):
         self._dlx_progress = ""
         self._dlx_timer = QTimer(self)
         self._dlx_timer.setInterval(300)
-        self._dlx_timer.timeout.connect(lambda: self.lb_dlx_state.setText(
-            self._dlx_progress) if self._dlx_progress else None)
+        self._dlx_timer.timeout.connect(
+            lambda: self.lb_dlx_state.setText(self._dlx_progress) if self._dlx_progress else None
+        )
         # Сервис может подняться или упасть сам, без нажатия кнопок: состояние
         # в окне должно меняться вместе с ним, иначе «Запущено» так и висело бы
         # после падения. Опрос дешёвый — одно чтение полей под замком.
@@ -2739,7 +2981,7 @@ class SettingsWindow(QDialog):
         # The poll is cheap: it reads a few fields under one lock.
         self._dlx_live_key = None
         self._dlx_busy_now = False
-        self._dlx_was_applied = False      # первый проход без анимации / no animation first
+        self._dlx_was_applied = False  # первый проход без анимации / no animation first
         self._dlx_live = QTimer(self)
         self._dlx_live.setInterval(1000)
         self._dlx_live.timeout.connect(self._dlx_live_tick)
@@ -2813,14 +3055,17 @@ class SettingsWindow(QDialog):
         # процесс не наш, и «жив» он даже когда его никто не запускал.
         # The state decides, not the process: a service of your own is not our
         # child process and counts as alive even when nobody started it.
-        running = bool(status) and (state in ("ready", "upstream", "starting")
-                                    or (state not in ("off", "missing", "error")
-                                        and status.get("running")))
+        running = bool(status) and (
+            state in ("ready", "upstream", "starting")
+            or (state not in ("off", "missing", "error") and status.get("running"))
+        )
         if state == "upstream":
             caption = i18n.t("Запущено")
-            tip = i18n.t("Сервис работает, но DeepL отказывает (503) — чаще всего "
-                         "из-за региональной блокировки. Выключите тумблер, чтобы "
-                         "остановить.")
+            tip = i18n.t(
+                "Сервис работает, но DeepL отказывает (503) — чаще всего "
+                "из-за региональной блокировки. Выключите тумблер, чтобы "
+                "остановить."
+            )
         elif state == "starting":
             caption = i18n.t("Запускается…")
             tip = i18n.t("Сервис поднимается; тумблер остановит его.")
@@ -2829,8 +3074,7 @@ class SettingsWindow(QDialog):
             tip = i18n.t("Сервис работает. Выключите тумблер, чтобы остановить.")
         else:
             caption = i18n.t("Остановлено")
-            tip = i18n.t("Поднять локальный сервис. Пока он не запущен, DeepL "
-                         "не используется.")
+            tip = i18n.t("Поднять локальный сервис. Пока он не запущен, DeepL не используется.")
         switch = self.sw_dlx
         # первый показ — без анимации: окно ещё не на экране, и бегунок не
         # должен проезжать вхолостую при каждом открытии настроек
@@ -2848,9 +3092,13 @@ class SettingsWindow(QDialog):
         # подсказка у плашки: что происходит, пока сервис не запущен
         # the badge tooltip explains what a stopped service means
         self.lb_dlx_state.setToolTip(
-            "" if running else i18n.t(
+            ""
+            if running
+            else i18n.t(
                 "Пока сервис не запущен, перевод идёт через стандартные сервисы, "
-                "а DeepL не используется."))
+                "а DeepL не используется."
+            )
+        )
         self._dlx_set_state(state or "off", self._dlx_state_text())
 
     def _dlx_page_dimmed(self):
@@ -2875,10 +3123,10 @@ class SettingsWindow(QDialog):
             token = self.dlx.token
             self.ed_dlx_token.setText(token[:8] + "…" if token else "")
             self.lb_dlx_path.setText(i18n.tf("Файлы сервиса: %s", str(self.dlx.dir)))
-            self.b_dlx_install.setText(i18n.t("Обновить") if self.dlx.installed()
-                                       else i18n.t("Установить"))
-        for button in (self.b_dlx_install, self.b_dlx_remove, self.b_dlx_check,
-                       self.b_dlx_token):
+            self.b_dlx_install.setText(
+                i18n.t("Обновить") if self.dlx.installed() else i18n.t("Установить")
+            )
+        for button in (self.b_dlx_install, self.b_dlx_remove, self.b_dlx_check, self.b_dlx_token):
             button.setEnabled(self.dlx is not None)
 
     @staticmethod
@@ -2886,8 +3134,13 @@ class SettingsWindow(QDialog):
         """Короткая подпись состояния для сравнения / a short state key."""
         if not status:
             return None
-        return (status.get("state"), status.get("port"), status.get("version"),
-                status.get("installed"), status.get("running"))
+        return (
+            status.get("state"),
+            status.get("port"),
+            status.get("version"),
+            status.get("installed"),
+            status.get("running"),
+        )
 
     def _dlx_live_tick(self):
         """Раз в секунду: не изменилось ли состояние сервиса / poll the state.
@@ -2918,15 +3171,16 @@ class SettingsWindow(QDialog):
         normalized = dlx_mod.normalize_proxy(text)
         if not normalized:
             self.lb_dlx_proxy_note.setStyleSheet("color:#ff8f8f;font-size:11px;")
-            self.lb_dlx_proxy_note.setText(i18n.t(
-                "Адрес не подходит: нужен http://, https:// или socks5:// с портом."))
+            self.lb_dlx_proxy_note.setText(
+                i18n.t("Адрес не подходит: нужен http://, https:// или socks5:// с портом.")
+            )
             return
         self.lb_dlx_proxy_note.setStyleSheet("color:#8a8fa3;font-size:11px;")
         parsed = urllib.parse.urlparse(normalized)
         if parsed.scheme == "http" and parsed.port in (1080, 1081, 9050):
-            self.lb_dlx_proxy_note.setText(i18n.tf(
-                "Порт %d — обычно у SOCKS5; сервис сам подставит socks5://.",
-                parsed.port))
+            self.lb_dlx_proxy_note.setText(
+                i18n.tf("Порт %d — обычно у SOCKS5; сервис сам подставит socks5://.", parsed.port)
+            )
         else:
             self.lb_dlx_proxy_note.setText("")
 
@@ -2940,13 +3194,17 @@ class SettingsWindow(QDialog):
         """
         text = self.ed_dlx_proxy.text().strip()
         if not text:
-            QMessageBox.information(self, i18n.t("DeepL рядом"),
-                                    i18n.t("Прокси не задан — сервис ходит напрямую."))
+            QMessageBox.information(
+                self, i18n.t("DeepL рядом"), i18n.t("Прокси не задан — сервис ходит напрямую.")
+            )
             return
         proxy = dlx_mod.normalize_proxy(text)
         if not proxy:
-            QMessageBox.warning(self, i18n.t("DeepL рядом"), i18n.t(
-                "Адрес не подходит: нужен http://, https:// или socks5:// с портом."))
+            QMessageBox.warning(
+                self,
+                i18n.t("DeepL рядом"),
+                i18n.t("Адрес не подходит: нужен http://, https:// или socks5:// с портом."),
+            )
             return
         verdict = {}
 
@@ -2958,14 +3216,18 @@ class SettingsWindow(QDialog):
         def done(ok, reason):
             line = verdict.get("text") or reason or i18n.t("неизвестно")
             self.lb_dlx_proxy_note.setStyleSheet(
-                "color:#66d18b;font-size:11px;" if ok else "color:#ff8f8f;font-size:11px;")
+                "color:#66d18b;font-size:11px;" if ok else "color:#ff8f8f;font-size:11px;"
+            )
             self.lb_dlx_proxy_note.setText(line)
             if ok:
-                QMessageBox.information(self, i18n.t("DeepL рядом"),
-                                        i18n.tf("Прокси работает. Выход: %s", line))
+                QMessageBox.information(
+                    self, i18n.t("DeepL рядом"), i18n.tf("Прокси работает. Выход: %s", line)
+                )
             else:
-                QMessageBox.warning(self, i18n.t("DeepL рядом"),
-                                    i18n.tf("Прокси не годится: %s", line))
+                QMessageBox.warning(
+                    self, i18n.t("DeepL рядом"), i18n.tf("Прокси не годится: %s", line)
+                )
+
         self._dlx_busy(True, i18n.t("Проверяю прокси…"))
         job_runner = DlxJob(job, self)
         self._dlx_job = job_runner
@@ -2974,14 +3236,18 @@ class SettingsWindow(QDialog):
             self._dlx_busy(False)
             self._dlx_refresh()
             done(ok, reason)
+
         job_runner.finished.connect(finish)
         job_runner.start()
 
     def _dlx_guard(self):
         """Предупреждение, если сервис не подключён / warn when there is no service."""
         if self.dlx is None:
-            QMessageBox.warning(self, i18n.t("DeepL рядом"),
-                                i18n.t("Сервис не подключён — перезапустите программу."))
+            QMessageBox.warning(
+                self,
+                i18n.t("DeepL рядом"),
+                i18n.t("Сервис не подключён — перезапустите программу."),
+            )
             return False
         return True
 
@@ -2990,8 +3256,13 @@ class SettingsWindow(QDialog):
         if text:
             self.lb_dlx_state.setText(text)
         self._dlx_busy_now = bool(busy)
-        for button in (self.b_dlx_check, self.b_dlx_install, self.b_dlx_remove,
-                       self.b_dlx_token, self.b_dlx_proxy_check):
+        for button in (
+            self.b_dlx_check,
+            self.b_dlx_install,
+            self.b_dlx_remove,
+            self.b_dlx_token,
+            self.b_dlx_proxy_check,
+        ):
             button.setEnabled(not busy)
         # тумблер на время работы не двигается: пуск и остановка идут в фоне,
         # и второе нажатие поверх первого только спутало бы состояние
@@ -3018,11 +3289,13 @@ class SettingsWindow(QDialog):
         """
         self._dlx_busy(True, busy_text)
         job = DlxJob(fn, self)
-        self._dlx_job = job          # ссылка, иначе объект соберёт сборщик мусора
+        self._dlx_job = job  # ссылка, иначе объект соберёт сборщик мусора
+
         def finish(ok, reason):
             self._dlx_busy(False)
             self._dlx_refresh()
             done(ok, reason)
+
         job.finished.connect(finish)
         job.start()
 
@@ -3030,24 +3303,32 @@ class SettingsWindow(QDialog):
         """Короткая проверка: отвечает ли сервис / a short health check."""
         if not self._dlx_guard():
             return
+
         def done(ok, reason):
             QMessageBox.information(
-                self, i18n.t("DeepL рядом"),
-                i18n.t("Сервис отвечает нормально.") if ok
-                else i18n.t("Сервис не отвечает. Нажмите «Запустить» или «Установить»."))
+                self,
+                i18n.t("DeepL рядом"),
+                i18n.t("Сервис отвечает нормально.")
+                if ok
+                else i18n.t("Сервис не отвечает. Нажмите «Запустить» или «Установить»."),
+            )
+
         self._dlx_run(self.dlx.health, i18n.t("Проверяю…"), done)
 
     def _dlx_start(self):
         """Запуск сервиса вручную / start the service by hand."""
         if not self._dlx_guard():
             return
+
         def done(ok, reason):
             if not ok:
                 QMessageBox.warning(
-                    self, i18n.t("DeepL рядом"),
+                    self,
+                    i18n.t("DeepL рядом"),
                     i18n.t("Запустить не удалось: %s")
-                    % (self.dlx.status().get("reason") or reason
-                       or i18n.t("неизвестно")))
+                    % (self.dlx.status().get("reason") or reason or i18n.t("неизвестно")),
+                )
+
         self._dlx_run(self.dlx.ensure, i18n.t("Запускается…"), done)
 
     def _dlx_toggle(self):
@@ -3077,31 +3358,39 @@ class SettingsWindow(QDialog):
         if not self._dlx_guard():
             return
         answer = QMessageBox.question(
-            self, i18n.t("Установка сервиса"),
-            i18n.t("Скачать локальный сервис DeepL с GitHub?\n\n"
-                   "Около 15 МБ, лицензия MIT, файл кладётся рядом с программой.\n"
-                   "Текст перевода будет уходить на серверы DeepL."))
+            self,
+            i18n.t("Установка сервиса"),
+            i18n.t(
+                "Скачать локальный сервис DeepL с GitHub?\n\n"
+                "Около 15 МБ, лицензия MIT, файл кладётся рядом с программой.\n"
+                "Текст перевода будет уходить на серверы DeepL."
+            ),
+        )
         if answer != QMessageBox.StandardButton.Yes:
             return
+
         def job():
             return self.dlx.install(lambda text: setattr(self, "_dlx_progress", text))
+
         def done(ok, reason):
             if not ok:
                 QMessageBox.warning(
-                    self, i18n.t("DeepL рядом"),
+                    self,
+                    i18n.t("DeepL рядом"),
                     i18n.t("Установить не удалось: %s")
-                    % (self.dlx.status().get("reason") or reason
-                       or i18n.t("неизвестно")))
+                    % (self.dlx.status().get("reason") or reason or i18n.t("неизвестно")),
+                )
                 return
             self._dlx_refresh()
-            QMessageBox.information(self, i18n.t("DeepL рядом"),
-                                    i18n.t("Сервис установлен и готов к работе."))
+            QMessageBox.information(
+                self, i18n.t("DeepL рядом"), i18n.t("Сервис установлен и готов к работе.")
+            )
             if self.chk_dlx.isChecked():
                 # запуск тоже в фоне: ожидание готовности занимает секунды
                 # the start also runs in the background: waiting for readiness
                 # takes seconds
-                self._dlx_run(self.dlx.ensure, i18n.t("Запускается…"),
-                              lambda ok, reason: None)
+                self._dlx_run(self.dlx.ensure, i18n.t("Запускается…"), lambda ok, reason: None)
+
         self._dlx_run(job, i18n.t("Скачиваю…"), done)
 
     def _dlx_remove(self):
@@ -3109,9 +3398,13 @@ class SettingsWindow(QDialog):
         if not self._dlx_guard():
             return
         answer = QMessageBox.question(
-            self, i18n.t("Удаление сервиса"),
-            i18n.t("Удалить сервис DeepL с диска?\nПрограмма вернётся к обычным "
-                   "сервисам перевода, настройки останутся."))
+            self,
+            i18n.t("Удаление сервиса"),
+            i18n.t(
+                "Удалить сервис DeepL с диска?\nПрограмма вернётся к обычным "
+                "сервисам перевода, настройки останутся."
+            ),
+        )
         if answer != QMessageBox.StandardButton.Yes:
             return
         self.dlx.uninstall()
@@ -3159,14 +3452,17 @@ class SettingsWindow(QDialog):
         self.chk_anims.toggled.connect(self._anims_toggled)
         self.chk_anims.toggled.connect(lambda on: self._mirror_own_flag("anims", on))
         cl.addWidget(self.chk_anims)
-        cl.addWidget(_hint(
-            "Ключевое слово в вашем сообщении запускает анимацию: в чат игры уходит "
-            "/anim «название», а через заданное время она останавливается — командой "
-            "/sa, нажатием клавиши или обоими способами, как выбрано ниже. При "
-            "зацикливании остановки нет: по истечении того же времени анимация "
-            "просто запускается снова, пока не нажать клавишу остановки. "
-            "Длительность 0 мс означает «не останавливать вовсе». Работает только "
-            "вместе с модулем «Отправка в игру»."))
+        cl.addWidget(
+            _hint(
+                "Ключевое слово в вашем сообщении запускает анимацию: в чат игры уходит "
+                "/anim «название», а через заданное время она останавливается — командой "
+                "/sa, нажатием клавиши или обоими способами, как выбрано ниже. При "
+                "зацикливании остановки нет: по истечении того же времени анимация "
+                "просто запускается снова, пока не нажать клавишу остановки. "
+                "Длительность 0 мс означает «не останавливать вовсе». Работает только "
+                "вместе с модулем «Отправка в игру»."
+            )
+        )
 
         # Режим «В машине»: главный выключатель тишины. Стоит рядом с включением
         # модуля, потому что это такое же «работать или нет», только на время
@@ -3175,14 +3471,14 @@ class SettingsWindow(QDialog):
         # The "In a vehicle" mode: the main silence switch. It sits next to the
         # module switch, because it is the same "run or not", only for the length
         # of a ride. The tray menu item does the same, and is handier on the move.
-        self.chk_anim_vehicle = QCheckBox(
-            "В машине — не играть анимации (ни /anim, ни /sa)")
+        self.chk_anim_vehicle = QCheckBox("В машине — не играть анимации (ни /anim, ни /sa)")
         self.chk_anim_vehicle.setChecked(bool(self.cfg.get("anim_in_vehicle", False)))
         self.chk_anim_vehicle.setToolTip(
             "В транспорте анимации ломают позу, а /sa и нажатие клавиши "
             "выбрасывают из машины. Пока галочка стоит, в игру не уходит ни одна "
             "команда анимаций: очередь снимается, зацикливание прекращается, "
-            "уходит один /sa — и дальше тишина. Включается и из меню трея.")
+            "уходит один /sa — и дальше тишина. Включается и из меню трея."
+        )
         self.chk_anim_vehicle.toggled.connect(self._anim_vehicle_changed)
         cl.addWidget(self.chk_anim_vehicle)
         self.lb_anim_vehicle = _hint("")
@@ -3199,7 +3495,8 @@ class SettingsWindow(QDialog):
         self.ed_anim_stop.setText(str(self.cfg.get("anim_stop_key", "f") or "f"))
         self.ed_anim_stop.setToolTip(
             "Клавиша, которая прекращает зацикленную анимацию. Нажатие получает и "
-            "игра, поэтому подойдёт обычная игровая клавиша вроде F.")
+            "игра, поэтому подойдёт обычная игровая клавиша вроде F."
+        )
         self.ed_anim_stop.changed.connect(self._anim_stop_changed)
         key_row.addWidget(self.ed_anim_stop)
         key_row.addStretch(1)
@@ -3213,18 +3510,17 @@ class SettingsWindow(QDialog):
         # what exactly puts the animation out when the time is up
         self.chk_anim_stop_sa = QCheckBox("Останавливать анимацию командой /sa")
         self.chk_anim_stop_sa.setChecked(bool(self.cfg.get("anim_stop_by_sa", True)))
-        self.chk_anim_stop_sa.setToolTip(
-            "В чат игры уходит /sa — так анимацию гасит сама игра.")
+        self.chk_anim_stop_sa.setToolTip("В чат игры уходит /sa — так анимацию гасит сама игра.")
         self.chk_anim_stop_sa.toggled.connect(self._anim_stop_changed)
         cl.addWidget(self.chk_anim_stop_sa)
 
-        self.chk_anim_stop_key = QCheckBox(
-            "Останавливать анимацию нажатием клавиши F (симуляция)")
+        self.chk_anim_stop_key = QCheckBox("Останавливать анимацию нажатием клавиши F (симуляция)")
         self.chk_anim_stop_key.setProperty("no_i18n", True)
         self.chk_anim_stop_key.setChecked(bool(self.cfg.get("anim_stop_by_key", False)))
         self.chk_anim_stop_key.setToolTip(
             "Программа нажимает клавишу остановки в игре, как если бы её нажали вы. "
-            "Клавиша берётся из поля выше.")
+            "Клавиша берётся из поля выше."
+        )
         self.chk_anim_stop_key.toggled.connect(self._anim_stop_changed)
         cl.addWidget(self.chk_anim_stop_key)
 
@@ -3236,7 +3532,8 @@ class SettingsWindow(QDialog):
             "Правило молчит, если перед найденным словом стоит «не», «ни», "
             "«никогда» и подобное: «открыл зонт» сработает, «не открыл зонт» — "
             "нет. Если отрицание есть в самом ключе, проверка для него "
-            "выключается.")
+            "выключается."
+        )
         self.chk_anim_negation.toggled.connect(self._anims_changed)
         cl.addWidget(self.chk_anim_negation)
 
@@ -3244,14 +3541,14 @@ class SettingsWindow(QDialog):
         # пролистывание по Tab. Выключить можно, если список мешает.
         # Hints in the overlay: the keyword list under the input and Tab walking.
         # They can be switched off when the list gets in the way.
-        self.chk_anim_hints = QCheckBox(
-            "Подсказывать ключевые слова в оверлее (Tab — пролистать)")
+        self.chk_anim_hints = QCheckBox("Подсказывать ключевые слова в оверлее (Tab — пролистать)")
         self.chk_anim_hints.setChecked(bool(self.cfg.get("anim_hints", True)))
         self.chk_anim_hints.setToolTip(
             "Пока вы печатаете, под полем ввода появляются ключевые слова "
             "правил, начинающиеся с набранного: Tab листает их, Enter "
             "подставляет выбранное, Esc убирает список. Подсказка заменяет "
-            "только последнее набранное слово, остальной текст не трогает.")
+            "только последнее набранное слово, остальной текст не трогает."
+        )
         self.chk_anim_hints.toggled.connect(self._anims_changed)
         cl.addWidget(self.chk_anim_hints)
 
@@ -3269,7 +3566,8 @@ class SettingsWindow(QDialog):
         self.sp_anim_row.setToolTip(
             "Строки правил можно сделать выше: длинные фразы и подписи режимов "
             "читаются лучше. Двойной щелчок по шапке таблицы разворачивает её "
-            "на весь экран — там строки ещё выше.")
+            "на весь экран — там строки ещё выше."
+        )
         self.sp_anim_row.valueChanged.connect(self._anim_row_changed)
         row_row.addWidget(self.sp_anim_row)
         row_row.addStretch(1)
@@ -3293,21 +3591,24 @@ class SettingsWindow(QDialog):
             "запускается следующая из того же сообщения: 1500 мс + 50 мс. "
             "Если из двух ключевых слов играет только первое, увеличьте — "
             "серверу нужно время принять /sa и следующую /anim. "
-            "0 — запускать сразу после анимации.")
+            "0 — запускать сразу после анимации."
+        )
         self.sp_anim_gap.valueChanged.connect(self._anims_changed)
         gap_row.addWidget(self.sp_anim_gap)
         gap_row.addStretch(1)
         cl.addLayout(gap_row)
         lay.addWidget(card)
 
-
         live_card, ll = _card()
         ll.addWidget(_title("Проверка в игре", "sec"))
-        ll.addWidget(_hint(
-            "Слова проверяются в окне настроек, а отправку видит только игра. "
-            "Кнопка «Отправить /anim в игру» запускает выбранное правило прямо "
-            "сейчас — так видно, доходит ли команда: если игра не ответила, "
-            "причина появится здесь же."))
+        ll.addWidget(
+            _hint(
+                "Слова проверяются в окне настроек, а отправку видит только игра. "
+                "Кнопка «Отправить /anim в игру» запускает выбранное правило прямо "
+                "сейчас — так видно, доходит ли команда: если игра не ответила, "
+                "причина появится здесь же."
+            )
+        )
         live_row = QHBoxLayout()
         self.bt_anim_send = QPushButton("Отправить /anim в игру")
         self.bt_anim_send.clicked.connect(self._anim_send_now)
@@ -3330,10 +3631,13 @@ class SettingsWindow(QDialog):
 
         test_card, tl = _card()
         tl.addWidget(_title("Проверка правила", "sec"))
-        tl.addWidget(_hint(
-            "Напишите фразу так, как отправили бы её в игру, и посмотрите, какие "
-            "правила на неё сработают. Здесь проверяются только слова: отправку "
-            "команд проверяет блок «Проверка в игре» выше."))
+        tl.addWidget(
+            _hint(
+                "Напишите фразу так, как отправили бы её в игру, и посмотрите, какие "
+                "правила на неё сработают. Здесь проверяются только слова: отправку "
+                "команд проверяет блок «Проверка в игре» выше."
+            )
+        )
         test_row = QHBoxLayout()
         self.ed_anims_test = QLineEdit()
         self.ed_anims_test.setPlaceholderText("Например: /me привет")
@@ -3349,36 +3653,45 @@ class SettingsWindow(QDialog):
         tl.addWidget(self.lb_anims_test)
         lay.addWidget(test_card)
 
-        lay.addWidget(_hint(
-            "Несколько ключевых слов в одном правиле разделяются запятой: «привет, "
-            "здравствуй». Совпадение ищется целым словом и без учёта регистра, «ё» "
-            "и «е» считаются одной буквой. Столбец «Формы» решает, как сравнивать "
-            "слово: «Точно» — ровно написанное, «Основы» — любые падежи и "
-            "спряжения («открыл» = «открывает»), «Леммы» — по словарю pymorphy3. "
-            "Одно и то же слово правило запускает один раз, сколько бы раз оно "
-            "ни повторилось, а каждое своё ключевое слово — отдельным выходом: "
-            "«да ну, да брось» на «Да ну да брось» сыграет анимацию дважды. "
-            "Если в одном сообщении совпало несколько правил, "
-            "анимации играют по очереди, по одной: пока одна на экране, следующая "
-            "ждёт. Порядок — как в самом сообщении: «Чёрт, я устал *кашляет*» "
-            "сначала запустит анимацию на «чёрт», потом на «кашляет», даже если в "
-            "таблице эти правила стоят наоборот. Если один ключ целиком входит в "
-            "другой, играет только длинный: на «Сел откинувшись» сработает «сел "
-            "откинувшись», а «сел» промолчит — иначе короткая анимация сразу же "
-            "погасила бы длинную. Отдельные упоминания в том же сообщении "
-            "считаются: «Сел откинувшись, а потом сел прямо» запустит обе."))
-        lay.addWidget(_hint(
-            "Строки таблицы перетаскиваются мышью — вместе с правилом едут его "
-            "режим, формы, длительность и галочки. Пока строку тянут, она "
-            "подсвечена, а синяя линия показывает, куда она встанет. Порядок в "
-            "таблице нужен для удобства: в игре анимации играют по порядку слов "
-            "в сообщении."))
-        lay.addWidget(_hint(
-            "ПКМ по строке — «Варианты и свойства…»: там задаются варианты, если "
-            "одному ключу подходят несколько анимаций. Например, ключ «оперся "
-            "руками» с вариантами anim_counterleanbar и anim_leanrail: в игре "
-            "откроется оверлей выбора с названием и описанием каждого. Один "
-            "вариант — обычное правило, оно играет сразу."))
+        lay.addWidget(
+            _hint(
+                "Несколько ключевых слов в одном правиле разделяются запятой: «привет, "
+                "здравствуй». Совпадение ищется целым словом и без учёта регистра, «ё» "
+                "и «е» считаются одной буквой. Столбец «Формы» решает, как сравнивать "
+                "слово: «Точно» — ровно написанное, «Основы» — любые падежи и "
+                "спряжения («открыл» = «открывает»), «Леммы» — по словарю pymorphy3. "
+                "Одно и то же слово правило запускает один раз, сколько бы раз оно "
+                "ни повторилось, а каждое своё ключевое слово — отдельным выходом: "
+                "«да ну, да брось» на «Да ну да брось» сыграет анимацию дважды. "
+                "Если в одном сообщении совпало несколько правил, "
+                "анимации играют по очереди, по одной: пока одна на экране, следующая "
+                "ждёт. Порядок — как в самом сообщении: «Чёрт, я устал *кашляет*» "
+                "сначала запустит анимацию на «чёрт», потом на «кашляет», даже если в "
+                "таблице эти правила стоят наоборот. Если один ключ целиком входит в "
+                "другой, играет только длинный: на «Сел откинувшись» сработает «сел "
+                "откинувшись», а «сел» промолчит — иначе короткая анимация сразу же "
+                "погасила бы длинную. Отдельные упоминания в том же сообщении "
+                "считаются: «Сел откинувшись, а потом сел прямо» запустит обе."
+            )
+        )
+        lay.addWidget(
+            _hint(
+                "Строки таблицы перетаскиваются мышью — вместе с правилом едут его "
+                "режим, формы, длительность и галочки. Пока строку тянут, она "
+                "подсвечена, а синяя линия показывает, куда она встанет. Порядок в "
+                "таблице нужен для удобства: в игре анимации играют по порядку слов "
+                "в сообщении."
+            )
+        )
+        lay.addWidget(
+            _hint(
+                "ПКМ по строке — «Варианты и свойства…»: там задаются варианты, если "
+                "одному ключу подходят несколько анимаций. Например, ключ «оперся "
+                "руками» с вариантами anim_counterleanbar и anim_leanrail: в игре "
+                "откроется оверлей выбора с названием и описанием каждого. Один "
+                "вариант — обычное правило, оно играет сразу."
+            )
+        )
         self._fill_anims()
         self._update_anims_ui()
         return page
@@ -3405,20 +3718,25 @@ class SettingsWindow(QDialog):
 
         find_row = QHBoxLayout()
         self.ed_anim_find = QLineEdit()
-        self.ed_anim_find.setPlaceholderText(
-            i18n.t("Поиск по словам, /anim и описаниям вариантов"))
+        self.ed_anim_find.setPlaceholderText(i18n.t("Поиск по словам, /anim и описаниям вариантов"))
         self.ed_anim_find.setClearButtonEnabled(True)
         self.ed_anim_find.textChanged.connect(self._anim_find_changed)
-        self.ed_anim_find.setToolTip(i18n.t(
-            "Ищет по ключевым словам, по названию /anim и по описаниям "
-            "вариантов. Строки, которые не подходят, прячутся, а правила "
-            "остаются на своих местах."))
+        self.ed_anim_find.setToolTip(
+            i18n.t(
+                "Ищет по ключевым словам, по названию /anim и по описаниям "
+                "вариантов. Строки, которые не подходят, прячутся, а правила "
+                "остаются на своих местах."
+            )
+        )
         find_row.addWidget(self.ed_anim_find, 1)
         self.bt_anim_expand = QPushButton(i18n.t("На весь экран"))
         self.bt_anim_expand.setCheckable(True)
-        self.bt_anim_expand.setToolTip(i18n.t(
-            "Развернуть таблицу правил на весь экран — удобнее править длинные "
-            "ключевые слова. То же самое делает двойной щелчок по шапке таблицы."))
+        self.bt_anim_expand.setToolTip(
+            i18n.t(
+                "Развернуть таблицу правил на весь экран — удобнее править длинные "
+                "ключевые слова. То же самое делает двойной щелчок по шапке таблицы."
+            )
+        )
         self.bt_anim_expand.toggled.connect(self._anim_expand_toggled)
         find_row.addWidget(self.bt_anim_expand)
         lay.addLayout(find_row)
@@ -3431,17 +3749,19 @@ class SettingsWindow(QDialog):
         # короткие заголовки: длинные подписи не влезали в столбцы на узком окне
         # short headers: the long ones did not fit the columns in a narrow window
         self.tbl_anims.setHorizontalHeaderLabels(
-            ["Вкл", "Ключевые слова", "/anim", "Режим", "Формы", "мс",
-             "Зацикливать"])
+            ["Вкл", "Ключевые слова", "/anim", "Режим", "Формы", "мс", "Зацикливать"]
+        )
         head = self.tbl_anims.horizontalHeader()
         head.setMinimumSectionSize(38)
-        for column, policy in ((0, QHeaderView.ResizeMode.ResizeToContents),
-                               (1, QHeaderView.ResizeMode.Stretch),
-                               (2, QHeaderView.ResizeMode.Stretch),
-                               (3, QHeaderView.ResizeMode.Fixed),
-                               (4, QHeaderView.ResizeMode.Fixed),
-                               (5, QHeaderView.ResizeMode.ResizeToContents),
-                               (6, QHeaderView.ResizeMode.ResizeToContents)):
+        for column, policy in (
+            (0, QHeaderView.ResizeMode.ResizeToContents),
+            (1, QHeaderView.ResizeMode.Stretch),
+            (2, QHeaderView.ResizeMode.Stretch),
+            (3, QHeaderView.ResizeMode.Fixed),
+            (4, QHeaderView.ResizeMode.Fixed),
+            (5, QHeaderView.ResizeMode.ResizeToContents),
+            (6, QHeaderView.ResizeMode.ResizeToContents),
+        ):
             head.setSectionResizeMode(column, policy)
         # «Режим» и «Формы» — фиксированной ширины: иначе длинный список режимов
         # распирал столбец и сжимал соседние до нечитаемых
@@ -3491,8 +3811,14 @@ class SettingsWindow(QDialog):
         b_imp.clicked.connect(self._import_anims)
         b_exp = QPushButton("Экспорт…")
         b_exp.clicked.connect(self._export_anims)
-        for button in (self.bt_anim_add, self.bt_anim_del, self.bt_anim_up,
-                       self.bt_anim_down, b_imp, b_exp):
+        for button in (
+            self.bt_anim_add,
+            self.bt_anim_del,
+            self.bt_anim_up,
+            self.bt_anim_down,
+            b_imp,
+            b_exp,
+        ):
             btns.addWidget(button)
         btns.addStretch(1)
         lay.addLayout(btns)
@@ -3512,13 +3838,11 @@ class SettingsWindow(QDialog):
         if not hasattr(self, "tbl_anims"):
             return
         try:
-            base = int(height if height is not None
-                       else self.cfg.get("anim_row_height", 34) or 34)
+            base = int(height if height is not None else self.cfg.get("anim_row_height", 34) or 34)
         except (TypeError, ValueError):
             base = 34
         base = max(24, min(96, base))
-        self.tbl_anims.verticalHeader().setDefaultSectionSize(
-            int(round(base * self._ui_scale())))
+        self.tbl_anims.verticalHeader().setDefaultSectionSize(int(round(base * self._ui_scale())))
 
     def _anim_expand_toggled(self, on):
         """Кнопка «На весь экран» / the full-screen button."""
@@ -3698,14 +4022,14 @@ class SettingsWindow(QDialog):
         if not hasattr(self, "lb_anim_vehicle"):
             return
         if on is None:
-            on = bool(getattr(self, "chk_anim_vehicle", None)
-                      and self.chk_anim_vehicle.isChecked())
+            on = bool(getattr(self, "chk_anim_vehicle", None) and self.chk_anim_vehicle.isChecked())
         if not on:
             self.lb_anim_vehicle.setText("")
             return
         text = i18n.t(
             "Режим включён: ни /anim, ни /sa в игру не уходят. Действует до "
-            "выключения галочки, в том числе после перезапуска программы.")
+            "выключения галочки, в том числе после перезапуска программы."
+        )
         if getattr(self, "anims_api", None) is None:
             text += " " + i18n.t("Применится после сохранения.")
         self.lb_anim_vehicle.setText(text)
@@ -3752,8 +4076,9 @@ class SettingsWindow(QDialog):
         """Отправить /anim выбранного правила в игру — проверить весь путь."""
         api = getattr(self, "anims_api", None)
         if api is None:
-            self._anim_say(i18n.t(
-                "Проверка в игре работает, когда настройки открыты из программы."))
+            self._anim_say(
+                i18n.t("Проверка в игре работает, когда настройки открыты из программы.")
+            )
             return
         rows = self.tbl_anims.selectionModel().selectedRows()
         name = ""
@@ -3770,8 +4095,7 @@ class SettingsWindow(QDialog):
                 variants = [choice.name for choice in rule.variant_list()]
                 name = rule.name.strip() or (variants[0] if variants else "")
         if not name:
-            self._anim_say(i18n.t(
-                "Сначала выберите правило с названием анимации."))
+            self._anim_say(i18n.t("Сначала выберите правило с названием анимации."))
             return
         problem = anims.Rule(keywords="слово", name=name).problem()
         if problem:
@@ -3780,14 +4104,19 @@ class SettingsWindow(QDialog):
         if len(variants) > 1:
             # честно: проверяется только один из вариантов
             # honest: only one of the variants is being checked
-            self._anim_say(i18n.tf("У правила %d варианта(ов) — отправляю "
-                                   "первый: /anim %s", len(variants), name),
-                           seconds=25.0)
+            self._anim_say(
+                i18n.tf(
+                    "У правила %d варианта(ов) — отправляю первый: /anim %s", len(variants), name
+                ),
+                seconds=25.0,
+            )
         else:
             self._anim_say(i18n.tf("Отправляю /anim %s в игру…", name), seconds=25.0)
         threading.Thread(
             target=lambda: self.anim_test_done.emit(*api["send"](name)),
-            name="anim-test", daemon=True).start()
+            name="anim-test",
+            daemon=True,
+        ).start()
 
     def _anim_send_result(self, ok, message):
         """Ответ игры на ручную отправку /anim."""
@@ -3805,8 +4134,7 @@ class SettingsWindow(QDialog):
         """
         api = getattr(self, "anims_api", None)
         if api is None:
-            self._anim_say(i18n.t(
-                "Остановка доступна, когда настройки открыты из программы."))
+            self._anim_say(i18n.t("Остановка доступна, когда настройки открыты из программы."))
             return
         api["stop"]()
         self._anim_say(i18n.t("Остановил: отправлен /sa."))
@@ -3852,8 +4180,9 @@ class SettingsWindow(QDialog):
         if hasattr(self, "tbl_anims"):
             self.tbl_anims.selectRow(max(0, min(target, len(rules) - 1)))
         self._anims_changed()
-        log.info("Анимации: правило «%s» переставлено (%d -> %d)",
-                 rule.keywords[:30], source, target)
+        log.info(
+            "Анимации: правило «%s» переставлено (%d -> %d)", rule.keywords[:30], source, target
+        )
 
     def _anims_menu(self, pos):
         """ПКМ по таблице правил: свойства анимации и быстрые действия.
@@ -3902,8 +4231,7 @@ class SettingsWindow(QDialog):
             self._anim_props(row, force_variants=True)
         elif act_merge is not None and chosen is act_merge:
             self._merge_anim(row)
-        elif act_merge_all is not None and chosen is not None \
-                and isinstance(chosen.data(), int):
+        elif act_merge_all is not None and chosen is not None and isinstance(chosen.data(), int):
             self._merge_anim(row, others=[int(chosen.data())])
         elif chosen is act_dup:
             self._duplicate_anim(row)
@@ -3957,21 +4285,31 @@ class SettingsWindow(QDialog):
         self._fill_anims(rules)
         self.tbl_anims.selectRow(target)
         self._anims_changed()
-        log.info("Анимации: правило «%s» объединено с %d другим(и)",
-                 merged.keywords[:40], len(others))
+        log.info(
+            "Анимации: правило «%s» объединено с %d другим(и)", merged.keywords[:40], len(others)
+        )
         if empty:
-            self._anim_say(i18n.tf(
-                "Правила объединены. Осталось задать: %s — заполните в «Варианты "
-                "и свойства…» или в таблице.", self._empty_fields_text(empty)))
+            self._anim_say(
+                i18n.tf(
+                    "Правила объединены. Осталось задать: %s — заполните в «Варианты "
+                    "и свойства…» или в таблице.",
+                    self._empty_fields_text(empty),
+                )
+            )
         else:
-            self._anim_say(i18n.t("Правила объединены: задержка, повтор и режим "
-                                  "совпадали и перенесены."))
+            self._anim_say(
+                i18n.t("Правила объединены: задержка, повтор и режим совпадали и перенесены.")
+            )
 
     @staticmethod
     def _empty_fields_text(fields):
         """Названия незаполненных полей по-человечески / human names of empty fields."""
-        names = {"duration_ms": i18n.t("задержка"), "loop": i18n.t("повтор"),
-                 "forms": i18n.t("словоформы"), "mode": i18n.t("режим")}
+        names = {
+            "duration_ms": i18n.t("задержка"),
+            "loop": i18n.t("повтор"),
+            "forms": i18n.t("словоформы"),
+            "mode": i18n.t("режим"),
+        }
         return ", ".join(names.get(f, f) for f in fields)
 
     def _ask_merge_target(self, row, rules):
@@ -3983,8 +4321,7 @@ class SettingsWindow(QDialog):
             name = rule.keywords.strip().split(",")[0].strip() or "?"
             action = menu.addAction(i18n.tf("С «%s»", name))
             action.setData(other)
-        chosen = menu.exec(self.tbl_anims.viewport().mapToGlobal(
-            self.tbl_anims.rect().center()))
+        chosen = menu.exec(self.tbl_anims.viewport().mapToGlobal(self.tbl_anims.rect().center()))
         if chosen is None:
             return []
         return [int(chosen.data())]
@@ -4021,8 +4358,11 @@ class SettingsWindow(QDialog):
         self._fill_anims(rules)
         self.tbl_anims.selectRow(row)
         self._anims_changed()
-        log.info("Анимации: свойства правила «%s» сохранены (вариантов: %d)",
-                 rule.keywords[:30], len(rule.variant_list()))
+        log.info(
+            "Анимации: свойства правила «%s» сохранены (вариантов: %d)",
+            rule.keywords[:30],
+            len(rule.variant_list()),
+        )
 
     def _duplicate_anim(self, row):
         self._hist_shadow = self._hist_state()
@@ -4031,7 +4371,7 @@ class SettingsWindow(QDialog):
         if not 0 <= row < len(rules):
             return
         copy = anims.Rule.from_dict(rules[row].to_dict())
-        copy.id = anims.Rule().id          # новый id, чтобы строки не путались
+        copy.id = anims.Rule().id  # новый id, чтобы строки не путались
         rules.insert(row + 1, copy)
         self._fill_anims(rules)
         self.tbl_anims.selectRow(row + 1)
@@ -4044,10 +4384,12 @@ class SettingsWindow(QDialog):
 
         def checkable(checked):
             item = QTableWidgetItem("")
-            item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
-                          | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(Qt.CheckState.Checked if checked
-                               else Qt.CheckState.Unchecked)
+            item.setFlags(
+                Qt.ItemFlag.ItemIsEnabled
+                | Qt.ItemFlag.ItemIsSelectable
+                | Qt.ItemFlag.ItemIsUserCheckable
+            )
+            item.setCheckState(Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked)
             return item
 
         item_on = checkable(rule.enabled)
@@ -4057,13 +4399,15 @@ class SettingsWindow(QDialog):
         # be found again after the table is rebuilt
         item_on.setData(Qt.ItemDataRole.UserRole, rule.id)
         item_loop = checkable(rule.loop)
-        cells = [item_on,
-                 QTableWidgetItem(rule.keywords),
-                 QTableWidgetItem(self._anim_name_cell(rule)),
-                 None,                       # режим — выпадающий список,
-                 None,                       # формы — тоже список,
-                 QTableWidgetItem(str(rule.duration_ms)),
-                 item_loop]
+        cells = [
+            item_on,
+            QTableWidgetItem(rule.keywords),
+            QTableWidgetItem(self._anim_name_cell(rule)),
+            None,  # режим — выпадающий список,
+            None,  # формы — тоже список,
+            QTableWidgetItem(str(rule.duration_ms)),
+            item_loop,
+        ]
         for column, item in enumerate(cells):
             if item is None:
                 continue
@@ -4077,8 +4421,9 @@ class SettingsWindow(QDialog):
         if name_item is not None:
             name_item.setToolTip(self._anim_name_hint(rule))
             if rule.choices:
-                name_item.setData(Qt.ItemDataRole.UserRole + 1,
-                                  [choice.to_dict() for choice in rule.choices])
+                name_item.setData(
+                    Qt.ItemDataRole.UserRole + 1, [choice.to_dict() for choice in rule.choices]
+                )
         combo = QComboBox()
         # названия режимов хранятся по-русски: так i18n.retranslate может
         # переводить их в любую сторону сколько угодно раз
@@ -4092,8 +4437,7 @@ class SettingsWindow(QDialog):
         # обрезается, а полное объяснение висит подсказкой
         # the field must not demand the width of its longest item: the text is
         # elided and the full explanation sits in the tooltip
-        combo.setSizeAdjustPolicy(
-            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         combo.setMinimumContentsLength(6)
         combo.setMinimumWidth(110)
         combo.setCurrentIndex(max(0, int(combo.findData(int(rule.mode)))))
@@ -4107,11 +4451,11 @@ class SettingsWindow(QDialog):
             forms_combo.addItem(i18n.t(title), forms)
         forms_combo.setProperty("_ru_items", forms_titles)
         forms_combo.setSizeAdjustPolicy(
-            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
         forms_combo.setMinimumContentsLength(6)
         forms_combo.setMinimumWidth(88)
-        forms_combo.setCurrentIndex(
-            max(0, int(forms_combo.findData(int(rule.forms)))))
+        forms_combo.setCurrentIndex(max(0, int(forms_combo.findData(int(rule.forms)))))
         forms_combo.currentIndexChanged.connect(self._anims_combo_changed)
         self._anim_forms_hint(forms_combo)
         self.tbl_anims.setCellWidget(row, 4, forms_combo)
@@ -4205,22 +4549,22 @@ class SettingsWindow(QDialog):
                 mode = int(combo.currentData())
             forms_combo = self.tbl_anims.cellWidget(row, 4)
             forms = morph.FORMS_DEFAULT
-            if (isinstance(forms_combo, QComboBox)
-                    and forms_combo.currentData() is not None):
+            if isinstance(forms_combo, QComboBox) and forms_combo.currentData() is not None:
                 forms = int(forms_combo.currentData())
             raw_ms = text(5).replace(" ", "")
             try:
                 duration = int(raw_ms)
             except ValueError:
-                duration = -1        # problem() скажет «длительность должна быть…»
+                duration = -1  # problem() скажет «длительность должна быть…»
             item_loop = self.tbl_anims.item(row, 6)
             # варианты из ячейки имени: обычное правило их не имеет, и тогда
             # остаётся только name, как раньше
             # the variants come from the name cell; a plain rule has none, and
             # then only name remains, exactly as before
             name_item = self.tbl_anims.item(row, 2)
-            raw_choices = (name_item.data(Qt.ItemDataRole.UserRole + 1)
-                           if name_item is not None else None)
+            raw_choices = (
+                name_item.data(Qt.ItemDataRole.UserRole + 1) if name_item is not None else None
+            )
             choices = []
             if isinstance(raw_choices, list):
                 for entry in raw_choices:
@@ -4261,14 +4605,12 @@ class SettingsWindow(QDialog):
         rules = getattr(self, "_anim_rules", []) or []
         active = sum(1 for rule in rules if rule.ready())
         loops = sum(1 for rule in rules if rule.ready() and rule.loop)
-        note = i18n.tf("Правил: %d, готовы к работе: %d, с зацикливанием: %d",
-                       total, active, loops)
+        note = i18n.tf("Правил: %d, готовы к работе: %d, с зацикливанием: %d", total, active, loops)
         # поиск не должен теряться за счётчиком: сколько правил он оставил
         # the search must not disappear behind the counter: how many it left
         find = getattr(self, "ed_anim_find", None)
         if find is not None and find.text().strip():
-            shown = sum(1 for row in range(total)
-                        if not self.tbl_anims.isRowHidden(row))
+            shown = sum(1 for row in range(total) if not self.tbl_anims.isRowHidden(row))
             note = i18n.tf("Найдено: %d из %d", shown, total) + " · " + note
         self.lb_anims_count.setText(note)
         for row in range(total):
@@ -4281,15 +4623,14 @@ class SettingsWindow(QDialog):
         problems = self._anims_problems()
         notes = []
         if problems:
-            lines = [i18n.tf("Строка %d: ", index + 1) + i18n.t(problem)
-                     for index, problem in problems]
+            lines = [
+                i18n.tf("Строка %d: ", index + 1) + i18n.t(problem) for index, problem in problems
+            ]
             notes.append(i18n.t("Проверьте правила: ") + "; ".join(lines))
-        if not morph.lemmas_available() and any(
-                rule.forms == morph.FORMS_LEMMA for rule in rules):
+        if not morph.lemmas_available() and any(rule.forms == morph.FORMS_LEMMA for rule in rules):
             # честно: без пакета pymorphy3 уровень «Леммы» работает как «Основы»
             # honest: without pymorphy3 the "Lemmas" level behaves like "Stems"
-            notes.append(i18n.t("Пакет pymorphy3 не найден: уровень «Леммы» "
-                                "сравнивает по основе."))
+            notes.append(i18n.t("Пакет pymorphy3 не найден: уровень «Леммы» сравнивает по основе."))
         self.lb_anims_problem.setText(" ".join(notes))
         enabled = bool(self.chk_anims.isChecked()) if hasattr(self, "chk_anims") else True
         self.tbl_anims.setEnabled(True)
@@ -4301,8 +4642,7 @@ class SettingsWindow(QDialog):
         self.bt_anim_up.setEnabled(has_row and current > 0)
         self.bt_anim_down.setEnabled(has_row and 0 <= current < total - 1)
         if not enabled:
-            self.lb_anims_count.setText(
-                self.lb_anims_count.text() + i18n.t(" · модуль выключен"))
+            self.lb_anims_count.setText(self.lb_anims_count.text() + i18n.t(" · модуль выключен"))
 
     def _anims_toggled(self, *_):
         """Галочка модуля: сразу видно, будет ли что-то работать.
@@ -4319,30 +4659,37 @@ class SettingsWindow(QDialog):
         problem = anims.stop_key_problem(self.ed_anim_stop.text())
         pretty = _pretty_hotkey(self.ed_anim_stop.text() or "f")
         if hasattr(self, "chk_anim_stop_key"):
-            self.chk_anim_stop_key.setText(i18n.tf(
-                "Останавливать анимацию нажатием клавиши %s (симуляция)", pretty))
-        by_sa = bool(self.chk_anim_stop_sa.isChecked()) if hasattr(
-            self, "chk_anim_stop_sa") else True
-        by_key = bool(self.chk_anim_stop_key.isChecked()) if hasattr(
-            self, "chk_anim_stop_key") else False
+            self.chk_anim_stop_key.setText(
+                i18n.tf("Останавливать анимацию нажатием клавиши %s (симуляция)", pretty)
+            )
+        by_sa = (
+            bool(self.chk_anim_stop_sa.isChecked()) if hasattr(self, "chk_anim_stop_sa") else True
+        )
+        by_key = (
+            bool(self.chk_anim_stop_key.isChecked())
+            if hasattr(self, "chk_anim_stop_key")
+            else False
+        )
         if problem:
             self.lb_anim_stop.setText(i18n.t(problem))
             self.lb_anim_stop.setStyleSheet("color:#ff6b6b;")
             return False
         if by_sa and by_key:
-            note = i18n.tf("Анимация останавливается командой /sa и нажатием «%s».",
-                           pretty)
+            note = i18n.tf("Анимация останавливается командой /sa и нажатием «%s».", pretty)
         elif by_sa:
             note = i18n.t("Анимация останавливается командой /sa.")
         elif by_key:
-            note = i18n.tf("Анимация останавливается нажатием «%s» (симуляция).",
-                           pretty)
+            note = i18n.tf("Анимация останавливается нажатием «%s» (симуляция).", pretty)
         else:
-            note = i18n.t("Остановка выключена: анимация играет, пока её не сменит "
-                          "другая или пока её не остановит игра.")
+            note = i18n.t(
+                "Остановка выключена: анимация играет, пока её не сменит "
+                "другая или пока её не остановит игра."
+            )
         self.lb_anim_stop.setText(
-            note + " " + i18n.t("Клавишу остановки получает и игра, поэтому "
-                                "подойдёт обычная игровая клавиша."))
+            note
+            + " "
+            + i18n.t("Клавишу остановки получает и игра, поэтому подойдёт обычная игровая клавиша.")
+        )
         self.lb_anim_stop.setStyleSheet("color:#8a8a96;")
         return True
 
@@ -4351,8 +4698,9 @@ class SettingsWindow(QDialog):
 
         A new rule with sensible defaults.
         """
-        rule = anims.Rule(keywords="", name="", mode=anims.MODE_ALWAYS,
-                          duration_ms=anims.DEFAULT_MS)
+        rule = anims.Rule(
+            keywords="", name="", mode=anims.MODE_ALWAYS, duration_ms=anims.DEFAULT_MS
+        )
         self.tbl_anims.blockSignals(True)
         row = self._add_anim_row(rule)
         self.tbl_anims.blockSignals(False)
@@ -4366,8 +4714,9 @@ class SettingsWindow(QDialog):
     def _del_anim(self):
         self._hist_shadow = self._hist_state()
         """Удаляет выбранные правила / remove the selected rules."""
-        rows = sorted({index.row() for index in
-                       self.tbl_anims.selectionModel().selectedRows()}, reverse=True)
+        rows = sorted(
+            {index.row() for index in self.tbl_anims.selectionModel().selectedRows()}, reverse=True
+        )
         if not rows:
             return
         for row in rows:
@@ -4402,9 +4751,11 @@ class SettingsWindow(QDialog):
         The check context: the same glossary and negation flag the running module
         uses, so the check shows exactly what the game will really do.
         """
-        code = langs.code_of(self.cb_lang.currentData()
-                             if hasattr(self, "cb_lang") and self.cb_lang.currentData()
-                             else self.cfg.get("target_lang", "it"))
+        code = langs.code_of(
+            self.cb_lang.currentData()
+            if hasattr(self, "cb_lang") and self.cb_lang.currentData()
+            else self.cfg.get("target_lang", "it")
+        )
         cached = getattr(self, "_anim_glossary", (None, None))
         if cached[0] != code:
             try:
@@ -4414,13 +4765,16 @@ class SettingsWindow(QDialog):
                 cached = (code, None)
             self._anim_glossary = cached
         glossary = cached[1]
-        negation = (bool(self.chk_anim_negation.isChecked())
-                    if hasattr(self, "chk_anim_negation") else True)
+        negation = (
+            bool(self.chk_anim_negation.isChecked()) if hasattr(self, "chk_anim_negation") else True
+        )
         if glossary is None:
             return anims.Context(negation=negation)
-        return anims.Context(equivalent=lambda phrase: glossary.find_meaning(phrase) or "",
-                             text_keys=glossary.phrase_keys,
-                             negation=negation)
+        return anims.Context(
+            equivalent=lambda phrase: glossary.find_meaning(phrase) or "",
+            text_keys=glossary.phrase_keys,
+            negation=negation,
+        )
 
     def _anim_blockers(self):
         """Почему правила не дойдут до игры / why the rules never reach the game.
@@ -4471,13 +4825,14 @@ class SettingsWindow(QDialog):
         # the same resolution as at run time: nested keywords («сел» inside «сел
         # откинувшись») are shown exactly the way they will play
         rules = [rule for rule in self._collect_anims() if rule.ready()]
-        hits = [(position, self._anim_hit_label(rule), form)
-                for position, _index, rule, form in anims.plan(rules, text, ctx)]
+        hits = [
+            (position, self._anim_hit_label(rule), form)
+            for position, _index, rule, form in anims.plan(rules, text, ctx)
+        ]
         if hits:
             # видно не только правило, но и какая именно форма его задела
             # shows the rule and the exact form that fired it
-            parts = ["/anim " + name + (f" ← «{form}»" if form else "")
-                     for _, name, form in hits]
+            parts = ["/anim " + name + (f" ← «{form}»" if form else "") for _, name, form in hits]
             text_out = i18n.t("Сработают: ") + ", ".join(parts)
             # правило может сработать и при этом не дойти до игры: проверка
             # слов не равна работе модуля, о выключенных модулях говорим прямо
@@ -4487,12 +4842,13 @@ class SettingsWindow(QDialog):
             if why:
                 text_out += " " + i18n.t("Но в игру ничего не уйдёт: ") + ", ".join(why) + "."
             self.lb_anims_test.setText(text_out)
-            self.lb_anims_test.setStyleSheet(
-                "color:#ffb45b;" if why else "color:#66d18b;")
+            self.lb_anims_test.setStyleSheet("color:#ffb45b;" if why else "color:#66d18b;")
         else:
-            self.lb_anims_test.setText(i18n.t(
-                "Ни одно правило не сработает: в этом режиме ключевого слова в "
-                "сообщении нет."))
+            self.lb_anims_test.setText(
+                i18n.t(
+                    "Ни одно правило не сработает: в этом режиме ключевого слова в сообщении нет."
+                )
+            )
             self.lb_anims_test.setStyleSheet("color:#ffb45b;")
 
     def _anim_hit_label(self, rule) -> str:
@@ -4509,46 +4865,58 @@ class SettingsWindow(QDialog):
         names = [choice.name for choice in rule.choices]
         if len(names) == 1:
             return names[0]
-        return (i18n.tf("выбор из %d: ", len(names)) + ", ".join(names))
+        return i18n.tf("выбор из %d: ", len(names)) + ", ".join(names)
 
     def _export_anims(self):
         """Правила в JSON — их можно перенести на другой компьютер."""
         path, _ = QFileDialog.getSaveFileName(
-            self, i18n.t("Экспорт правил анимаций"), str(DATA / "animations.json"),
-            i18n.t("Правила анимаций (*.json);;Все файлы (*)"))
+            self,
+            i18n.t("Экспорт правил анимаций"),
+            str(DATA / "animations.json"),
+            i18n.t("Правила анимаций (*.json);;Все файлы (*)"),
+        )
         if not path:
             return
-        payload = {"format": "rpchatoverlay-animations", "version": 1,
-                   "rules": anims.rules_to_cfg(self._collect_anims()),
-                   "stop_key": self.ed_anim_stop.text().strip().lower()}
+        payload = {
+            "format": "rpchatoverlay-animations",
+            "version": 1,
+            "rules": anims.rules_to_cfg(self._collect_anims()),
+            "stop_key": self.ed_anim_stop.text().strip().lower(),
+        }
         try:
-            Path(path).write_text(json.dumps(payload, ensure_ascii=False, indent=2),
-                                  encoding="utf-8")
+            Path(path).write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
         except OSError as e:
-            QMessageBox.warning(self, i18n.t("Экспорт"),
-                                i18n.t("Не удалось записать файл:\n") + str(e))
+            QMessageBox.warning(
+                self, i18n.t("Экспорт"), i18n.t("Не удалось записать файл:\n") + str(e)
+            )
             return
-        QMessageBox.information(self, i18n.t("Экспорт"),
-                                i18n.t("Правила сохранены в файл ") + str(path))
+        QMessageBox.information(
+            self, i18n.t("Экспорт"), i18n.t("Правила сохранены в файл ") + str(path)
+        )
 
     def _import_anims(self):
         """Правила из JSON, созданного кнопкой «Экспорт…»."""
         path, _ = QFileDialog.getOpenFileName(
-            self, i18n.t("Импорт правил анимаций"), str(DATA),
-            i18n.t("Правила анимаций (*.json);;Все файлы (*)"))
+            self,
+            i18n.t("Импорт правил анимаций"),
+            str(DATA),
+            i18n.t("Правила анимаций (*.json);;Все файлы (*)"),
+        )
         if not path:
             return
         try:
             text = Path(path).read_text(encoding="utf-8-sig")
             data = json.loads(text)
         except (OSError, ValueError) as e:
-            QMessageBox.warning(self, i18n.t("Импорт"),
-                                i18n.t("Файл не подошёл:\n") + str(e))
+            QMessageBox.warning(self, i18n.t("Импорт"), i18n.t("Файл не подошёл:\n") + str(e))
             return
         raw = data.get("rules") if isinstance(data, dict) and "rules" in data else data
         if not isinstance(raw, list):
-            QMessageBox.warning(self, i18n.t("Импорт"), i18n.t(
-                "В файле нужен список правил: {\"rules\": [ … ]}."))
+            QMessageBox.warning(
+                self, i18n.t("Импорт"), i18n.t('В файле нужен список правил: {"rules": [ … ]}.')
+            )
             return
         imported = 0
         self.tbl_anims.blockSignals(True)
@@ -4565,9 +4933,9 @@ class SettingsWindow(QDialog):
                 self.ed_anim_stop.setText(stop_key)
                 self._anim_stop_changed()
         if not imported:
-            QMessageBox.information(self, i18n.t("Импорт"),
-                                    i18n.t("В файле не нашлось правил."))
+            QMessageBox.information(self, i18n.t("Импорт"), i18n.t("В файле не нашлось правил."))
         self._anims_changed()
+
     # ------------------------------------------------------------ Модули
     def _page_modules(self):
         """Страница «Модули»: что можно выключить и что от чего зависит.
@@ -4584,10 +4952,14 @@ class SettingsWindow(QDialog):
 
         card, cl = _card()
         cl.addWidget(_title("Модули", "sec"))
-        cl.addWidget(_hint("Каждую часть программы можно выключить. Данные при этом "
-                           "не теряются: словари, сокращения и настройки остаются "
-                           "на месте, а программу можно вернуть к полному набору "
-                           "в любой момент."))
+        cl.addWidget(
+            _hint(
+                "Каждую часть программы можно выключить. Данные при этом "
+                "не теряются: словари, сокращения и настройки остаются "
+                "на месте, а программу можно вернуть к полному набору "
+                "в любой момент."
+            )
+        )
 
         self.chk_modules = {}
         # подписи модулей собираются из реестра, а не из таблицы переводов:
@@ -4629,7 +5001,8 @@ class SettingsWindow(QDialog):
             if module.requires:
                 names = ", ".join(
                     (modules.get(dep).title_en if i18n.is_en() else modules.get(dep).title_ru)
-                    for dep in module.requires if modules.get(dep)
+                    for dep in module.requires
+                    if modules.get(dep)
                 )
                 dep_label = QLabel(i18n.t("Зависит от модуля: ") + names)
                 dep_label.setProperty("no_i18n", True)
@@ -4669,7 +5042,8 @@ class SettingsWindow(QDialog):
         banner.setProperty("no_i18n", True)
         banner.setStyleSheet(
             "color:#ffcf80; background:#2a2418; border:1px solid #5a4a28;"
-            "border-radius:8px; padding:10px 12px;")
+            "border-radius:8px; padding:10px 12px;"
+        )
         banner.setVisible(False)
         layout.insertWidget(0, banner)
 
@@ -4691,16 +5065,22 @@ class SettingsWindow(QDialog):
         if checked:
             missing = modules.blockers(self._cfg_now(), key)
             if missing:
-                names = ", ".join((modules.get(dep).title_en if i18n.is_en()
-                                   else modules.get(dep).title_ru)
-                                  for dep in missing if modules.get(dep))
+                names = ", ".join(
+                    (modules.get(dep).title_en if i18n.is_en() else modules.get(dep).title_ru)
+                    for dep in missing
+                    if modules.get(dep)
+                )
                 answer = QMessageBox.question(
-                    self, i18n.t("Нужен ещё один модуль"),
-                    i18n.tf("«%s» не работает без модуля: %s.\n\nВключить его?",
-                            module.title_en if i18n.is_en() else module.title_ru,
-                            names),
+                    self,
+                    i18n.t("Нужен ещё один модуль"),
+                    i18n.tf(
+                        "«%s» не работает без модуля: %s.\n\nВключить его?",
+                        module.title_en if i18n.is_en() else module.title_ru,
+                        names,
+                    ),
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                    QMessageBox.StandardButton.Yes)
+                    QMessageBox.StandardButton.Yes,
+                )
                 if answer != QMessageBox.StandardButton.Yes:
                     # Возвращаем флажок на место. Сигналы НЕ блокируем: именно
                     # повторный `toggled(False)` откатывает галочку, которую
@@ -4782,9 +5162,11 @@ class SettingsWindow(QDialog):
             # every abbreviation table keeps its own history: an undo in German
             # must not rewrite English
             return "slang:" + slang.code_for(getattr(self, "_slang_lang", "en"))
-        return {row: self.HIST_MAIN,
-                3: "glossary",       # страница «Словарь»
-                7: "anims"}.get(row, self.HIST_MAIN)
+        return {
+            row: self.HIST_MAIN,
+            3: "glossary",  # страница «Словарь»
+            7: "anims",
+        }.get(row, self.HIST_MAIN)
 
     def _hist_state(self):
         """Текущее состояние всего, что правят в окне, вместе с диском.
@@ -4804,14 +5186,15 @@ class SettingsWindow(QDialog):
         docs = {code: dict(data) for code, data in self.docs.items()}
         return {
             "fields": fields,
-            "tables": {name: _table_state(table)
-                       for name, table in self._hist_tables()},
+            "tables": {name: _table_state(table) for name, table in self._hist_tables()},
             # Черновики сокращений по языкам: таблица показывает один язык, но
             # правки другого тоже обязаны откатываться.
             # The abbreviation drafts per language: the table shows one language,
             # yet the other languages' edits must roll back too.
-            "slang_drafts": {code: {token: list(pair) for token, pair in rows.items()}
-                             for code, rows in self._slang_drafts.items()},
+            "slang_drafts": {
+                code: {token: list(pair) for token, pair in rows.items()}
+                for code, rows in self._slang_drafts.items()
+            },
             "docs": docs,
             "self_cfg": dict(self.cfg),
             # Диск берётся из кэша: снимок делается на каждое нажатие клавиши, а
@@ -4830,23 +5213,51 @@ class SettingsWindow(QDialog):
         Tables are snapshotted whole: an edited cell changes a row rather than a
         settings field, and without this the undo would see no difference.
         """
-        return [(name, getattr(self, name)) for name in
-                ("tbl", "tbl_slang", "tbl_anims") if hasattr(self, name)]
+        return [
+            (name, getattr(self, name))
+            for name in ("tbl", "tbl_slang", "tbl_anims")
+            if hasattr(self, name)
+        ]
 
     def _hist_widgets(self):
         """Поля, которые входят в историю: ключ -> виджет.
 
         The fields that take part in the history: key to widget.
         """
-        names = ("cb_lang", "cb_mode", "cb_send_mode", "cb_ui_lang", "ed_hotkey",
-                 "ed_open", "ed_close", "sp_max", "sp_debounce", "ed_chatkey",
-                 "sp_focus", "sp_opendelay", "sp_ui_scale", "chk_show_settings",
-                 "chk_filler", "chk_prefer", "sp_every", "cb_pos", "sp_frag",
-                 "sp_min", "sp_maxw", "chk_slang", "chk_auto", "chk_send",
-                 "chk_submit", "chk_dlx", "ed_dlx_pro", "ed_dlx_proxy",
-                 "ed_dlx_url", "ed_dlx_url_token", "sp_dlx_port")
-        return [(name, getattr(self, name)) for name in names
-                if hasattr(self, name)]
+        names = (
+            "cb_lang",
+            "cb_mode",
+            "cb_send_mode",
+            "cb_ui_lang",
+            "ed_hotkey",
+            "ed_open",
+            "ed_close",
+            "sp_max",
+            "sp_debounce",
+            "ed_chatkey",
+            "sp_focus",
+            "sp_opendelay",
+            "sp_ui_scale",
+            "chk_show_settings",
+            "chk_filler",
+            "chk_prefer",
+            "sp_every",
+            "cb_pos",
+            "sp_frag",
+            "sp_min",
+            "sp_maxw",
+            "chk_slang",
+            "chk_auto",
+            "chk_send",
+            "chk_submit",
+            "chk_dlx",
+            "ed_dlx_pro",
+            "ed_dlx_proxy",
+            "ed_dlx_url",
+            "ed_dlx_url_token",
+            "sp_dlx_port",
+        )
+        return [(name, getattr(self, name)) for name in names if hasattr(self, name)]
 
     @staticmethod
     def _hist_read(widget):
@@ -4940,8 +5351,7 @@ class SettingsWindow(QDialog):
                 continue
             key = self._section_key()
             if self._hist.can_undo(key):
-                label.setText(i18n.t("Ctrl+Z — отменить правку в разделе · "
-                                     "Ctrl+Y — вернуть"))
+                label.setText(i18n.t("Ctrl+Z — отменить правку в разделе · Ctrl+Y — вернуть"))
             else:
                 label.setText("")
 
@@ -4964,15 +5374,16 @@ class SettingsWindow(QDialog):
         while the game kept doing what was undone.
         """
         section = self._hist.section(self._section_key())
-        can, step = (section.can_undo, section.undo) if undo else \
-            (section.can_redo, section.redo)
+        can, step = (section.can_undo, section.undo) if undo else (section.can_redo, section.redo)
         if not can():
             return False
         state = step()
         if state is None:
             return False
-        drafts_before = {code: {token: list(pair) for token, pair in rows.items()}
-                         for code, rows in self._slang_drafts.items()}
+        drafts_before = {
+            code: {token: list(pair) for token, pair in rows.items()}
+            for code, rows in self._slang_drafts.items()
+        }
         self._hist_applying = True
         try:
             self._restore_state(state)
@@ -5025,8 +5436,10 @@ class SettingsWindow(QDialog):
             if table is not None:
                 _restore_table(table, rows)
         self.docs = {code: dict(data) for code, data in (state.get("docs") or {}).items()}
-        self._slang_drafts = {code: {token: list(pair) for token, pair in rows.items()}
-                              for code, rows in (state.get("slang_drafts") or {}).items()}
+        self._slang_drafts = {
+            code: {token: list(pair) for token, pair in rows.items()}
+            for code, rows in (state.get("slang_drafts") or {}).items()
+        }
         self.cfg = dict(state.get("self_cfg") or self.cfg)
         # таблицы перерисовываются из восстановленных данных, а не наоборот
         # the tables are redrawn from the restored data, not the other way round
@@ -5104,9 +5517,10 @@ class SettingsWindow(QDialog):
         module = modules.get(key)
         if module is None or not modules.needed_in_other_mode(self._cfg_now(), key):
             return ""
-        return i18n.tf("«%s» нужен только в частичном режиме перевода. "
-                       "В других режимах он ничего не делает.",
-                       module.title_en if i18n.is_en() else module.title_ru)
+        return i18n.tf(
+            "«%s» нужен только в частичном режиме перевода. В других режимах он ничего не делает.",
+            module.title_en if i18n.is_en() else module.title_ru,
+        )
 
     def _own_module_box(self, key):
         """Флажок модуля на его собственной странице / the module's own checkbox."""
@@ -5161,16 +5575,22 @@ class SettingsWindow(QDialog):
             if banner is not None:
                 banner.setVisible(not active or other_mode)
                 if other_mode:
-                    banner.setText(i18n.tf(
-                        "Модуль «%s» в этом режиме не нужен: он работает только в "
-                        "частичном режиме. Переключите режим на странице «Основные» — "
-                        "настройки вернутся.",
-                        module.title_en if i18n.is_en() else module.title_ru))
+                    banner.setText(
+                        i18n.tf(
+                            "Модуль «%s» в этом режиме не нужен: он работает только в "
+                            "частичном режиме. Переключите режим на странице «Основные» — "
+                            "настройки вернутся.",
+                            module.title_en if i18n.is_en() else module.title_ru,
+                        )
+                    )
                 elif not active:
-                    banner.setText(i18n.tf(
-                        "Модуль «%s» выключен — настройки раздела недоступны. "
-                        "Включите его здесь или в разделе «Модули».",
-                        module.title_en if i18n.is_en() else module.title_ru))
+                    banner.setText(
+                        i18n.tf(
+                            "Модуль «%s» выключен — настройки раздела недоступны. "
+                            "Включите его здесь или в разделе «Модули».",
+                            module.title_en if i18n.is_en() else module.title_ru,
+                        )
+                    )
             if view is not None:
                 view.setProperty("moduleOff", not active or other_mode)
             # Содержимое гаснет в два приёма: правила [moduleOff="true"] в общей
@@ -5202,7 +5622,7 @@ class SettingsWindow(QDialog):
         while the original text is kept in a widget property, so switching the
         module back on restores it byte for byte without rebuilding the section.
         """
-        for child in (page.findChildren(QWidget) if page is not None else []):
+        for child in page.findChildren(QWidget) if page is not None else []:
             if child.objectName() == "moduleOff":
                 continue
             own = child.styleSheet()
@@ -5275,21 +5695,21 @@ class SettingsWindow(QDialog):
         lay.setContentsMargins(20, 18, 20, 18)
         lay.setSpacing(12)
         lay.addWidget(_title("Проверка перевода", "sec"))
-        self.lb_test_hint = _hint("")          # текст зависит от направления (см. ниже)
+        self.lb_test_hint = _hint("")  # текст зависит от направления (см. ниже)
         self.lb_test_hint.setProperty("no_i18n", True)
         lay.addWidget(self.lb_test_hint)
         row_dir = QHBoxLayout()
         row_dir.addWidget(QLabel("Направление:"))
         self.cb_test_dir = QComboBox()
         self.cb_test_dir.addItem("Всё сообщение → выбранный язык", "full")
-        self.cb_test_dir.addItem("Только выделенные слова и фразы → выбранный язык",
-                                 "partial")
+        self.cb_test_dir.addItem("Только выделенные слова и фразы → выбранный язык", "partial")
         self.cb_test_dir.addItem("Ваш язык → русский", "to_ru")
         self.cb_test_dir.setMinimumWidth(200)
         self.cb_test_dir.setToolTip(
             "Проверить можно оба направления. «Ваш язык → русский» показывает, что "
             "уйдёт в чат игры в режиме для иностранного игрока: сокращения "
-            "раскрываются, служебные команды остаются как есть.")
+            "раскрываются, служебные команды остаются как есть."
+        )
         self.cb_test_dir.currentIndexChanged.connect(self._test_dir_changed)
         row_dir.addWidget(self.cb_test_dir)
         row_dir.addStretch(1)
@@ -5337,9 +5757,11 @@ class SettingsWindow(QDialog):
         rows = []
         for f in data.get("_fillers") or []:
             rows.append(f"• {f.get('target')} ← " + ", ".join(f.get("ru") or []))
-        QMessageBox.information(self, i18n.tf("Слова-паразиты — %s",
-                                              langs.label(self.glang)),
-                                "\n".join(rows) or i18n.t("Для этого языка список не задан."))
+        QMessageBox.information(
+            self,
+            i18n.tf("Слова-паразиты — %s", langs.label(self.glang)),
+            "\n".join(rows) or i18n.t("Для этого языка список не задан."),
+        )
 
     # --- направление проверки ---
     def _test_mode(self):
@@ -5357,46 +5779,67 @@ class SettingsWindow(QDialog):
         mode = self._test_mode()
         if mode == "full":
             if hasattr(self, "lb_test_hint"):
-                self.lb_test_hint.setText(i18n.t(
-                    "Введите фразу по-русски — увидите, что уйдёт в игру в полном "
-                    "режиме: весь текст на языке перевода, без +скобок+."))
+                self.lb_test_hint.setText(
+                    i18n.t(
+                        "Введите фразу по-русски — увидите, что уйдёт в игру в полном "
+                        "режиме: весь текст на языке перевода, без +скобок+."
+                    )
+                )
             self.ed_test.setPlaceholderText(
-                i18n.t("например: Слушай, брат, мне срочно нужна помощь"))
-            self.lb_test_dir.setText(i18n.t(
-                "Проверяем полный режим: в чат уйдёт всё сообщение на языке перевода."))
+                i18n.t("например: Слушай, брат, мне срочно нужна помощь")
+            )
+            self.lb_test_dir.setText(
+                i18n.t("Проверяем полный режим: в чат уйдёт всё сообщение на языке перевода.")
+            )
             if not silent:
                 self._do_preview()
             return
         if mode == "partial":
             if hasattr(self, "lb_test_hint"):
-                self.lb_test_hint.setText(i18n.t(
-                    "Введите фразу по-русски — увидите, что уйдёт в игру в обычном "
-                    "режиме: переводятся только выделенные слова и фразы и паразиты."))
+                self.lb_test_hint.setText(
+                    i18n.t(
+                        "Введите фразу по-русски — увидите, что уйдёт в игру в обычном "
+                        "режиме: переводятся только выделенные слова и фразы и паразиты."
+                    )
+                )
             self.ed_test.setPlaceholderText(
-                i18n.t("например: Слушай, брат, мне срочно нужна помощь"))
-            self.lb_test_dir.setText(i18n.t(
-                "Проверяем обычный режим: в чат уйдёт ваш текст, а переведёнными — "
-                "только выделенные слова и фразы."))
+                i18n.t("например: Слушай, брат, мне срочно нужна помощь")
+            )
+            self.lb_test_dir.setText(
+                i18n.t(
+                    "Проверяем обычный режим: в чат уйдёт ваш текст, а переведёнными — "
+                    "только выделенные слова и фразы."
+                )
+            )
             if not silent:
                 self._do_preview()
             return
         if self._test_reverse():
             if hasattr(self, "lb_test_hint"):
-                self.lb_test_hint.setText(i18n.t(
-                    "Введите фразу на языке сервера — увидите, что именно уйдёт в чат "
-                    "игры на русском. Работает по текущим настройкам окна (до сохранения)."))
+                self.lb_test_hint.setText(
+                    i18n.t(
+                        "Введите фразу на языке сервера — увидите, что именно уйдёт в чат "
+                        "игры на русском. Работает по текущим настройкам окна (до сохранения)."
+                    )
+                )
             self.ed_test.setPlaceholderText(i18n.t("например: brb, I'm afk, ty"))
-            self.lb_test_dir.setText(i18n.t(
-                "Проверяем режим для иностранного игрока: в чат уйдёт перевод на русский."))
+            self.lb_test_dir.setText(
+                i18n.t("Проверяем режим для иностранного игрока: в чат уйдёт перевод на русский.")
+            )
         else:
             if hasattr(self, "lb_test_hint"):
-                self.lb_test_hint.setText(i18n.t(
-                    "Введите фразу по-русски — увидите, что именно уйдёт в игру и как это "
-                    "читать вслух. Работает по текущим настройкам окна (до сохранения)."))
+                self.lb_test_hint.setText(
+                    i18n.t(
+                        "Введите фразу по-русски — увидите, что именно уйдёт в игру и как это "
+                        "читать вслух. Работает по текущим настройкам окна (до сохранения)."
+                    )
+                )
             self.ed_test.setPlaceholderText(
-                i18n.t("например: Слушай, брат, мне срочно нужна помощь"))
-            self.lb_test_dir.setText(i18n.t(
-                "Проверяем обычный режим: в чат уйдёт текст на выбранном языке перевода."))
+                i18n.t("например: Слушай, брат, мне срочно нужна помощь")
+            )
+            self.lb_test_dir.setText(
+                i18n.t("Проверяем обычный режим: в чат уйдёт текст на выбранном языке перевода.")
+            )
         if not silent:
             self._do_preview()
 
@@ -5429,7 +5872,7 @@ class SettingsWindow(QDialog):
         self._busy = True
         cfg = self._preview_cfg()
         code = langs.code_of(cfg.get("target_lang"))
-        self._collect_slang()                 # проверка учитывает свои сокращения
+        self._collect_slang()  # проверка учитывает свои сокращения
         self.lb_test_mode.setStyleSheet("")
         self.lb_test_mode.setText(i18n.t("перевожу…"))
         # если сервисы отвечают долго — честно об этом пишем, а не молчим
@@ -5438,11 +5881,12 @@ class SettingsWindow(QDialog):
             self._slow_timer = QTimer(self)
             self._slow_timer.setSingleShot(True)
             self._slow_timer.timeout.connect(
-                lambda: self.lb_test_mode.setText(i18n.t("перевожу… (сервисы заняты)")))
+                lambda: self.lb_test_mode.setText(i18n.t("перевожу… (сервисы заняты)"))
+            )
         self._slow_timer.start(5000)
-        threading.Thread(target=self._preview_job,
-                         args=(cfg, code, text, self._test_mode()),
-                         daemon=True).start()
+        threading.Thread(
+            target=self._preview_job, args=(cfg, code, text, self._test_mode()), daemon=True
+        ).start()
 
     def _preview_job(self, cfg, code, text, mode="partial"):
         """Прогон через движок в том же режиме, что выбран в списке проверки.
@@ -5465,11 +5909,15 @@ class SettingsWindow(QDialog):
             engine = Engine(cfg, gl, tr)
             if reverse:
                 res = engine.process_in(text)
-                payload = {"out": res.text or "—",
-                           "sub": (i18n.t("Исходное сообщение: ") + res.native)
-                                  if res.native and res.native != res.text else "",
-                           "note": i18n.t("Способ: переведено в чат игры") if res.translated
-                                   else i18n.t("Способ: без перевода (одна команда)")}
+                payload = {
+                    "out": res.text or "—",
+                    "sub": (i18n.t("Исходное сообщение: ") + res.native)
+                    if res.native and res.native != res.text
+                    else "",
+                    "note": i18n.t("Способ: переведено в чат игры")
+                    if res.translated
+                    else i18n.t("Способ: без перевода (одна команда)"),
+                }
             elif mode == "full":
                 res = engine.process_full(text)
                 sent = res.native or res.text
@@ -5477,21 +5925,35 @@ class SettingsWindow(QDialog):
             else:
                 res = engine.process(text, auto=bool(cfg.get("auto_mode")), seed=1.0)
                 native = str(cfg.get("send_mode") or "reading") in (
-                    "native", "lang", "text", "target")
+                    "native",
+                    "lang",
+                    "text",
+                    "target",
+                )
                 sent = (res.native or res.text) if native else (res.text or res.native)
                 other = res.text if native else res.native
             if mode != "to_ru":
-                payload = {"out": sent or "—",
-                           "sub": (i18n.t("На языке: ") + other)
-                                  if other and other != sent else "",
-                           "note": i18n.t("Способ: ") + (
-                               i18n.t("переведено") if res.translated
-                               else i18n.t("без перевода (только маркеры/команды)"))}
+                payload = {
+                    "out": sent or "—",
+                    "sub": (i18n.t("На языке: ") + other) if other and other != sent else "",
+                    "note": i18n.t("Способ: ")
+                    + (
+                        i18n.t("переведено")
+                        if res.translated
+                        else i18n.t("без перевода (только маркеры/команды)")
+                    ),
+                }
             ok, msg = True, ""
         except TranslateError as e:
-            payload, ok, msg = None, False, i18n.tf(
-                "Перевод не удался: %s. Повторите через минуту — проверка попробует "
-                "другой сервис, а в чате перевод пойдёт по словарю.", str(e)[:140])
+            payload, ok, msg = (
+                None,
+                False,
+                i18n.tf(
+                    "Перевод не удался: %s. Повторите через минуту — проверка попробует "
+                    "другой сервис, а в чате перевод пойдёт по словарю.",
+                    str(e)[:140],
+                ),
+            )
         except Exception as e:
             payload, ok, msg = None, False, str(e)[:160]
         self._preview_done(payload, ok, msg)
@@ -5605,8 +6067,14 @@ class SettingsWindow(QDialog):
             self.sp_ui_scale.blockSignals(False)
             self._ui_scale_changed(self.sp_ui_scale.value())
         mode = str(cfg.get("send_mode", "reading")).lower()
-        self.cb_send_mode.setCurrentIndex(max(0, self.cb_send_mode.findData(
-            "native" if mode in ("native", "lang", "text", "target") else "reading")))
+        self.cb_send_mode.setCurrentIndex(
+            max(
+                0,
+                self.cb_send_mode.findData(
+                    "native" if mode in ("native", "lang", "text", "target") else "reading"
+                ),
+            )
+        )
         if hasattr(self, "cb_mode"):
             mode = cfg.get("mode") or "partial"
             self.cb_mode.blockSignals(True)
@@ -5623,8 +6091,7 @@ class SettingsWindow(QDialog):
         if hasattr(self, "cb_test_dir"):
             test_mode = cfg.get("mode") or "partial"
             self.cb_test_dir.blockSignals(True)
-            self.cb_test_dir.setCurrentIndex(
-                max(0, self.cb_test_dir.findData(test_mode)))
+            self.cb_test_dir.setCurrentIndex(max(0, self.cb_test_dir.findData(test_mode)))
             self.cb_test_dir.blockSignals(False)
             self._test_dir_changed()
         self._reverse_changed()
@@ -5658,17 +6125,20 @@ class SettingsWindow(QDialog):
             self.chk_dlx_update.setChecked(bool(cfg.get("dlx_auto_update", True)))
             self.sp_dlx_port.setValue(int(cfg.get("dlx_port", 0) or 0))
             self.ed_dlx_proxy.setText(str(cfg.get("dlx_proxy") or ""))
-            self.chk_dlx_sysproxy.setChecked(
-                bool(cfg.get("dlx_use_system_proxy", True)))
+            self.chk_dlx_sysproxy.setChecked(bool(cfg.get("dlx_use_system_proxy", True)))
             self._dlx_proxy_note()
             self.ed_dlx_pro.setText(str(cfg.get("dlx_pro_token") or ""))
             self.ed_dlx_url.setText(str(cfg.get("dlx_url") or ""))
             self.ed_dlx_url_token.setText(str(cfg.get("dlx_url_token") or ""))
             self._dlx_refresh()
-        self.header_sub.setText(i18n.tf(
-            "Язык: %s · горячая клавиша: %s · частота автоперевода: каждое %d-е",
-            langs.label(langs.code_of(cfg.get("target_lang", "it"))),
-            _pretty_hotkey(cfg.get("hotkey", "F6")), int(cfg.get("auto_every", 4))))
+        self.header_sub.setText(
+            i18n.tf(
+                "Язык: %s · горячая клавиша: %s · частота автоперевода: каждое %d-е",
+                langs.label(langs.code_of(cfg.get("target_lang", "it"))),
+                _pretty_hotkey(cfg.get("hotkey", "F6")),
+                int(cfg.get("auto_every", 4)),
+            )
+        )
         if hasattr(self, "chk_anims"):
             self.chk_anims.blockSignals(True)
             self.chk_anims.setChecked(bool(cfg.get("anims_enabled", False)))
@@ -5718,9 +6188,13 @@ class SettingsWindow(QDialog):
 
     def _reset_all(self):
         ans = QMessageBox.question(
-            self, i18n.t("Сброс настроек"),
-            i18n.t("Вернуть все настройки к заводским?\nСловари и горячая клавиша тоже "
-                   "станут стандартными (F6, итальянский)."))
+            self,
+            i18n.t("Сброс настроек"),
+            i18n.t(
+                "Вернуть все настройки к заводским?\nСловари и горячая клавиша тоже "
+                "станут стандартными (F6, итальянский)."
+            ),
+        )
         if ans != QMessageBox.StandardButton.Yes:
             return
         self.cfg = dict(DEFAULT_CONFIG)
@@ -5728,14 +6202,15 @@ class SettingsWindow(QDialog):
         self._load_widgets()
         self._load_language("it", reload_table=True)
         self.footer_hint.setText(
-            i18n.t("Настройки сброшены — нажмите «Сохранить», чтобы применить."))
+            i18n.t("Настройки сброшены — нажмите «Сохранить», чтобы применить.")
+        )
 
     def _is_dirty(self):
         """Есть ли неприменённые правки / whether there are unsaved edits."""
         try:
             cur = dict(self.cfg)
             self._write_widgets(cur)
-        except Exception:                                 # окно ещё не собрано целиком
+        except Exception:  # окно ещё не собрано целиком
             return False
         if cur != self.cfg:
             return True
@@ -5767,10 +6242,12 @@ class SettingsWindow(QDialog):
         """
         if self._is_dirty():
             ans = QMessageBox.question(
-                self, i18n.t("Несохранённые изменения"),
+                self,
+                i18n.t("Несохранённые изменения"),
                 i18n.t("В настройках есть неприменённые изменения.\nЗакрыть окно без сохранения?"),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No)
+                QMessageBox.StandardButton.No,
+            )
             if ans != QMessageBox.StandardButton.Yes:
                 return
         super().reject()
@@ -5815,22 +6292,29 @@ class SettingsWindow(QDialog):
                 index, problem = problems[0]
                 self.nav.setCurrentRow(self._anims_row)
                 QMessageBox.warning(
-                    self, i18n.t("Анимации"),
-                    i18n.tf("Правило в строке %d: %s. Исправьте его или удалите — "
-                            "без этого настройки не сохранятся.",
-                            index + 1, i18n.t(problem)))
+                    self,
+                    i18n.t("Анимации"),
+                    i18n.tf(
+                        "Правило в строке %d: %s. Исправьте его или удалите — "
+                        "без этого настройки не сохранятся.",
+                        index + 1,
+                        i18n.t(problem),
+                    ),
+                )
                 return
             if not stop_ok:
                 self.nav.setCurrentRow(self._anims_row)
-                QMessageBox.warning(self, i18n.t("Анимации"),
-                                    self.lb_anim_stop.text())
+                QMessageBox.warning(self, i18n.t("Анимации"), self.lb_anim_stop.text())
                 return
         if not self._hotkey_changed():
             self.nav.setCurrentRow(0)
             self.lb_hotkey.setObjectName("err")
             self.lb_hotkey.setStyleSheet("color:#ff6b6b;")
-            QMessageBox.warning(self, i18n.t("Горячая клавиша"),
-                                self.lb_hotkey.text() or i18n.t("Проверьте горячую клавишу."))
+            QMessageBox.warning(
+                self,
+                i18n.t("Горячая клавиша"),
+                self.lb_hotkey.text() or i18n.t("Проверьте горячую клавишу."),
+            )
             return
         cfg = dict(self.cfg)
         self._write_widgets(cfg)
@@ -5843,20 +6327,27 @@ class SettingsWindow(QDialog):
         try:
             save_config(cfg)
         except OSError as e:
-            QMessageBox.critical(self, i18n.t("Сохранение"),
-                                 i18n.t("Не удалось записать config.json:\n") + str(e))
+            QMessageBox.critical(
+                self, i18n.t("Сохранение"), i18n.t("Не удалось записать config.json:\n") + str(e)
+            )
             return
-        log.info("Настройки сохранены: язык %s, hotkey %s, словари %s",
-                 cfg.get("target_lang"), cfg.get("hotkey"), saved_glossaries)
+        log.info(
+            "Настройки сохранены: язык %s, hotkey %s, словари %s",
+            cfg.get("target_lang"),
+            cfg.get("hotkey"),
+            saved_glossaries,
+        )
         # Сохранение — тоже шаг истории: иначе Ctrl+Z после «Сохранить» не вернул
         # бы файл, а игра продолжила бы делать отменённое. Состояние «до» берём
         # как есть, а новое состояние диска становится кэшем.
         # A save is a history step too: otherwise Ctrl+Z after "Save" would not
         # put the file back and the game would keep doing what was undone.
         before = self._hist_state()
-        self._disk_cache = {"cfg": dict(cfg), "docs": {
-            code: dict(self.docs.get(code) or {}) for code in saved_glossaries},
-            "slang": read_json(SLANG_PATH, {})}
+        self._disk_cache = {
+            "cfg": dict(cfg),
+            "docs": {code: dict(self.docs.get(code) or {}) for code in saved_glossaries},
+            "slang": read_json(SLANG_PATH, {}),
+        }
         after = self._hist_state()
         self._hist.section(self._section_key()).record(before, after, "save")
         self._hist_shadow = after
@@ -5897,6 +6388,7 @@ def _pretty_hotkey(spec):
 
 def _sz(w, h):
     from PySide6.QtCore import QSize
+
     return QSize(w, h)
 
 
@@ -5934,27 +6426,36 @@ class AnimProps(QDialog):
         lay.setContentsMargins(20, 16, 20, 14)
         lay.setSpacing(10)
 
-        head = QLabel(i18n.tf("Ключевые слова: %s",
-                              rule.keywords.strip() or i18n.t("не заданы")))
+        head = QLabel(i18n.tf("Ключевые слова: %s", rule.keywords.strip() or i18n.t("не заданы")))
         head.setStyleSheet("font-size:14px;font-weight:600;")
         head.setWordWrap(True)
         lay.addWidget(head)
 
-        lay.addWidget(_hint(i18n.t(
-            "Заполните варианты: имя для /anim, название и описание. Если "
-            "вариантов два и больше, в игре откроется оверлей выбора — игрок "
-            "увидит название и описание, а не имя команды. Один вариант — "
-            "обычное правило, оно играет сразу.")))
+        lay.addWidget(
+            _hint(
+                i18n.t(
+                    "Заполните варианты: имя для /anim, название и описание. Если "
+                    "вариантов два и больше, в игре откроется оверлей выбора — игрок "
+                    "увидит название и описание, а не имя команды. Один вариант — "
+                    "обычное правило, оно играет сразу."
+                )
+            )
+        )
 
-        lay.addWidget(_hint(i18n.t(
-            "Группа необязательна: впишите одинаковое название у нескольких "
-            "вариантов — в оверлее они встанут подряд под этим названием, а "
-            "разные группы будут разделены чертой.")))
+        lay.addWidget(
+            _hint(
+                i18n.t(
+                    "Группа необязательна: впишите одинаковое название у нескольких "
+                    "вариантов — в оверлее они встанут подряд под этим названием, а "
+                    "разные группы будут разделены чертой."
+                )
+            )
+        )
 
         self.tbl = QTableWidget(0, 4)
         self.tbl.setHorizontalHeaderLabels(
-            [i18n.t("/anim"), i18n.t("Название"), i18n.t("Описание"),
-             i18n.t("Группа")])
+            [i18n.t("/anim"), i18n.t("Название"), i18n.t("Описание"), i18n.t("Группа")]
+        )
         head_view = self.tbl.horizontalHeader()
         head_view.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         head_view.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
@@ -5981,12 +6482,14 @@ class AnimProps(QDialog):
         # A group is given to several rows at once: typing the same title into
         # every cell by hand is busywork.
         self.bt_group = QPushButton(i18n.t("Группа…"))
-        self.bt_group.setToolTip(i18n.t(
-            "Дать выбранным вариантам общее название группы — в оверлее они "
-            "встанут подряд под ним и будут отделены чертой от других групп."))
+        self.bt_group.setToolTip(
+            i18n.t(
+                "Дать выбранным вариантам общее название группы — в оверлее они "
+                "встанут подряд под ним и будут отделены чертой от других групп."
+            )
+        )
         self.bt_group.clicked.connect(self._assign_group)
-        for button in (self.bt_add, self.bt_del, self.bt_up, self.bt_down,
-                       self.bt_group):
+        for button in (self.bt_add, self.bt_del, self.bt_up, self.bt_down, self.bt_group):
             btns.addWidget(button)
         btns.addStretch(1)
         lay.addLayout(btns)
@@ -6017,10 +6520,12 @@ class AnimProps(QDialog):
         # editing any cell revalidates at once: the Done button dims and lights up
         # as the text is typed, with no separate "check" press
         self.tbl.itemChanged.connect(lambda *_: self._validate())
-        self.tbl.setEditTriggers(QAbstractItemView.EditTrigger.DoubleClicked
-                                 | QAbstractItemView.EditTrigger.SelectedClicked
-                                 | QAbstractItemView.EditTrigger.EditKeyPressed
-                                 | QAbstractItemView.EditTrigger.AnyKeyPressed)
+        self.tbl.setEditTriggers(
+            QAbstractItemView.EditTrigger.DoubleClicked
+            | QAbstractItemView.EditTrigger.SelectedClicked
+            | QAbstractItemView.EditTrigger.EditKeyPressed
+            | QAbstractItemView.EditTrigger.AnyKeyPressed
+        )
 
     # --- таблица ---
     def _fill(self):
@@ -6037,8 +6542,9 @@ class AnimProps(QDialog):
     def _add_row(self, choice):
         row = self.tbl.rowCount()
         self.tbl.insertRow(row)
-        for column, text in enumerate((choice.name, choice.title,
-                                       choice.description, choice.group)):
+        for column, text in enumerate(
+            (choice.name, choice.title, choice.description, choice.group)
+        ):
             item = QTableWidgetItem(text)
             item.setToolTip(text)
             self.tbl.setItem(row, column, item)
@@ -6052,8 +6558,7 @@ class AnimProps(QDialog):
         self._validate()
 
     def _del(self):
-        rows = sorted({index.row() for index in self.tbl.selectedIndexes()},
-                      reverse=True)
+        rows = sorted({index.row() for index in self.tbl.selectedIndexes()}, reverse=True)
         if not rows:
             self._problem_hint(i18n.t("Сначала выберите вариант."))
             return
@@ -6105,13 +6610,14 @@ class AnimProps(QDialog):
         if item is not None:
             current = item.text().strip()
         title, ok = QInputDialog.getText(
-            self, i18n.t("Группа вариантов"),
-            i18n.tf("Название группы для строк: %d. Пустое поле — убрать группу.",
-                    len(rows)),
-            text=current)
+            self,
+            i18n.t("Группа вариантов"),
+            i18n.tf("Название группы для строк: %d. Пустое поле — убрать группу.", len(rows)),
+            text=current,
+        )
         if not ok:
             return
-        title = (title or "").strip()[:anims.MAX_GROUP]
+        title = (title or "").strip()[: anims.MAX_GROUP]
         self.tbl.blockSignals(True)
         for row in rows:
             cell = self.tbl.item(row, 3)
@@ -6140,8 +6646,9 @@ class AnimProps(QDialog):
                 problems.append(i18n.tf("Строка %d: ", row + 1) + i18n.t(problem))
                 continue
             if choice.name in seen:
-                problems.append(i18n.tf("Строка %d: ", row + 1)
-                                + i18n.t("такая анимация уже есть в списке"))
+                problems.append(
+                    i18n.tf("Строка %d: ", row + 1) + i18n.t("такая анимация уже есть в списке")
+                )
             seen.add(choice.name)
         if self.tbl.rowCount() > anims.MAX_CHOICES:
             problems.append(i18n.t(anims.VAL_TOO_MANY_CHOICES))
@@ -6153,8 +6660,10 @@ class AnimProps(QDialog):
         def text(column):
             item = self.tbl.item(row, column)
             return item.text().strip() if item is not None else ""
-        return anims.Choice(name=text(0).lstrip("/"), title=text(1),
-                            description=text(2), group=text(3))
+
+        return anims.Choice(
+            name=text(0).lstrip("/"), title=text(1), description=text(2), group=text(3)
+        )
 
     def choices(self) -> list["anims.Choice"]:
         """Итоговые варианты в порядке таблицы / the variants in table order."""
@@ -6218,7 +6727,8 @@ class DlxConsent(QDialog):
             "· текст перевода уходит на серверы DeepL — так же, как сейчас в Google;\n"
             "· сервис неофициальный: DeepL может ограничить запросы, и тогда перевод "
             "сам вернётся к стандартным сервисам;\n"
-            "· выключить можно в любой момент: Настройки → DeepL.")
+            "· выключить можно в любой момент: Настройки → DeepL."
+        )
         text.setWordWrap(True)
         lay.addWidget(text)
         self.chk_download = QCheckBox("Скачать сервис сейчас (около 15 МБ)")
@@ -6255,8 +6765,7 @@ def ask_dlx_consent(cfg, parent=None):
 
 def open_settings(cfg, parent=None, first_run=False, dlx=None, anims_api=None):
     """Создаёт окно, загружает значения и возвращает его (без exec)."""
-    win = SettingsWindow(cfg, parent=parent, first_run=first_run, dlx=dlx,
-                         anims_api=anims_api)
+    win = SettingsWindow(cfg, parent=parent, first_run=first_run, dlx=dlx, anims_api=anims_api)
     win._load_widgets()
     win._load_language(langs.code_of(cfg.get("target_lang", "it")), reload_table=True)
     return win

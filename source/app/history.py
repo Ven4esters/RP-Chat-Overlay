@@ -65,8 +65,8 @@ class Section:
     def __init__(self, key: str) -> None:
         self.key = key
         self._entries: list[tuple[Any, Any, str]] = []
-        self._index = 0            # сколько записей применено / how many are applied
-        self._stamp = ""           # подпись поля для склейки / field tag for coalescing
+        self._index = 0  # сколько записей применено / how many are applied
+        self._stamp = ""  # подпись поля для склейки / field tag for coalescing
         self._when = -COALESCE_SEC
 
     # --- запись ---
@@ -79,9 +79,9 @@ class Section:
         Возвращает True, если шаг добавлен / True when a step was added.
         """
         if before == after:
-            return False           # ничего не изменилось — шага нет
+            return False  # ничего не изменилось — шага нет
         if self._index < len(self._entries):
-            del self._entries[self._index:]
+            del self._entries[self._index :]
         self._entries.append((before, after, tag))
         if len(self._entries) > DEPTH:
             del self._entries[0]
@@ -102,10 +102,13 @@ class Section:
         """
         if before == after:
             return False
-        continuing = (self._stamp == tag and self._entries
-                      and self._index == len(self._entries)
-                      and self._entries[-1][2] == tag
-                      and now - self._when < COALESCE_SEC)
+        continuing = (
+            self._stamp == tag
+            and self._entries
+            and self._index == len(self._entries)
+            and self._entries[-1][2] == tag
+            and now - self._when < COALESCE_SEC
+        )
         if continuing:
             # тот же ввод продолжается: обновляем «после» у последнего шага
             # the same typing continues: the last step's "after" is refreshed
@@ -179,5 +182,3 @@ class History:
                 section.reset()
             return
         self.section(key).reset()
-
-

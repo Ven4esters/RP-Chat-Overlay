@@ -25,6 +25,7 @@ from typing import Any, Final, Mapping
 
 from app import APP_NAME, modules
 
+
 # --------------------------------------------------------------------------- пути
 def _root() -> Path:
     """Папка программы: рядом с .exe (сборка) или с исходниками.
@@ -35,8 +36,11 @@ def _root() -> Path:
     If the folder is not writable (Program Files, for example), data moves to
     %LOCALAPPDATA%\\RPChatOverlay and the program keeps working from there.
     """
-    base = (Path(sys.executable).resolve().parent if getattr(sys, "frozen", False)
-            else Path(__file__).resolve().parent.parent)
+    base = (
+        Path(sys.executable).resolve().parent
+        if getattr(sys, "frozen", False)
+        else Path(__file__).resolve().parent.parent
+    )
     try:
         (base / "data").mkdir(parents=True, exist_ok=True)
         probe = base / "data" / ".writable"
@@ -44,18 +48,21 @@ def _root() -> Path:
         probe.unlink()
         return base
     except OSError:
-        fallback = (Path(os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
-                         or Path.home()) / "RPChatOverlay")
+        fallback = (
+            Path(os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or Path.home())
+            / "RPChatOverlay"
+        )
         try:
             fallback.mkdir(parents=True, exist_ok=True)
         except OSError:
-            pass          # работаем без сохранения / continue without persistence
+            pass  # работаем без сохранения / continue without persistence
         return fallback
 
 
 ROOT: Path = _root()
 DATA: Path = ROOT / "data"
 LOGS: Path = ROOT / "logs"
+
 
 def resource_path(name: str) -> Path:
     """Файл из комплекта программы: иконка, словари, картинки.
@@ -82,9 +89,9 @@ def resource_path(name: str) -> Path:
 
 CONFIG_PATH: Path = DATA / "config.json"
 CACHE_PATH: Path = DATA / "cache.json"
-SLANG_PATH: Path = DATA / "slang.json"              # свои сокращения игрока / user abbreviations
-GLOSSARY_DIR: Path = DATA / "glossaries"            # по файлу на язык / one file per language
-GLOSSARY_PATH: Path = DATA / "glossary.json"        # старый единый словарь / legacy single glossary
+SLANG_PATH: Path = DATA / "slang.json"  # свои сокращения игрока / user abbreviations
+GLOSSARY_DIR: Path = DATA / "glossaries"  # по файлу на язык / one file per language
+GLOSSARY_PATH: Path = DATA / "glossary.json"  # старый единый словарь / legacy single glossary
 LOG_PATH: Path = LOGS / "app.log"
 
 log: logging.Logger = logging.getLogger("app")
@@ -95,7 +102,7 @@ log: logging.Logger = logging.getLogger("app")
 # Key -> default value, commented in both languages; new keys belong here only.
 DEFAULT_CONFIG: dict[str, Any] = {
     # --- язык и направление / language and direction ---
-    "target_lang": "it",                # язык перевода / target language code
+    "target_lang": "it",  # язык перевода / target language code
     # "reading" = русская запись, "native" = текст на языке
     # "reading" sends the Russian reading, "native" the foreign text
     "send_mode": "reading",
@@ -103,33 +110,31 @@ DEFAULT_CONFIG: dict[str, Any] = {
     # как раньше: "in" — это режим 3, "out" — частичный (режим 2).
     # One key for three modes. The old "direction" key is still honoured:
     # "in" means mode 3, "out" means partial (mode 2).
-    "mode": "partial",                  # "full" | "partial" | "to_ru"
-    "direction": "out",                 # устаревший дубль режима / legacy copy of mode
-                                        # "out" = русский → язык, "in" = любой язык → русский
-
+    "mode": "partial",  # "full" | "partial" | "to_ru"
+    "direction": "out",  # устаревший дубль режима / legacy copy of mode
+    # "out" = русский → язык, "in" = любой язык → русский
     # --- интерфейс / interface ---
-    "ui_lang": "ru",                    # язык интерфейса: "ru" | "en" / UI language
-    "ui_lang_chosen": False,            # игрок уже выбирал язык / language already picked
-    "show_settings_on_start": True,     # показывать настройки при запуске / open settings on start
-    "setup_done": False,                # первый запуск пройден / first run completed
-    "ui_scale": 1.0,                    # масштаб интерфейса / interface scale
-    "always_on_top": True,              # оверлей поверх игры / overlay above the game
-
+    "ui_lang": "ru",  # язык интерфейса: "ru" | "en" / UI language
+    "ui_lang_chosen": False,  # игрок уже выбирал язык / language already picked
+    "show_settings_on_start": True,  # показывать настройки при запуске / open settings on start
+    "setup_done": False,  # первый запуск пройден / first run completed
+    "ui_scale": 1.0,  # масштаб интерфейса / interface scale
+    "always_on_top": True,  # оверлей поверх игры / overlay above the game
     # --- вспомогательные модули / optional modules ---
-    "translator_enabled": True,         # перевод по сети / online translation
-    "glossary_enabled": True,           # словарь / glossary
-    "hotkey_enabled": True,             # глобальная клавиша / global hotkey
-    "dlx_enabled": False,               # DeepL рядом (DLX) / local DeepL service
-    "dlx_asked": False,                 # предупреждение уже показано / consent shown
-    "dlx_port": 0,                      # 0 — выбрать свободный / 0 means auto
-    "dlx_autostart": True,              # поднимать вместе с программой / start with app
-    "dlx_auto_update": True,            # проверять обновления / check for updates
-    "dlx_proxy": "",                    # HTTP-прокси для DeepL / HTTP proxy for DeepL
-    "dlx_use_system_proxy": True,        # брать прокси из настроек Windows / use the Windows proxy
-    "dlx_url": "",                      # свой адрес сервиса вместо dlx.exe / own service URL
-    "dlx_url_token": "",                # токен своего сервиса / token of that service
-    "dlx_pro_token": "",                # токен DeepL Pro (OAuth) / DeepL Pro OAuth token
-    "slang": True,                      # сленг и сокращения / slang and abbreviations
+    "translator_enabled": True,  # перевод по сети / online translation
+    "glossary_enabled": True,  # словарь / glossary
+    "hotkey_enabled": True,  # глобальная клавиша / global hotkey
+    "dlx_enabled": False,  # DeepL рядом (DLX) / local DeepL service
+    "dlx_asked": False,  # предупреждение уже показано / consent shown
+    "dlx_port": 0,  # 0 — выбрать свободный / 0 means auto
+    "dlx_autostart": True,  # поднимать вместе с программой / start with app
+    "dlx_auto_update": True,  # проверять обновления / check for updates
+    "dlx_proxy": "",  # HTTP-прокси для DeepL / HTTP proxy for DeepL
+    "dlx_use_system_proxy": True,  # брать прокси из настроек Windows / use the Windows proxy
+    "dlx_url": "",  # свой адрес сервиса вместо dlx.exe / own service URL
+    "dlx_url_token": "",  # токен своего сервиса / token of that service
+    "dlx_pro_token": "",  # токен DeepL Pro (OAuth) / DeepL Pro OAuth token
+    "slang": True,  # сленг и сокращения / slang and abbreviations
     # Язык таблицы сокращений. Пусто — следовать за языком перевода: на немецком
     # сервере первой работает немецкая таблица, а итальянский (своей таблицы у
     # него нет) берёт английскую.
@@ -137,46 +142,42 @@ DEFAULT_CONFIG: dict[str, Any] = {
     # language": a German server uses the German table first, and Italian, which
     # has no table of its own, falls back to English.
     "slang_lang": "",
-
     # --- текст и маркеры / text and markers ---
-    "marker_open": "+",                 # маркер «переведи это» / "translate this" marker
+    "marker_open": "+",  # маркер «переведи это» / "translate this" marker
     "marker_close": "+",
-    "max_chars": 256,                   # предел длины сообщения / message length limit
-    "debounce_ms": 450,                 # пауза после ввода / typing pause before translating
-    "filler_always": True,              # слова-паразиты в каждом сообщении
-                                        # fillers in every message
-
+    "max_chars": 256,  # предел длины сообщения / message length limit
+    "debounce_ms": 450,  # пауза после ввода / typing pause before translating
+    "filler_always": True,  # слова-паразиты в каждом сообщении
+    # fillers in every message
     # --- автоперевод / auto-translation ---
-    "auto_mode": False,                 # включён ли автоперевод / auto-translation on
-    "auto_every": 4,                    # каждое N-е сообщение / every N-th message
-    "auto_position": "last",            # "last" | "first" | "random" | номер 1..N
-    "auto_fragments": 1,                # сколько фрагментов переводить / fragments per message
-    "auto_min_words": 1,                # длина фрагмента: от / fragment length, min
-    "auto_max_words": 3,                # ... и до / fragment length, max
-    "auto_prefer_glossary": True,       # сначала фразы из словаря / prefer glossary phrases
-
+    "auto_mode": False,  # включён ли автоперевод / auto-translation on
+    "auto_every": 4,  # каждое N-е сообщение / every N-th message
+    "auto_position": "last",  # "last" | "first" | "random" | номер 1..N
+    "auto_fragments": 1,  # сколько фрагментов переводить / fragments per message
+    "auto_min_words": 1,  # длина фрагмента: от / fragment length, min
+    "auto_max_words": 3,  # ... и до / fragment length, max
+    "auto_prefer_glossary": True,  # сначала фразы из словаря / prefer glossary phrases
     # --- отправка в игру / sending into the game ---
-    "game_send": True,                  # отправлять в игру / send into the game
-    "game_press_enter": False,          # нажимать Enter после вставки / press Enter after pasting
-    "game_submit": True,                # отправлять сообщение / submit the message
-    "game_chat_key": "t",               # клавиша чата в игре / in-game chat key
-    "game_open_chat_first": True,       # сначала открыть чат игры / open the game chat first
-    "game_open_delay_ms": 300,          # пауза после открытия чата / pause after opening
-    "game_paste_delay_ms": 150,         # пауза перед вставкой / pause before pasting
-    "game_focus_delay_ms": 150,         # пауза перед возвратом фокуса / pause before refocusing
-    "game_input_mode": "paste",         # "paste" = Ctrl+V, "type" = посимвольный ввод / typed input
-    "game_window_class": "grcWindow",   # класс окна игры / game window class
-    "game_extra_exes": [],              # дополнительные процессы игры / extra game processes
-
+    "game_send": True,  # отправлять в игру / send into the game
+    "game_press_enter": False,  # нажимать Enter после вставки / press Enter after pasting
+    "game_submit": True,  # отправлять сообщение / submit the message
+    "game_chat_key": "t",  # клавиша чата в игре / in-game chat key
+    "game_open_chat_first": True,  # сначала открыть чат игры / open the game chat first
+    "game_open_delay_ms": 300,  # пауза после открытия чата / pause after opening
+    "game_paste_delay_ms": 150,  # пауза перед вставкой / pause before pasting
+    "game_focus_delay_ms": 150,  # пауза перед возвратом фокуса / pause before refocusing
+    "game_input_mode": "paste",  # "paste" = Ctrl+V, "type" = посимвольный ввод / typed input
+    "game_window_class": "grcWindow",  # класс окна игры / game window class
+    "game_extra_exes": [],  # дополнительные процессы игры / extra game processes
     # --- анимации / animations ---
-    "slang_order": [],                    # свой порядок сокращений / the user's order
-    "anims_enabled": False,              # модуль «Анимации» / the animation module
-    "anim_rules": [],                    # правила: слово -> /anim / rules: keyword -> /anim
-    "anim_stop_key": "f",                # клавиша остановки / the stop key
-    "anim_stop_by_sa": True,             # останавливать командой /sa / stop with /sa
+    "slang_order": [],  # свой порядок сокращений / the user's order
+    "anims_enabled": False,  # модуль «Анимации» / the animation module
+    "anim_rules": [],  # правила: слово -> /anim / rules: keyword -> /anim
+    "anim_stop_key": "f",  # клавиша остановки / the stop key
+    "anim_stop_by_sa": True,  # останавливать командой /sa / stop with /sa
     "anim_stop_by_key": False,
-    "anim_skip_negation": True,           # останавливать нажатием клавиши / stop with the key
-    "anim_extra_ms": 50,                  # добавка к длительности анимации / tail after it
+    "anim_skip_negation": True,  # останавливать нажатием клавиши / stop with the key
+    "anim_extra_ms": 50,  # добавка к длительности анимации / tail after it
     # Режим «В машине»: пока включён, анимации не играют и /sa не уходит.
     # Флаг сохраняется, чтобы после перезапуска игры на парковке не сработало
     # то, что игрок выключил нарочно.
@@ -192,11 +193,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
     # высота строки таблицы правил: длинные фразы в пятнадцать пикселей не
     # читаются / the rules table row height: long phrases do not read at fifteen
     "anim_row_height": 34,
-
     # --- горячая клавиша и окно / hotkey and window ---
     "hotkey": "F6",
-    "overlay_pos": [0.01, 0.28],        # положение окна в долях окна игры / position as a fraction
-    "overlay_width": 560,               # ширина оверлея, px / overlay width in pixels
+    "overlay_pos": [0.01, 0.28],  # положение окна в долях окна игры / position as a fraction
+    "overlay_width": 560,  # ширина оверлея, px / overlay width in pixels
 }
 
 
@@ -225,6 +225,7 @@ def setup_logging() -> None:
     # error hooks: exceptions, threads, Qt and hard crashes
     try:
         from app import errorlog
+
         errorlog.install()
         log.info("Журналы: %s и %s", LOG_PATH, errorlog.ERROR_PATH)
     except Exception:

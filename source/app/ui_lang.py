@@ -7,11 +7,11 @@ The dialog shows both languages at once, without translating: on the first run
 the program cannot know which one the player needs. The choice is stored in the
 config and can be changed later in the settings.
 """
+
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QDialog, QHBoxLayout, QLabel, QPushButton,
-                               QVBoxLayout)
+from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 
 
 def ask_ui_language(parent=None, style: str = "") -> str:
@@ -33,13 +33,17 @@ def ask_ui_language(parent=None, style: str = "") -> str:
     head.setStyleSheet("font-size:15px;font-weight:600;")
     lay.addWidget(head)
 
-    ru = QLabel("Выберите язык кнопок, подсказок и меню.\n"
-                "Поменять его можно в любой момент: Настройки → Основные.")
+    ru = QLabel(
+        "Выберите язык кнопок, подсказок и меню.\n"
+        "Поменять его можно в любой момент: Настройки → Основные."
+    )
     ru.setWordWrap(True)
     lay.addWidget(ru)
 
-    en = QLabel("Choose the language of buttons, hints and menus.\n"
-                "You can change it any time: Settings → General.")
+    en = QLabel(
+        "Choose the language of buttons, hints and menus.\n"
+        "You can change it any time: Settings → General."
+    )
     en.setWordWrap(True)
     lay.addWidget(en)
 

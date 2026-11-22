@@ -25,6 +25,7 @@ and service commands.
 The glossary, slang and online translation can be disabled; the engine keeps
 working in a reduced form.
 """
+
 from __future__ import annotations
 
 import random
@@ -65,7 +66,7 @@ def norm(text: str) -> str:
 
 
 PH_RE = re.compile(r"\ue000(\d+)\ue000")
-ACT_RE = re.compile(r"\*[^*]*(?:\*|$)")          # незакрытое действие — до конца строки
+ACT_RE = re.compile(r"\*[^*]*(?:\*|$)")  # незакрытое действие — до конца строки
 CYR_RE = re.compile(r"[А-Яа-яЁё]")
 CYR_WORD_RE = re.compile(r"[А-Яа-яЁё]+(?:-[А-Яа-яЁё]+)*")
 WORD_RE = re.compile(r"[A-Za-zÀ-ÖØ-öø-ÿ’']+")
@@ -74,18 +75,21 @@ TAIL_RE = re.compile(r"[.!?…]+$")
 # служебные слова: сами по себе (и на краях фрагмента) в автоперевод не берутся
 # function words: alone, and at the edges of a fragment, they never
 # go into auto-translation
-STOP = {norm(w) for w in (
-    "и в во на с со к ко у о об от по за из для при про без до не ни но а да что как это то "
-    "я ты он она оно мы вы они мне тебе меня тебя ему ей нам вам их же бы ли вот вон тут там "
-    "уж ну же или либо чтобы если когда мой моя моё мои твой твоя твоё твои наш ваш"
-).split()}
+STOP = {
+    norm(w)
+    for w in (
+        "и в во на с со к ко у о об от по за из для при про без до не ни но а да что как это то "
+        "я ты он она оно мы вы они мне тебе меня тебя ему ей нам вам их же бы ли вот вон тут там "
+        "уж ну же или либо чтобы если когда мой моя моё мои твой твоя твоё твои наш ваш"
+    ).split()
+}
 
 # ---------- команды, которые считаются сообщениями ----------
 # /to, /lto, /l, /wt, /s, /st — это настоящие сообщения другим игрокам,
 # поэтому они участвуют в счётчике автоперевода (AutoPlan) наравне с обычным текстом.
 # Остальные команды (/me, /do, /b, /g, ...) в счётчик НЕ идут и не автопереводятся.
 COUNTED_COMMANDS = {"/to", "/lto", "/l", "/wt", "/s", "/st"}
-NICK_COMMANDS = {"/to", "/lto"}          # после команды идёт ник, его переводить нельзя
+NICK_COMMANDS = {"/to", "/lto"}  # после команды идёт ник, его переводить нельзя
 _CMD_TOKEN_RE = re.compile(r"^\s*(/\S+)")
 _CMD_PREFIX_RE = re.compile(r"^\s*/\S+\s*")
 _NICK_RE = re.compile(r"\S+\s*")
@@ -121,12 +125,12 @@ def split_prefix(text: str) -> tuple[str, str, bool, bool]:
     if not m:
         return "", text or "", False, False
     cmd = get_command(text)
-    prefix, body = m.group(0), text[m.end():]
+    prefix, body = m.group(0), text[m.end() :]
     if cmd in NICK_COMMANDS:
         nick = _NICK_RE.match(body)
         if nick:
             prefix += nick.group(0)
-            body = body[nick.end():]
+            body = body[nick.end() :]
     return prefix, body, True, cmd in COUNTED_COMMANDS
 
 
@@ -148,8 +152,8 @@ def keep_edges(orig: str, translated: str) -> str:
     """
     if not translated:
         return orig
-    lead = orig[:len(orig) - len(orig.lstrip())]
-    tail = orig[len(orig.rstrip()):]
+    lead = orig[: len(orig) - len(orig.lstrip())]
+    tail = orig[len(orig.rstrip()) :]
     return lead + translated.strip() + tail
 
 
@@ -179,13 +183,13 @@ def _filler_spans(body, g):
             # consecutive words with only spaces or commas between them (no actions)
             ok = True
             for x in range(i, j):
-                sep = body[ms[x].end():ms[x + 1].start()]
+                sep = body[ms[x].end() : ms[x + 1].start()]
                 if "\ue000" in sep or sep.strip(" ,") != "":
                     ok = False
                     break
             if not ok:
                 continue
-            frag = body[ms[i].start():ms[j].end()]
+            frag = body[ms[i].start() : ms[j].end()]
             # Фраза словаря главнее списка паразитов: «ну, значит» переводится как
             # готовая фраза, а не как два отдельных паразита.
             # A glossary phrase wins over the filler list: it goes as one ready
@@ -264,14 +268,14 @@ def restore_actions(text: str, acts: list[str]) -> str:
 def split_tail(text: str) -> tuple[str, str]:
     """Отделяет знаки в конце: «Привет!» -> («Привет», «!») / splits the tail."""
     m = TAIL_RE.search(text)
-    return (text[:m.start()], m.group(0)) if m else (text, "")
+    return (text[: m.start()], m.group(0)) if m else (text, "")
 
 
 def up_first(text: str) -> str:
     """Поднимает первую букву фразы / capitalises the first letter."""
     for i, ch in enumerate(text):
         if ch.isalpha():
-            return text[:i] + ch.upper() + text[i + 1:]
+            return text[:i] + ch.upper() + text[i + 1 :]
     return text
 
 
@@ -324,14 +328,15 @@ def auto_wrap(body: str, cfg: Mapping[str, Any], glossary: "Glossary", seed: flo
             # слова должны идти подряд, только через пробелы (без знаков и действий между ними)
             # the words must follow each other through spaces only (no punctuation,
             # no actions between them)
-            if any(body[ms[x].end():ms[x + 1].start()].strip() for x in range(i, j)):
+            if any(body[ms[x].end() : ms[x + 1].start()].strip() for x in range(i, j)):
                 break
-            frag = body[ms[i].start():ms[j].end()]
+            frag = body[ms[i].start() : ms[j].end()]
             words = [norm(ms[x].group()) for x in range(i, j + 1)]
             known = glossary.find_meaning(frag) is not None
             filler = _filler_key(frag) in glossary.filler_keys and known
-            if not known and (all(w in STOP for w in words)
-                              or words[0] in STOP or words[-1] in STOP):
+            if not known and (
+                all(w in STOP for w in words) or words[0] in STOP or words[-1] in STOP
+            ):
                 continue
             score = random.Random("%s|%s" % (seed, norm(frag))).random()
             if known and prefer:
@@ -445,12 +450,13 @@ class Glossary:
         self.meta = get_lang(self.lang)
         self.reading = has_reading(self.lang)
         phrases = data.get("phrases")
-        if not isinstance(phrases, dict):          # старый плоский формат
-            phrases = {k: v for k, v in data.items()
-                       if isinstance(v, str) and not k.startswith("_")}
+        if not isinstance(phrases, dict):  # старый плоский формат
+            phrases = {
+                k: v for k, v in data.items() if isinstance(v, str) and not k.startswith("_")
+            }
         self.phrases = phrases
-        self.by_it = {}        # норм. фраза на языке -> (оригинал, русская запись)
-        self.by_meaning = {}   # норм. русское значение -> ключ by_it
+        self.by_it = {}  # норм. фраза на языке -> (оригинал, русская запись)
+        self.by_meaning = {}  # норм. русское значение -> ключ by_it
         for it, val in phrases.items():
             if not isinstance(val, str):
                 continue
@@ -467,8 +473,9 @@ class Glossary:
         self.replace = {norm(k): v for k, v in rep.items()} if isinstance(rep, dict) else {}
         exc = data.get("exceptions") or data.get("translit_exceptions") or {}
         self.exc = {norm(k): v for k, v in exc.items()} if isinstance(exc, dict) else {}
-        self.fillers = [f for f in (data.get("_fillers") or [])
-                        if isinstance(f, dict) and f.get("ru")]
+        self.fillers = [
+            f for f in (data.get("_fillers") or []) if isinstance(f, dict) and f.get("ru")
+        ]
         self.filler_keys = {_filler_key(r) for f in self.fillers for r in f["ru"]}
         self.filler_max_words = max((len(k.split()) for k in self.filler_keys), default=1)
         # у слов-паразитов приоритет: их русские формы ведут именно в свою фразу,
@@ -519,10 +526,12 @@ class Glossary:
             taken = 0
             for size in range(min(limit, len(matches) - index), 0, -1):
                 last = index + size - 1
-                if any(text[matches[k].end():matches[k + 1].start()].strip()
-                       for k in range(index, last)):
+                if any(
+                    text[matches[k].end() : matches[k + 1].start()].strip()
+                    for k in range(index, last)
+                ):
                     continue
-                phrase = text[matches[index].start():matches[last].end()]
+                phrase = text[matches[index].start() : matches[last].end()]
                 key = self.find_meaning(phrase)
                 if key:
                     found.append((matches[index].start(), matches[last].end(), key))
@@ -551,13 +560,13 @@ class Glossary:
         out, pos, i = [], 0, 0
         while i < len(ms):
             m = ms[i]
-            out.append(text[pos:m.start()])
+            out.append(text[pos : m.start()])
             hit = None
             for n in range(min(4, len(ms) - i), 0, -1):
                 j = i + n - 1
-                if any(text[ms[k].end():ms[k + 1].start()].strip() for k in range(i, j)):
+                if any(text[ms[k].end() : ms[k + 1].start()].strip() for k in range(i, j)):
                     continue
-                ent = self.by_it.get(norm(text[m.start():ms[j].end()]))
+                ent = self.by_it.get(norm(text[m.start() : ms[j].end()]))
                 if ent:
                     hit = (ent[1], j)
                     break
@@ -588,7 +597,7 @@ def merge_defaults(user: dict, default: dict) -> dict:
     glossary; the user's readings and edits stay untouched.
     """
     up = user.get("phrases")
-    if not isinstance(up, dict):                   # старый плоский формат
+    if not isinstance(up, dict):  # старый плоский формат
         up = {k: v for k, v in user.items() if isinstance(v, str) and not k.startswith("_")}
     up = dict(up)
     by_key = {norm(k): k for k in up}
@@ -676,8 +685,7 @@ def load_glossary_data(lang: str = "it") -> dict:
             except OSError:
                 pass
             data = merge_defaults(data, default)
-            log.info("Словарь %s обновлён с версии %d до %d",
-                     lang, ver, int(default["_version"]))
+            log.info("Словарь %s обновлён с версии %d до %d", lang, ver, int(default["_version"]))
     data = _inject_fillers(data, pack)
     data["_lang"] = lang
     write_json(path, data)
@@ -840,12 +848,12 @@ class Engine:
         rx = _marker_rx(cfg)
         if filler_on:
             body = wrap_fillers(body, cfg, self.g)
-        if auto and not rx.search(body):            # свои +маркеры+ важнее автоперевода
+        if auto and not rx.search(body):  # свои +маркеры+ важнее автоперевода
             body = auto_wrap(body, cfg, self.g, seed)
         ru, it, pos, found = [], [], 0, False
         for mm in rx.finditer(body):
             found = True
-            pre = body[pos:mm.start()]
+            pre = body[pos : mm.start()]
             ru.append(pre)
             it.append(pre)
             before = PH_RE.sub("", "".join(ru)).strip()
@@ -862,6 +870,7 @@ class Engine:
             prefix + restore_actions("".join(it), acts),
             found,
         )
+
     # ---------- обратный режим: любой язык → русский ----------
     # ---------- полный перевод / full translation ----------
     def process_full(self, text: str) -> Result:
@@ -905,8 +914,8 @@ class Engine:
         if not modules.is_enabled(self.cfg, "glossary"):
             return self._translate(slang.expand_russian(text)[0] if slang_on else text)
         out, pos = [], 0
-        if not CYR_WORD_RE.search(text):      # иероглифы и прочие знаки без пробелов
-            return self._translate(text)      # space-less scripts go as a whole
+        if not CYR_WORD_RE.search(text):  # иероглифы и прочие знаки без пробелов
+            return self._translate(text)  # space-less scripts go as a whole
         # словарные фразы и слова-паразиты — это одно и то же: паразит тоже
         # фраза словаря, просто короче. Поэтому список один, иначе «ну, значит»
         # разъедется на два куска.
@@ -962,11 +971,11 @@ class Engine:
             body = slang.expand_any(body)[0]
         out, pos = [], 0
         for m in ACT_RE.finditer(body):
-            part = body[pos:m.start()]
+            part = body[pos : m.start()]
             out.append(keep_edges(part, self._translate(part)) if part.strip() else part)
             inner = m.group(0).strip("*")
             ru_inner = self._translate(inner).strip() if inner.strip() else ""
-            out.append("*" + (ru_inner or inner) + "*")      # действие тоже переводим
+            out.append("*" + (ru_inner or inner) + "*")  # действие тоже переводим
             pos = m.end()
         rest = body[pos:]
         out.append(keep_edges(rest, self._translate(rest)) if rest.strip() else rest)

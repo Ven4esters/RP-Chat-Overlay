@@ -68,9 +68,9 @@ MODULES: Final[tuple[Module, ...]] = (
         title_ru="Перевод по сети",
         title_en="Online translation",
         desc_ru="Цепочка сервисов Google, MyMemory, Lingva и LibreTranslate. "
-                "Без него работают только встроенные словари.",
+        "Без него работают только встроенные словари.",
         desc_en="The chain of Google, MyMemory, Lingva and LibreTranslate. "
-                "Without it only the built-in glossaries work.",
+        "Without it only the built-in glossaries work.",
         config_key="translator_enabled",
         page_key="page_test",
     ),
@@ -79,9 +79,9 @@ MODULES: Final[tuple[Module, ...]] = (
         title_ru="Словарь",
         title_en="Glossary",
         desc_ru="Готовые фразы с русской записью и значениями. Без него фразы "
-                "переводятся сервисами, без подсказки «как читается».",
+        "переводятся сервисами, без подсказки «как читается».",
         desc_en="Ready-made phrases with a Russian reading and meanings. Without it "
-                "phrases are translated by the services, with no reading hint.",
+        "phrases are translated by the services, with no reading hint.",
         config_key="glossary_enabled",
         page_key="page_glossary",
     ),
@@ -91,7 +91,7 @@ MODULES: Final[tuple[Module, ...]] = (
         title_en="Slang and abbreviations",
         desc_ru="brb, afk, gg, спс, мб раскрываются в полные фразы до перевода.",
         desc_en="brb, afk, gg and their Russian counterparts are expanded into "
-                "full phrases before translation.",
+        "full phrases before translation.",
         config_key="slang",
         page_key="page_slang",
     ),
@@ -100,8 +100,7 @@ MODULES: Final[tuple[Module, ...]] = (
         title_ru="Автоперевод",
         title_en="Auto-translation",
         desc_ru="Каждое N-е сообщение переводится само. Требует перевода по сети.",
-        desc_en="Every N-th message is translated automatically. Requires online "
-                "translation.",
+        desc_en="Every N-th message is translated automatically. Requires online translation.",
         config_key="auto_mode",
         requires=("translator",),
         page_key="page_auto",
@@ -116,9 +115,9 @@ MODULES: Final[tuple[Module, ...]] = (
         title_ru="Отправка в игру",
         title_en="Sending into the game",
         desc_ru="Оверлей сам открывает чат игры, вставляет текст и нажимает Enter. "
-                "Если выключено — текст только копируется в буфер обмена.",
+        "Если выключено — текст только копируется в буфер обмена.",
         desc_en="The overlay opens the game chat, pastes the text and presses Enter. "
-                "When off, the text is only copied to the clipboard.",
+        "When off, the text is only copied to the clipboard.",
         config_key="game_send",
         page_key="page_game",
     ),
@@ -127,9 +126,9 @@ MODULES: Final[tuple[Module, ...]] = (
         title_ru="DeepL рядом (DLX)",
         title_en="DeepL alongside (DLX)",
         desc_ru="Локальный сервис DeepL как первый переводчик. Требует согласия и "
-                "около 15 МБ на диске; без него работает обычная цепочка сервисов.",
+        "около 15 МБ на диске; без него работает обычная цепочка сервисов.",
         desc_en="A local DeepL service used as the first translator. It needs consent "
-                "and about 15 MB on disk; without it the regular service chain runs.",
+        "and about 15 MB on disk; without it the regular service chain runs.",
         config_key="dlx_enabled",
         default=False,
         requires=("translator",),
@@ -140,9 +139,9 @@ MODULES: Final[tuple[Module, ...]] = (
         title_ru="Анимации",
         title_en="Animations",
         desc_ru="Ключевое слово в вашем сообщении запускает /anim в игре; через "
-                "заданное время уходит /sa. Требует отправки в игру.",
+        "заданное время уходит /sa. Требует отправки в игру.",
         desc_en="A keyword in your message starts /anim in the game, and /sa "
-                "follows after the configured delay. Requires sending into the game.",
+        "follows after the configured delay. Requires sending into the game.",
         config_key="anims_enabled",
         default=False,
         requires=("game_send",),
@@ -153,9 +152,9 @@ MODULES: Final[tuple[Module, ...]] = (
         title_ru="Глобальная клавиша",
         title_en="Global hotkey",
         desc_ru="Вызов оверлея из игры одной клавишей. Без него оверлей "
-                "открывается двойным щелчком по значку в трее.",
+        "открывается двойным щелчком по значку в трее.",
         desc_en="Opens the overlay from inside the game with one key. Without it the "
-                "overlay opens by double-clicking the tray icon.",
+        "overlay opens by double-clicking the tray icon.",
         config_key="hotkey_enabled",
     ),
 )
@@ -186,8 +185,8 @@ def is_enabled(cfg: Mapping[str, Any], key: str, _seen: frozenset[str] = frozens
     if not _raw_flag(cfg, module):
         return False
     for dep in module.requires:
-        if dep in _seen:            # защита от циклических зависимостей
-            continue            # cycle guard
+        if dep in _seen:  # защита от циклических зависимостей
+            continue  # cycle guard
         if not is_enabled(cfg, dep, _seen | {key}):
             return False
     return True

@@ -44,8 +44,14 @@ FILLERS = [
     {"target": "Verstehst du?", "reading": "ферштест ду", "ru": ["понимаешь"]},
     {"target": "Mensch", "reading": "менш", "ru": ["чёрт", "блин"]},
     {"target": "Alter", "reading": "альтер", "ru": ["чувак", "братан"]},
-    {"target": "Kann man nichts machen", "reading": "кан ман нихтс махен",
-     "ru": ["а что поделаешь", "что поделаешь", "что поделать"]},
-    {"target": "Ganz langsam", "reading": "ганц лангзам",
-     "ru": ["потихоньку", "не спеша", "полегоньку"]},
+    {
+        "target": "Kann man nichts machen",
+        "reading": "кан ман нихтс махен",
+        "ru": ["а что поделаешь", "что поделаешь", "что поделать"],
+    },
+    {
+        "target": "Ganz langsam",
+        "reading": "ганц лангзам",
+        "ru": ["потихоньку", "не спеша", "полегоньку"],
+    },
 ]

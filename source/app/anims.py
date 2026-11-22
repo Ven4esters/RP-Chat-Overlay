@@ -64,10 +64,10 @@ from app import morph
 from app.config import log
 
 # ---------------------------------------------------------------- режимы чтения
-MODE_ALWAYS = 1        # любое сообщение / any message
-MODE_EMOTES = 2        # только /me, /ame, /melow, /melong
-MODE_ACTIONS = 3       # только текст между *звёздочками* / only *between asterisks*
-MODE_MESSAGES = 4      # обычные сообщения и /to, /lto, /l, /s, /w, /wt
+MODE_ALWAYS = 1  # любое сообщение / any message
+MODE_EMOTES = 2  # только /me, /ame, /melow, /melong
+MODE_ACTIONS = 3  # только текст между *звёздочками* / only *between asterisks*
+MODE_MESSAGES = 4  # обычные сообщения и /to, /lto, /l, /s, /w, /wt
 
 MODES: tuple[int, ...] = (MODE_ALWAYS, MODE_EMOTES, MODE_ACTIONS, MODE_MESSAGES)
 
@@ -100,19 +100,19 @@ MODE_TITLES_EN: dict[int, str] = {
 MODE_HINTS_RU: dict[int, str] = {
     MODE_ALWAYS: "Любое сообщение целиком: и обычное, и команда, и *действия*.",
     MODE_EMOTES: "Действия: команды /me, /ame, /melow, /melong и текст между "
-                 "*звёздочками* в любом сообщении.",
+    "*звёздочками* в любом сообщении.",
     MODE_ACTIONS: "Только текст между *звёздочками*; обычные слова не считаются.",
     MODE_MESSAGES: "Обычные сообщения (вместе с *действиями* внутри них) и команды "
-                   "/to, /lto, /l, /s, /w, /wt. Команды /me не считаются.",
+    "/to, /lto, /l, /s, /w, /wt. Команды /me не считаются.",
 }
 
 MODE_HINTS_EN: dict[int, str] = {
     MODE_ALWAYS: "The whole message: plain text, commands and *actions* alike.",
     MODE_EMOTES: "Actions: the /me, /ame, /melow, /melong commands and any text "
-                 "*between asterisks*.",
+    "*between asterisks*.",
     MODE_ACTIONS: "Only the text between *asterisks*; plain words do not count.",
     MODE_MESSAGES: "Plain messages (with the *actions* inside them) and the /to, "
-                   "/lto, /l, /s, /w, /wt commands. /me commands do not count.",
+    "/lto, /l, /s, /w, /wt commands. /me commands do not count.",
 }
 
 # команды, где текст идёт после самой команды
@@ -129,18 +129,39 @@ NICK_COMMANDS = ("/to", "/lto")
 # Ключ, в котором отрицание уже есть («не открыл зонт»), проверку выключает.
 # Negation markers: one of them right before a matched word silences the rule.
 # A keyword that already carries a negation switches the check off.
-NEG_MARKERS = frozenset({
-    "не", "ни", "нет", "нельзя", "нечем", "некого", "нечего", "незачем",
-    "никуда", "никто", "ничего", "никогда", "нигде", "никак", "ничуть",
-    "not", "never", "nobody", "nothing", "nowhere", "neither", "nor",
-})
-NEG_LOOKBACK = 3       # сколько слов смотрим перед найденным / words looked back
-_PUNCT_RE = re.compile(r"[.,;:!?…—–]")   # граница куска: дальше отрицание не ищем
+NEG_MARKERS = frozenset(
+    {
+        "не",
+        "ни",
+        "нет",
+        "нельзя",
+        "нечем",
+        "некого",
+        "нечего",
+        "незачем",
+        "никуда",
+        "никто",
+        "ничего",
+        "никогда",
+        "нигде",
+        "никак",
+        "ничуть",
+        "not",
+        "never",
+        "nobody",
+        "nothing",
+        "nowhere",
+        "neither",
+        "nor",
+    }
+)
+NEG_LOOKBACK = 3  # сколько слов смотрим перед найденным / words looked back
+_PUNCT_RE = re.compile(r"[.,;:!?…—–]")  # граница куска: дальше отрицание не ищем
 
 # 0 мс — особый случай: анимацию не останавливаем вовсе
 # 0 ms is a special case: the animation is never stopped
 MIN_MS, MAX_MS, DEFAULT_MS = 0, 600000, 3000
-MAX_QUEUE = 20           # больше — очередь не растёт, лишнее отбрасывается
+MAX_QUEUE = 20  # больше — очередь не растёт, лишнее отбрасывается
 # Хвост после анимации: сколько добавить к её собственному времени проигрывания,
 # прежде чем запустить следующую из очереди. Отсчёт идёт от отправки `/anim`,
 # то есть «проиграла 1500 мс + 50 мс — играет следующая». Задача хвоста — дать
@@ -150,12 +171,12 @@ MAX_QUEUE = 20           # больше — очередь не растёт, л
 # 1500 ms + 50 ms, then the next one plays". The tail gives the game time to close
 # its chat after the stop and the server time to take the new command.
 ANIM_EXTRA_MS = 50
-MAX_EXTRA_MS = 10000     # больше ставить бессмысленно / a longer tail makes no sense
+MAX_EXTRA_MS = 10000  # больше ставить бессмысленно / a longer tail makes no sense
 
 _CMD_RE = re.compile(r"^\s*(/\S+)\s*")
-_NICK_RE = re.compile(r"\s*\S+\s+")          # получатель в /to и /lto / the recipient
+_NICK_RE = re.compile(r"\s*\S+\s+")  # получатель в /to и /lto / the recipient
 _ACTION_RE = re.compile(r"\*([^*]+)\*")
-_WORD_RE = re.compile(r"[^\W\d_]+(?:[-'’][^\W\d_]+)*", re.UNICODE)   # слова с позициями
+_WORD_RE = re.compile(r"[^\W\d_]+(?:[-'’][^\W\d_]+)*", re.UNICODE)  # слова с позициями
 
 # Варианты одной анимации: ключ один, а /anim из него — несколько.
 # Названия и описания задаются в интерфейсе (ПКМ по правилу) и нужны для
@@ -164,13 +185,13 @@ _WORD_RE = re.compile(r"[^\W\d_]+(?:[-'’][^\W\d_]+)*", re.UNICODE)   # сло�
 # Variants of one animation: one keyword, several /anim commands. The titles and
 # descriptions are set in the interface (right-click a rule) and feed the chooser
 # overlay, so the player sees a human name instead of «anim_counterleanbar».
-MAX_CHOICES = 12          # больше вариантов в оверлее не поместится / the chooser fits no more
-MAX_TITLE = 60            # длина названия варианта / the variant title length
-MAX_DESC = 300            # длина описания варианта / the variant description length
+MAX_CHOICES = 12  # больше вариантов в оверлее не поместится / the chooser fits no more
+MAX_TITLE = 60  # длина названия варианта / the variant title length
+MAX_DESC = 300  # длина описания варианта / the variant description length
 # разделители ключевых слов правила / the rule keyword separators
 _KEYWORD_SPLIT_RE = re.compile(r"[,;\n]+")
 
-MAX_GROUP = 40            # длина названия группы / the group title length
+MAX_GROUP = 40  # длина названия группы / the group title length
 
 VAL_EMPTY_KEYWORD = "ключевое слово не задано"
 VAL_EMPTY_NAME = "название анимации не задано"
@@ -207,7 +228,7 @@ def parse_message_span(text: str) -> tuple[str, str, int]:
         if nick is None:
             return command, "", len(source)
         start += nick.end()
-        body = body[nick.end():]
+        body = body[nick.end() :]
     return command, body, start
 
 
@@ -224,8 +245,7 @@ def action_spans(text: str, shift: int = 0) -> list[tuple[int, str]]:
     return spans
 
 
-def _with_actions(spans: list[tuple[int, str]], text: str,
-                  start: int) -> list[tuple[int, str]]:
+def _with_actions(spans: list[tuple[int, str]], text: str, start: int) -> list[tuple[int, str]]:
     """Текст сообщения плюс всё, что стоит между звёздочками, со смещениями.
 
     The message text plus everything *between asterisks*, with offsets. Действия
@@ -299,12 +319,10 @@ GAP_WORDS = 1
 
 def _words_of(chunk: str) -> list[tuple[int, int, str]]:
     """Слова куска текста: (начало, конец, слово) / the words of a chunk."""
-    return [(match.start(), match.end(), match.group(0))
-            for match in _WORD_RE.finditer(chunk)]
+    return [(match.start(), match.end(), match.group(0)) for match in _WORD_RE.finditer(chunk)]
 
 
-def _negated(chunk: str, words: list[tuple[int, int, str]],
-             indices: list[int]) -> bool:
+def _negated(chunk: str, words: list[tuple[int, int, str]], indices: list[int]) -> bool:
     """Стоит ли отрицание перед одним из найденных слов.
 
     Is there a negation marker before one of the matched words. Смотрим до
@@ -316,7 +334,7 @@ def _negated(chunk: str, words: list[tuple[int, int, str]],
     """
     for index in indices:
         for back in range(index - 1, max(-1, index - NEG_LOOKBACK - 1), -1):
-            if _PUNCT_RE.search(chunk[words[back][1]:words[back + 1][0]]):
+            if _PUNCT_RE.search(chunk[words[back][1] : words[back + 1][0]]):
                 break
             if morph.norm(words[back][2]) in NEG_MARKERS:
                 return True
@@ -328,9 +346,15 @@ def _keyword_negated(keyword: str) -> bool:
     return any(morph.norm(word) in NEG_MARKERS for word in _WORD_RE.findall(keyword))
 
 
-def _phrase_hits(words: list[tuple[int, int, str]], word_keys: list[frozenset[str]],
-                 chunk: str, keyword: str, keys: "morph.KeyCache", forms: int,
-                 negation: bool = True) -> list[tuple[int, int]]:
+def _phrase_hits(
+    words: list[tuple[int, int, str]],
+    word_keys: list[frozenset[str]],
+    chunk: str,
+    keyword: str,
+    keys: "morph.KeyCache",
+    forms: int,
+    negation: bool = True,
+) -> list[tuple[int, int]]:
     """Совпадения ключевой фразы в куске текста: (начало, конец).
 
     Every match of the keyword phrase in a chunk: (start, end).
@@ -359,7 +383,7 @@ def _phrase_hits(words: list[tuple[int, int, str]], word_keys: list[frozenset[st
         matched = [index]
         for need in want[1:]:
             step = previous + 1
-            last = previous + 1 + gap      # не больше ``gap`` слов между словами
+            last = previous + 1 + gap  # не больше ``gap`` слов между словами
             while step <= last and step < len(words) and not word_keys[step] & need:
                 step += 1
             if step > last or step >= len(words) or not word_keys[step] & need:
@@ -370,8 +394,10 @@ def _phrase_hits(words: list[tuple[int, int, str]], word_keys: list[frozenset[st
         if previous < 0:
             continue
         if check and _negated(chunk, words, matched):
-            log.info("Анимации: «%s» найдено, но отрицание — пропуск",
-                     chunk[words[index][0]:words[previous][1]])
+            log.info(
+                "Анимации: «%s» найдено, но отрицание — пропуск",
+                chunk[words[index][0] : words[previous][1]],
+            )
             continue
         found.append((words[index][0], words[previous][1]))
     return found
@@ -391,12 +417,14 @@ def _inside(inner: tuple[int, int], outer: tuple[int, int]) -> bool:
     length is not nested: two rules with an identical keyword are the player's
     deliberate choice, and both fire.
     """
-    return (outer[0] <= inner[0] and inner[1] <= outer[1]
-            and (outer[1] - outer[0]) > (inner[1] - inner[0]))
+    return (
+        outer[0] <= inner[0]
+        and inner[1] <= outer[1]
+        and (outer[1] - outer[0]) > (inner[1] - inner[0])
+    )
 
 
-def select_spans(candidates: Iterable[tuple[int, int, object]]
-                 ) -> list[tuple[int, int, object]]:
+def select_spans(candidates: Iterable[tuple[int, int, object]]) -> list[tuple[int, int, object]]:
     """Какие совпадения играют: длинное забирает своё, короткое отступает.
 
     Which matches play: the long one takes its place and the short one steps
@@ -422,8 +450,7 @@ def select_spans(candidates: Iterable[tuple[int, int, object]]
        different keywords of one rule side by side («да ну да брось») are two
        hits, which is why their labels differ.
     """
-    items = sorted(candidates,
-                   key=lambda item: (-(item[1] - item[0]), item[0], repr(item[2])))
+    items = sorted(candidates, key=lambda item: (-(item[1] - item[0]), item[0], repr(item[2])))
     # 1: короткое внутри длинного — не отдельное срабатывание
     # 1: a short match inside a long one is not a hit of its own
     #
@@ -438,10 +465,15 @@ def select_spans(candidates: Iterable[tuple[int, int, object]]
     # candidates, so the square is cheaper than any data structure — and, more
     # importantly, the behaviour stays exactly the same.
     outer = [(begin, end) for begin, end, _ in items]
-    alive = [item for index, item in enumerate(items)
-             if not any(_inside((item[0], item[1]), other)
-                        for other_index, other in enumerate(outer)
-                        if other_index != index)]
+    alive = [
+        item
+        for index, item in enumerate(items)
+        if not any(
+            _inside((item[0], item[1]), other)
+            for other_index, other in enumerate(outer)
+            if other_index != index
+        )
+    ]
     # 2: один ключ играет один раз
     # 2: one keyword plays once
     picked: list[tuple[int, int, object]] = []
@@ -472,8 +504,7 @@ class Context:
     text_keys: Callable[[str], list[tuple[int, int, str]]] | None = None
     keys: "morph.KeyCache" = field(default_factory=morph.KeyCache)
     negation: bool = True
-    _phrases: dict[str, list[tuple[int, int, str]]] = field(default_factory=dict,
-                                                           repr=False)
+    _phrases: dict[str, list[tuple[int, int, str]]] = field(default_factory=dict, repr=False)
 
     def key_of(self, phrase: str) -> str:
         """Ключ словаря для фразы; пусто — фразы нет в словаре.
@@ -512,9 +543,9 @@ class Choice:
     One animation variant: the /anim name plus a title and a description.
     """
 
-    name: str = ""          # имя для /anim / the /anim name
-    title: str = ""         # как назвать игроку / the name shown to the player
-    description: str = ""   # объяснение в оверлее выбора / the chooser description
+    name: str = ""  # имя для /anim / the /anim name
+    title: str = ""  # как назвать игроку / the name shown to the player
+    description: str = ""  # объяснение в оверлее выбора / the chooser description
     # Группа в меню выбора: варианты одной группы идут подряд под её названием,
     # разные группы разделены чертой. Пусто — вариант без группы.
     # The group in the chooser: variants of one group sit together under its
@@ -567,16 +598,17 @@ class Choice:
         name = str(data.get("name") or "").strip().lstrip("/")
         if not name:
             return None
-        return cls(name=name,
-                   title=str(data.get("title") or "").strip()[:MAX_TITLE],
-                   description=str(data.get("description") or "").strip()[:MAX_DESC],
-                   group=str(data.get("group") or "").strip()[:MAX_GROUP])
+        return cls(
+            name=name,
+            title=str(data.get("title") or "").strip()[:MAX_TITLE],
+            description=str(data.get("description") or "").strip()[:MAX_DESC],
+            group=str(data.get("group") or "").strip()[:MAX_GROUP],
+        )
 
 
 def _same_rule(one: "Rule", other: "Rule") -> bool:
     """Это срабатывания одного правила / do both come from the same rule."""
-    return (getattr(one, "id", None) == getattr(other, "id", None)
-            and one.keywords == other.keywords)
+    return getattr(one, "id", None) == getattr(other, "id", None) and one.keywords == other.keywords
 
 
 @dataclass
@@ -584,9 +616,9 @@ class Rule:
     """Правило анимации / one animation rule."""
 
     keywords: str = ""
-    name: str = ""                       # название для /anim
+    name: str = ""  # название для /anim
     mode: int = MODE_ALWAYS
-    forms: int = morph.FORMS_DEFAULT     # как сравнивать словоформы / word forms
+    forms: int = morph.FORMS_DEFAULT  # как сравнивать словоформы / word forms
     duration_ms: int = DEFAULT_MS
     loop: bool = False
     enabled: bool = True
@@ -648,8 +680,7 @@ class Rule:
         return len(self.choices) > 1
 
     # --- сопоставление ---
-    def scan(self, text: str, ctx: "Context | None" = None
-             ) -> tuple[list[str], list[int]]:
+    def scan(self, text: str, ctx: "Context | None" = None) -> tuple[list[str], list[int]]:
         """Найденные ключевые слова и их места в сообщении.
 
         Одно срабатывание на каждое ключевое слово правила.
@@ -663,8 +694,7 @@ class Rule:
                 found.append(form)
         return found, [position for position, _ in hits]
 
-    def hits(self, text: str, ctx: "Context | None" = None
-             ) -> list[tuple[int, str]]:
+    def hits(self, text: str, ctx: "Context | None" = None) -> list[tuple[int, str]]:
         """Срабатывания правила по порядку: (место в тексте, найденный текст).
 
         Два разных ключа в одном сообщении дают два срабатывания, повтор того
@@ -674,8 +704,7 @@ class Rule:
         """
         return [(start, form) for start, _, form in self.spans(text, ctx)]
 
-    def spans(self, text: str, ctx: "Context | None" = None
-              ) -> list[tuple[int, int, str]]:
+    def spans(self, text: str, ctx: "Context | None" = None) -> list[tuple[int, int, str]]:
         """Срабатывания правила с границами: (начало, конец, найденный текст).
 
         Свои совпадения правило разбирает само — тем же правилом «длинное
@@ -687,11 +716,9 @@ class Rule:
         one hit, not two.
         """
         picked = select_spans(self.candidates(text, ctx))
-        return [(begin, end, text[begin:end].strip()) for begin, end, _label
-                in picked]
+        return [(begin, end, text[begin:end].strip()) for begin, end, _label in picked]
 
-    def candidates(self, text: str, ctx: "Context | None" = None
-                   ) -> list[tuple[int, int, int]]:
+    def candidates(self, text: str, ctx: "Context | None" = None) -> list[tuple[int, int, int]]:
         """Все совпадения правила без разбора: (начало, конец, номер ключа).
 
         Отдаются и вложенные совпадения: короткое слово внутри длинной фразы —
@@ -716,8 +743,10 @@ class Rule:
             phrases = ctx.phrases(chunk)
             for order, keyword in enumerate(keywords):
                 here: list[tuple[int, int]] = list(
-                    _phrase_hits(words, word_keys, chunk, keyword, ctx.keys,
-                                 self.forms, ctx.negation))
+                    _phrase_hits(
+                        words, word_keys, chunk, keyword, ctx.keys, self.forms, ctx.negation
+                    )
+                )
                 key = ctx.key_of(keyword)
                 # синонимы подключаются, только если самого ключа в тексте нет
                 # synonyms only step in when the keyword itself is absent
@@ -725,14 +754,17 @@ class Rule:
                     for offset, end, phrase_key in phrases:
                         if phrase_key != key:
                             continue
-                        index = next((i for i, word in enumerate(words)
-                                      if word[0] >= offset), None)
+                        index = next((i for i, word in enumerate(words) if word[0] >= offset), None)
                         if index is None:
                             continue
-                        if (ctx.negation and not _keyword_negated(keyword)
-                                and _negated(chunk, words, [index])):
-                            log.info("Анимации: «%s» найдено, но отрицание — пропуск",
-                                     chunk[offset:end])
+                        if (
+                            ctx.negation
+                            and not _keyword_negated(keyword)
+                            and _negated(chunk, words, [index])
+                        ):
+                            log.info(
+                                "Анимации: «%s» найдено, но отрицание — пропуск", chunk[offset:end]
+                            )
                             continue
                         here.append((offset, end))
                 for begin, end in here:
@@ -747,10 +779,15 @@ class Rule:
     # --- хранение ---
     def to_dict(self) -> dict[str, Any]:
         data: dict[str, Any] = {
-            "id": self.id, "keywords": self.keywords, "name": self.name.strip(),
-            "mode": int(self.mode), "forms": int(self.forms),
+            "id": self.id,
+            "keywords": self.keywords,
+            "name": self.name.strip(),
+            "mode": int(self.mode),
+            "forms": int(self.forms),
             "duration_ms": int(self.duration_ms),
-            "loop": bool(self.loop), "enabled": bool(self.enabled)}
+            "loop": bool(self.loop),
+            "enabled": bool(self.enabled),
+        }
         if self.choices:
             data["choices"] = [choice.to_dict() for choice in self.choices]
         return data
@@ -762,6 +799,7 @@ class Rule:
         A rule from config.json; junk in the fields is repaired instead of
         breaking the program.
         """
+
         def _int(value: Any, default: int) -> int:
             try:
                 return int(value)
@@ -769,7 +807,7 @@ class Rule:
                 return default
 
         mode = _int(data.get("mode"), MODE_ALWAYS)
-        mode = LEGACY_MODES.get(mode, mode)      # старый режим 5 -> «Всегда»
+        mode = LEGACY_MODES.get(mode, mode)  # старый режим 5 -> «Всегда»
         if mode not in MODES:
             mode = MODE_ALWAYS
         forms = _int(data.get("forms"), morph.FORMS_DEFAULT)
@@ -860,8 +898,9 @@ def merge_rules(left: "Rule", right: "Rule") -> "Rule":
     the fields left empty, so the window can ask for them.
     """
     keywords = merge_keywords(left.keywords, right.keywords)
-    choices = merge_choices(left.choices or left.variant_list(),
-                            right.choices or right.variant_list())
+    choices = merge_choices(
+        left.choices or left.variant_list(), right.choices or right.variant_list()
+    )
     empty: list[str] = []
 
     duration = left.duration_ms if left.duration_ms == right.duration_ms else None
@@ -990,8 +1029,12 @@ class Hint:
     playing: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        return {"keyword": self.keyword, "label": self.label,
-                "name": self.rule.name, "playing": self.playing}
+        return {
+            "keyword": self.keyword,
+            "label": self.label,
+            "name": self.rule.name,
+            "playing": self.playing,
+        }
 
 
 def current_word(text: str) -> str:
@@ -1065,7 +1108,7 @@ def suggestions(rules: Iterable["Rule"], text: str, limit: int = 8) -> list[Hint
                 seen.add(low)
                 stems.append(Hint(keyword, rule, label))
     found = starts + stems
-    return found[:max(1, int(limit))]
+    return found[: max(1, int(limit))]
 
 
 def complete(text: str, hint: "Hint | None") -> tuple[str, int]:
@@ -1092,8 +1135,9 @@ def complete(text: str, hint: "Hint | None") -> tuple[str, int]:
 
 
 # ------------------------------------------------------------------ разбор
-def plan(rules: Iterable["Rule"], text: str, ctx: "Context | None" = None
-         ) -> list[tuple[int, int, "Rule", str]]:
+def plan(
+    rules: Iterable["Rule"], text: str, ctx: "Context | None" = None
+) -> list[tuple[int, int, "Rule", str]]:
     """Что сыграет и в каком порядке: (место, номер правила, правило, текст).
 
     What plays, and in which order: (position, rule number, rule, text).
@@ -1113,19 +1157,24 @@ def plan(rules: Iterable["Rule"], text: str, ctx: "Context | None" = None
             candidates.append((begin, end, index, order, text[begin:end]))
     if not candidates:
         return []
-    picked = select_spans((begin, end, (index, order))
-                          for begin, end, index, order, _ in candidates)
+    picked = select_spans(
+        (begin, end, (index, order)) for begin, end, index, order, _ in candidates
+    )
     chosen = {(begin, end) for begin, end, _ in picked}
     # что не сыграло и почему — видно в журнале
     # what did not play, and why, is visible in the log
     for begin, end, index, _order, form in candidates:
         if (begin, end) in chosen:
             continue
-        if any(other_begin <= begin and end <= other_end
-               and (other_end - other_begin) > (end - begin)
-               for other_begin, other_end, _label in picked):
-            log.info("Анимации: «%s» входит в более длинное совпадение — "
-                     "правило «%s» пропущено", form, table[index].keywords[:40])
+        if any(
+            other_begin <= begin and end <= other_end and (other_end - other_begin) > (end - begin)
+            for other_begin, other_end, _label in picked
+        ):
+            log.info(
+                "Анимации: «%s» входит в более длинное совпадение — правило «%s» пропущено",
+                form,
+                table[index].keywords[:40],
+            )
     # одно правило в одном месте срабатывает один раз, а разные правила на одном
     # и том же слове — оба, как было и раньше
     # a rule fires once at one place; different rules on the same word both fire,
@@ -1133,8 +1182,10 @@ def plan(rules: Iterable["Rule"], text: str, ctx: "Context | None" = None
     per_rule_span: dict[tuple[int, int, int], None] = {}
     for begin, end, (index, _order) in picked:
         per_rule_span[(begin, end, index)] = None
-    result = [(begin, index, table[index], text[begin:end]) for begin, end, index
-              in sorted(per_rule_span, key=lambda item: item[:2])]
+    result = [
+        (begin, index, table[index], text[begin:end])
+        for begin, end, index in sorted(per_rule_span, key=lambda item: item[:2])
+    ]
     for index, rule in enumerate(table):
         forms: list[str] = []
         played = 0
@@ -1151,9 +1202,14 @@ def plan(rules: Iterable["Rule"], text: str, ctx: "Context | None" = None
         # играют подряд, повтор того же слова — только раз
         # one hit per keyword of the rule: different keywords play in turn, a
         # repeated word plays once
-        log.info("Анимации: «%s» по правилу «%s» (%s) -> /anim %s, "
-                 "срабатываний: %d", text[:60], rule.keywords[:40],
-                 ", ".join(forms), rule.name, played)
+        log.info(
+            "Анимации: «%s» по правилу «%s» (%s) -> /anim %s, срабатываний: %d",
+            text[:60],
+            rule.keywords[:40],
+            ", ".join(forms),
+            rule.name,
+            played,
+        )
     return result
 
 
@@ -1169,14 +1225,16 @@ class Runner:
              a callback (kind, text) for the interface and the player
     """
 
-    def __init__(self, cfg: Mapping[str, Any] | None = None,
-                 send: Callable[[str], tuple[bool, str]] | None = None,
-                 on_event: Callable[[str, str], None] | None = None,
-                 equivalent: Callable[[str], str] | None = None,
-                 press_key: Callable[[str], tuple[bool, str]] | None = None,
-                 text_keys: Callable[[str], list[tuple[int, int, str]]] | None = None,
-                 chooser: Callable[["Rule"], "Choice | None"] | None = None
-                 ) -> None:
+    def __init__(
+        self,
+        cfg: Mapping[str, Any] | None = None,
+        send: Callable[[str], tuple[bool, str]] | None = None,
+        on_event: Callable[[str, str], None] | None = None,
+        equivalent: Callable[[str], str] | None = None,
+        press_key: Callable[[str], tuple[bool, str]] | None = None,
+        text_keys: Callable[[str], list[tuple[int, int, str]]] | None = None,
+        chooser: Callable[["Rule"], "Choice | None"] | None = None,
+    ) -> None:
         """equivalent — «фраза -> ключ словаря» для слов-синонимов.
 
         equivalent is the "phrase -> glossary key" function used for synonyms.
@@ -1213,20 +1271,20 @@ class Runner:
         self._cv = threading.Condition(self._lock)
         self._thread: threading.Thread | None = None
         self._done = threading.Event()
-        self._end_at = 0.0                      # конец проигрывания, monotonic
+        self._end_at = 0.0  # конец проигрывания, monotonic
         # Смена анимации на ходу: окно выбора остаётся открытым, и новый выбор
         # приходит сюда, а не в очередь.
         # Swapping the animation on the fly: the chooser stays open, and a new pick
         # arrives here instead of the queue.
-        self._swap_choice = None                # какой вариант просят играть
-        self._play_token = 0                    # номер текущего захода правила
-        self._quiet_off = False                 # про выключенный модуль пишем раз
-        self._stop_run = threading.Event()      # прервать текущий цикл / abort the run
+        self._swap_choice = None  # какой вариант просят играть
+        self._play_token = 0  # номер текущего захода правила
+        self._quiet_off = False  # про выключенный модуль пишем раз
+        self._stop_run = threading.Event()  # прервать текущий цикл / abort the run
         self._current: Rule | None = None
         self._last_error = ""
         self._last_trigger = ""
-        self._reset_pending = False     # после остановки игроком отправить /sa
-                                        # send /sa after a stop by the player
+        self._reset_pending = False  # после остановки игроком отправить /sa
+        # send /sa after a stop by the player
         # Режим «В машине»: пока он включён, ни одна команда в игру не уходит.
         # Признак приходит снаружи (галочка в настройках, пункт меню трея),
         # потому что состояние игры программе недоступно.
@@ -1299,8 +1357,7 @@ class Runner:
             self._stop_run.set()
             self._cv.notify_all()
         if dropped:
-            log.info("Анимации: очередь снята (%s)", ", ".join("/anim " + name
-                                                              for name in dropped))
+            log.info("Анимации: очередь снята (%s)", ", ".join("/anim " + name for name in dropped))
         current = self._current
         if current is not None:
             # ровно одна остановка, и только если что-то играло
@@ -1372,13 +1429,15 @@ class Runner:
             return []
         if not (text or "").strip():
             return []
-        self._quiet_off = False        # снова говорим, если что-то не так
-        ctx = Context(equivalent=self.equivalent, text_keys=self.text_keys,
-                      negation=self.negation())
+        self._quiet_off = False  # снова говорим, если что-то не так
+        ctx = Context(
+            equivalent=self.equivalent, text_keys=self.text_keys, negation=self.negation()
+        )
         rules = [rule for rule in self.rules() if rule.ready()]
         hits = plan(rules, text, ctx)
-        log.info("Анимации: в очередь %s", " -> ".join("/anim " + rule.name
-                                                       for _, _, rule, _ in hits))
+        log.info(
+            "Анимации: в очередь %s", " -> ".join("/anim " + rule.name for _, _, rule, _ in hits)
+        )
         for _, _, rule, _ in hits:
             # Меню этого правила ещё висит в очереди выбора — возвращаем его,
             # а не открываем второе такое же: игрок как раз хочет поменять
@@ -1390,8 +1449,9 @@ class Runner:
             if callable(focus) and rule.needs_choice():
                 try:
                     if focus(rule):
-                        log.info("Анимации: меню «%s» поднято из очереди выбора",
-                                 rule.keywords[:40])
+                        log.info(
+                            "Анимации: меню «%s» поднято из очереди выбора", rule.keywords[:40]
+                        )
                         continue
                 except Exception:
                     log.exception("Анимации: не удалось вернуть меню выбора")
@@ -1403,7 +1463,7 @@ class Runner:
         # A safeguard: in a vehicle the queue does not fill up even around feed.
         if self._vehicle:
             return
-        copy = Rule.from_dict(rule.to_dict())      # снимок на момент срабатывания
+        copy = Rule.from_dict(rule.to_dict())  # снимок на момент срабатывания
         with self._cv:
             if len(self._queue) >= MAX_QUEUE:
                 log.warning("Анимации: очередь переполнена, «%s» отброшено", rule.name)
@@ -1460,8 +1520,7 @@ class Runner:
         if dropped:
             # очередь снята целиком — в журнале видно, что именно не сыграет
             # the whole queue is dropped — the log shows what will not play
-            log.info("Анимации: очередь снята (%s)", ", ".join("/anim " + name
-                                                              for name in dropped))
+            log.info("Анимации: очередь снята (%s)", ", ".join("/anim " + name for name in dropped))
         if stopped:
             log.info("Анимации: %s", reason or "остановлено")
             self._emit("stopped", reason or "остановлено")
@@ -1493,11 +1552,16 @@ class Runner:
     def state(self) -> dict[str, Any]:
         """Что показать в настройках / what the settings page shows."""
         with self._lock:
-            return {"enabled": self.enabled(), "rules": len(self._rules),
-                    "current": self._current.name if self._current else "",
-                    "loop": bool(self._current and self._current.loop),
-                    "queued": len(self._queue), "error": self._last_error,
-                    "trigger": self._last_trigger, "vehicle": bool(self._vehicle)}
+            return {
+                "enabled": self.enabled(),
+                "rules": len(self._rules),
+                "current": self._current.name if self._current else "",
+                "loop": bool(self._current and self._current.loop),
+                "queued": len(self._queue),
+                "error": self._last_error,
+                "trigger": self._last_trigger,
+                "vehicle": bool(self._vehicle),
+            }
 
     def _emit(self, kind: str, text: str) -> None:
         if self.on_event is None:
@@ -1632,8 +1696,7 @@ class Runner:
                 log.info("Анимации: нажата клавиша «%s»", spec)
             else:
                 self._last_error = message or "клавиша не нажалась"
-                log.warning("Анимации: клавиша «%s» не нажалась — %s", spec,
-                            self._last_error)
+                log.warning("Анимации: клавиша «%s» не нажалась — %s", spec, self._last_error)
 
     def _play(self, rule: Rule) -> None:
         """Один заход правила: /anim -> пауза -> остановка или снова /anim.
@@ -1691,8 +1754,7 @@ class Runner:
             # end but plays the pick — with looping and without it alike.
             swapped = self._take_swap(token)
             if swapped is not None and swapped.name != variant.name:
-                log.info("Анимации: смена варианта %s -> %s", variant.name,
-                         swapped.name)
+                log.info("Анимации: смена варианта %s -> %s", variant.name, swapped.name)
                 self._stop_animation(rule)
                 variant = swapped
                 self._emit("playing", variant.label())
@@ -1767,16 +1829,21 @@ class Runner:
         """
         variants = rule.variant_list()
         if not variants:
-            log.warning("Анимации: у правила «%s» нет ни названия, ни вариантов",
-                        rule.keywords[:40])
+            log.warning(
+                "Анимации: у правила «%s» нет ни названия, ни вариантов", rule.keywords[:40]
+            )
             return None
         if not rule.needs_choice():
             return variants[0]
         if self.chooser is None:
-            log.warning("Анимации: у правила «%s» %d варианта(ов), но выбрать "
-                        "негде — играю первый (%s)", rule.keywords[:40],
-                        len(variants), variants[0].name)
+            log.warning(
+                "Анимации: у правила «%s» %d варианта(ов), но выбрать негде — играю первый (%s)",
+                rule.keywords[:40],
+                len(variants),
+                variants[0].name,
+            )
             return variants[0]
+
         # выбор блокирует очередь: пока оверлей открыт, следующее правило ждёт
         # the choice blocks the queue: while the overlay is open the next rule
         # waits
@@ -1794,8 +1861,11 @@ class Runner:
             # rule ended by itself, the player stopped it (F), or the queue moved
             # on and another rule is current now.
             current = self._current
-            if ((token and token != self._play_token) or current is None
-                    or not _same_rule(current, rule)):
+            if (
+                (token and token != self._play_token)
+                or current is None
+                or not _same_rule(current, rule)
+            ):
                 self.push_swap(rule, choice)
                 return
             with self._lock:
@@ -1817,11 +1887,16 @@ class Runner:
             log.exception("Анимации: выбор варианта не удался")
             return variants[0]
         if picked is None:
-            log.info("Анимации: выбор варианта для «%s» отменён — правило пропущено",
-                     rule.keywords[:40])
+            log.info(
+                "Анимации: выбор варианта для «%s» отменён — правило пропущено", rule.keywords[:40]
+            )
             return None
-        log.info("Анимации: выбран вариант «%s» (%s) по правилу «%s»",
-                 picked.label(), picked.name, rule.keywords[:40])
+        log.info(
+            "Анимации: выбран вариант «%s» (%s) по правилу «%s»",
+            picked.label(),
+            picked.name,
+            rule.keywords[:40],
+        )
         return picked
 
     def _notify_rule_done(self, rule: "Rule | None" = None) -> None:
@@ -1861,23 +1936,20 @@ class Runner:
         """
         if choice is None:
             with self._cv:
-                self._queue = deque(item for item in self._queue
-                                    if not _same_rule(item, rule))
+                self._queue = deque(item for item in self._queue if not _same_rule(item, rule))
                 if self._current is not None and _same_rule(self._current, rule):
                     self._stop_run.set()
                 self._cv.notify_all()
             return True
         with self._cv:
-            self._queue = deque(item for item in self._queue
-                                if not _same_rule(item, rule))
+            self._queue = deque(item for item in self._queue if not _same_rule(item, rule))
             copy = Rule.from_dict(rule.to_dict())
             copy.choices = [choice]
             copy.name = choice.name
             self._queue.appendleft(copy)
             self._ensure_thread()
             self._cv.notify_all()
-        log.info("Анимации: выбор по «%s» играет заново (%s)",
-                 rule.keywords[:40], choice.name)
+        log.info("Анимации: выбор по «%s» играет заново (%s)", rule.keywords[:40], choice.name)
         return True
 
     def _take_swap(self, token: int) -> "Choice | None":
@@ -1941,8 +2013,7 @@ class Runner:
             except Exception:
                 log.exception("Анимации: не удалось закрыть окно выбора")
 
-    def _send(self, command: str, rule: Rule, quiet: bool = False,
-              force: bool = False) -> bool:
+    def _send(self, command: str, rule: Rule, quiet: bool = False, force: bool = False) -> bool:
         """Отправить команду и запомнить причину отказа.
 
         Send the command and remember the reason of a failure. ``quiet`` keeps a
@@ -1990,10 +2061,11 @@ class StopWatcher(threading.Thread):
     from the side.
     """
 
-    POLL = 0.04        # 25 раз в секунду / 25 times a second
+    POLL = 0.04  # 25 раз в секунду / 25 times a second
 
-    def __init__(self, spec: str, callback: Callable[[], None],
-                 active_fn: Callable[[], bool] | None = None) -> None:
+    def __init__(
+        self, spec: str, callback: Callable[[], None], active_fn: Callable[[], bool] | None = None
+    ) -> None:
         super().__init__(name="anims-stop", daemon=True)
         self.spec = spec or ""
         self.callback = callback
@@ -2011,10 +2083,10 @@ class StopWatcher(threading.Thread):
             return False
         try:
             from app.hotkey import parse_hotkey
+
             self._mods, self._vk = parse_hotkey(self.spec)
         except Exception as error:
-            log.warning("Анимации: клавиша остановки «%s» не разобрана (%s)",
-                        self.spec, error)
+            log.warning("Анимации: клавиша остановки «%s» не разобрана (%s)", self.spec, error)
             return False
         return self._vk > 0
 
@@ -2022,16 +2094,22 @@ class StopWatcher(threading.Thread):
         """Нажата ли клавиша прямо сейчас / is the key down right now."""
         try:
             import ctypes
+
             return bool(ctypes.windll.user32.GetAsyncKeyState(vk) & 0x8000)
         except Exception:
             return False
 
     def _mods_down(self) -> bool:
         from app.hotkey import MODS
+
         if not self._mods:
             return True
-        pairs = ((MODS["alt"], 0x12), (MODS["ctrl"], 0x11),
-                 (MODS["shift"], 0x10), (MODS["win"], 0x5B))
+        pairs = (
+            (MODS["alt"], 0x12),
+            (MODS["ctrl"], 0x11),
+            (MODS["shift"], 0x10),
+            (MODS["win"], 0x5B),
+        )
         return all(self._down(vk) for mask, vk in pairs if self._mods & mask)
 
     # --- работа ---
@@ -2061,8 +2139,18 @@ class StopWatcher(threading.Thread):
 # клавиша остановки: одна клавиша и, при желании, модификаторы
 # the stop key: one key and, optionally, modifiers
 STOP_KEY_MODS = ("ctrl", "alt", "shift", "win")
-STOP_KEY_NAMED = ("space", "tab", "insert", "delete", "home", "end", "pageup",
-                  "pagedown", "pause", "`")
+STOP_KEY_NAMED = (
+    "space",
+    "tab",
+    "insert",
+    "delete",
+    "home",
+    "end",
+    "pageup",
+    "pagedown",
+    "pause",
+    "`",
+)
 VAL_EMPTY_STOP_KEY = "клавиша остановки не задана"
 VAL_BAD_STOP_KEY = "нужна ровно одна клавиша: буква, цифра, F1–F24 или Space"
 VAL_UNKNOWN_STOP_KEY = "такая клавиша не поддерживается"

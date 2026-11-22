@@ -26,9 +26,9 @@ from pathlib import Path
 
 from app.config import LOGS, log
 
-ERROR_PATH: Path = LOGS / "errors.log"     # только предупреждения и хуже / warnings and worse
+ERROR_PATH: Path = LOGS / "errors.log"  # только предупреждения и хуже / warnings and worse
 
-_handle = None          # открытый файл для faulthandler / the file kept open for faulthandler
+_handle = None  # открытый файл для faulthandler / the file kept open for faulthandler
 _installed = False
 
 
@@ -45,8 +45,10 @@ def _open() -> None:
     # Дескриптор нужен faulthandler до самого выхода из программы — noqa ниже.
     # The descriptor is needed by faulthandler until the process exits.
     _handle = open(ERROR_PATH, "a", encoding="utf-8", buffering=1)  # noqa: SIM115
-    _handle.write(f"\n=== {__import__('datetime').datetime.now():%Y-%m-%d %H:%M:%S} "
-                  f"старт журнала ошибок / error log started ===\n")
+    _handle.write(
+        f"\n=== {__import__('datetime').datetime.now():%Y-%m-%d %H:%M:%S} "
+        f"старт журнала ошибок / error log started ===\n"
+    )
     _handle.flush()
 
 
@@ -76,15 +78,13 @@ def _excepthook(exc_type, exc, tb) -> None:
 def _threadhook(args) -> None:
     """Ошибка в фоновом потоке / an error inside a background thread."""
     name = getattr(args.thread, "name", "?") if args.thread else "?"
-    text = "".join(traceback.format_exception(args.exc_type, args.exc_value,
-                                              args.exc_traceback))
+    text = "".join(traceback.format_exception(args.exc_type, args.exc_value, args.exc_traceback))
     log.critical("Ошибка в потоке %s / error in thread %s\n%s", name, name, text)
 
 
 def _unraisable(args) -> None:
     """Исключение, которое Python не может поднять / an exception nobody can raise."""
-    text = "".join(traceback.format_exception(args.exc_type, args.exc_value,
-                                              args.exc_traceback))
+    text = "".join(traceback.format_exception(args.exc_type, args.exc_value, args.exc_traceback))
     log.error("Необрабатываемое исключение / unraisable exception\n%s", text)
 
 
@@ -100,8 +100,7 @@ def _qt_handler(mode, context, message) -> None:
     # имена режимов приходят с префиксом: QtWarningMsg, QtFatalMsg и так далее
     # mode names arrive with a prefix: QtWarningMsg, QtFatalMsg and so on
     name = getattr(mode, "name", str(mode)).replace("Qt", "")
-    level = {"WarningMsg": "WARNING", "CriticalMsg": "CRITICAL",
-             "FatalMsg": "FATAL"}.get(name)
+    level = {"WarningMsg": "WARNING", "CriticalMsg": "CRITICAL", "FatalMsg": "FATAL"}.get(name)
     if level:
         _writer(f"QT-{level}", text)
         if level != "WARNING":
@@ -143,19 +142,21 @@ def install() -> None:
     #    Qt messages (imported here so the log works without PySide6 too)
     try:
         from PySide6.QtCore import qInstallMessageHandler
+
         qInstallMessageHandler(_qt_handler)
-    except Exception:                      # нет PySide6 или консольная сборка
+    except Exception:  # нет PySide6 или консольная сборка
         pass
 
     _writer("INFO", f"перехватчики включены, файл {ERROR_PATH}")
 
 
-_beat = {"time": 0.0}       # последний отклик главного потока / last heartbeat
+_beat = {"time": 0.0}  # последний отклик главного потока / last heartbeat
 
 
 def _beat_tick() -> None:
     """Отметка «главный поток жив» / a heartbeat mark from the main thread."""
     import time as _time
+
     _beat["time"] = _time.monotonic()
 
 
@@ -167,6 +168,7 @@ def watch_main_thread(timeout: float = 20.0, parent=None):
     of bug to report, and this turns it into a readable dump.
     """
     import time as _time
+
     try:
         from PySide6.QtCore import QTimer
     except Exception:
@@ -184,14 +186,15 @@ def watch_main_thread(timeout: float = 20.0, parent=None):
             stall = _time.monotonic() - _beat["time"]
             if stall > timeout and stall - reported > timeout:
                 reported = stall
-                _writer("HANG", f"главный поток не отвечает {stall:.0f} с "
-                                f"/ main thread stalled, stacks below")
+                _writer(
+                    "HANG",
+                    f"главный поток не отвечает {stall:.0f} с / main thread stalled, stacks below",
+                )
                 try:
                     faulthandler.dump_traceback(file=_handle, all_threads=True)
                 except (OSError, ValueError):
                     pass
-                log.error("Главный поток не отвечает %.0f с — стеки в %s", stall,
-                          ERROR_PATH)
+                log.error("Главный поток не отвечает %.0f с — стеки в %s", stall, ERROR_PATH)
 
     threading.Thread(target=watch, name="hang-watch", daemon=True).start()
     return timer

@@ -4,6 +4,7 @@
 English headers use the large rectangular reference (1000×150).
 Russian headers use the compact rounded reference (720×48).
 """
+
 import pathlib
 from PIL import Image, ImageDraw, ImageFont
 
@@ -49,8 +50,7 @@ def head_ru(name, text):
     img = Image.new("RGB", (width, height), (0x1C, 0x20, 0x2A))
     draw = ImageDraw.Draw(img)
     draw.rounded_rectangle(
-        (0, 0, width - 1, height - 1), radius=10,
-        fill=(0x1C, 0x20, 0x2A), outline=BORDER, width=1
+        (0, 0, width - 1, height - 1), radius=10, fill=(0x1C, 0x20, 0x2A), outline=BORDER, width=1
     )
 
     bar, mask = gradient_bar(4, 20, rounded=True)
