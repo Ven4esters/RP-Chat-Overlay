@@ -5,7 +5,7 @@
 ![Языков: 13](https://img.shields.io/badge/languages-13-2e7d32)
 ![Сокращений: 300×6](https://img.shields.io/badge/abbreviations-300×6-8e6bd8)
 ![EXE ~47.7 MiB](https://img.shields.io/badge/exe-~47.7%20MiB-66d18b)
-[![VirusTotal: report](https://img.shields.io/badge/VirusTotal-отчёт-394eff)](https://www.virustotal.com/gui/file/9a6c8da2e9472ee89ee3a6f6311844ed0a983d00327857a1749dc5782cc34749?nocache=1)
+[![VirusTotal: 2/70](https://img.shields.io/badge/VirusTotal-2%2F70-394eff)](https://www.virustotal.com/gui/file/9a6c8da2e9472ee89ee3a6f6311844ed0a983d00327857a1749dc5782cc34749?nocache=1)
 ![Лицензия: MIT](https://img.shields.io/badge/license-MIT-green)
 
 > Chat overlay with DeepL/Google translation and automatic animation application for roleplay games (GTA 5).
@@ -18,6 +18,7 @@
 - [Tech stack](#tech-stack)
 - [Requirements](#requirements)
 - [Installation](#installation)
+- [VirusTotal report and 2/70 detections](#virustotal-report)
 - [Settings](#settings)
 - [Translation modes and special symbols](#translation-modes-and-special-symbols)
 - [DeepLX in Russia](#deeplx-in-russia)
@@ -77,6 +78,29 @@ cd RP-Chat-Overlay
 
 Run `source/start.bat` — it finds or installs Python 3.12, creates a virtual
 environment, installs dependencies and launches the app.
+
+<a id="virustotal-report"></a>
+<img src="source/images/forum/hdr_virustotal_en.png" width="1000" alt="VirusTotal report and 2/70 detections">
+
+The linked [VirusTotal report](https://www.virustotal.com/gui/file/9a6c8da2e9472ee89ee3a6f6311844ed0a983d00327857a1749dc5782cc34749?nocache=1)
+for this release hash shows **2 of 70** antivirus engines flagging the executable.
+The ratio alone does not prove either that the file is malicious or that the
+detections are false positives; engines use different signatures and heuristics,
+and results can change over time.
+
+A plausible source of generic or heuristic detections is the way the app is
+distributed: it is a self-contained Windows executable built with PyInstaller,
+bundling the Python runtime and dependencies. Packed applications that unpack
+components when launched, and builds with little reputation, can attract
+heuristic alerts. These are possible contributing factors—not verified
+explanations for the exact two detections. Check the engine names and detection
+labels in the linked report for the current details.
+
+Download the executable only from the official [GitHub Releases](https://github.com/Ven4esters/RP-Chat-Overlay/releases)
+page and verify its SHA-256 against the value above. If the checksum differs,
+do not run the file. If your antivirus blocks it, review the vendor's exact
+detection name and submit the file to that vendor for analysis rather than
+disabling protection globally.
 
 <a id="settings"></a>
 <img src="source/images/forum/hdr_configuration_en.png" width="1000" alt="Settings">
