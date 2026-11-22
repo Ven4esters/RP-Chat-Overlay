@@ -7,7 +7,7 @@ set "BV=%ROOT%.build-venv"
 set "PYEXE="
 
 echo ============================================
-echo  RP Chat Overlay - building RPChatOverlay.exe
+echo  RP Chat Overlay - building Chat_n_AutoAnimations_RP_Overlay.exe
 echo ============================================
 echo.
 
