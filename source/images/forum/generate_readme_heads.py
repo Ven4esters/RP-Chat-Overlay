@@ -8,14 +8,14 @@ import pathlib
 from PIL import Image, ImageDraw, ImageFont
 
 OUT = pathlib.Path(__file__).parent
-W, H = 720, 48
+W, H = 1200, 80
 PANEL = (0x19, 0x1D, 0x26)
 BORDER = (0x2B, 0x31, 0x40)
 TXT = (0xF2, 0xF4, 0xF8)
 BLUE = (0x3D, 0x6F, 0xD8)
 GREEN = (0x57, 0xC9, 0x8A)
-BAR_W = 4
-BAR_H = 20
+BAR_W = 6
+BAR_H = 32
 FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 FONT_REG = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 

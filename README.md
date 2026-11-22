@@ -11,9 +11,7 @@
 > Chat overlay with DeepL/Google translation and automatic animation application for roleplay games (GTA 5).
 
 <a id="contents"></a>
-<img src="source/images/forum/hdr_contents_en.png" width="720" alt="Contents">
-
-## Contents
+<img src="source/images/forum/hdr_contents_en.png" width="1200" alt="Contents">
 
 - [About the project](#about-the-project)
 - [Features](#features)
@@ -27,7 +25,7 @@
 - [Contacts](#contacts)
 
 <a id="about-the-project"></a>
-<img src="source/images/forum/hdr_about_en.png" width="720" alt="About the project">
+<img src="source/images/forum/hdr_about_en.png" width="1200" alt="About the project">
 
 The project is an overlay for roleplay chat in GTA 5. It translates incoming
 and outgoing messages through DeepL (local service) or Google Translate, and
@@ -36,7 +34,7 @@ The interface language can be switched between Russian and English without
 restarting.
 
 <a id="features"></a>
-<img src="source/images/forum/hdr_features.png" width="720" alt="Features">
+<img src="source/images/forum/hdr_features.png" width="1200" alt="Features">
 
 - Translate chat messages through DeepL or Google Translate
 - Automatic animation triggers based on keyword matching
@@ -45,12 +43,12 @@ restarting.
 - Russian and English interface
 
 <a id="tech-stack"></a>
-<img src="source/images/forum/hdr_stack_en.png" width="720" alt="Tech stack">
+<img src="source/images/forum/hdr_stack_en.png" width="1200" alt="Tech stack">
 
 Python 3.12 · PySide6 · deep-translator
 
 <a id="requirements"></a>
-<img src="source/images/forum/hdr_requirements_en.png" width="720" alt="Requirements">
+<img src="source/images/forum/hdr_requirements_en.png" width="1200" alt="Requirements">
 
 - Windows 10 / 11
 - GTA 5
@@ -58,7 +56,7 @@ Python 3.12 · PySide6 · deep-translator
 - Internet connection for translation services
 
 <a id="installation"></a>
-<img src="source/images/forum/hdr_installation_en.png" width="720" alt="Installation">
+<img src="source/images/forum/hdr_installation_en.png" width="1200" alt="Installation">
 
 ### Compiled release (recommended)
 
@@ -81,7 +79,7 @@ Run `source/start.bat` — it finds or installs Python 3.12, creates a virtual
 environment, installs dependencies and launches the app.
 
 <a id="settings"></a>
-<img src="source/images/forum/hdr_configuration_en.png" width="720" alt="Settings">
+<img src="source/images/forum/hdr_configuration_en.png" width="1200" alt="Settings">
 
 ## Module system
 
@@ -92,116 +90,87 @@ the dependent is also reported as disabled.
 
 ### Modules (in settings window order)
 
-| Module | Config key | Default | Purpose |
-|---|---|---|---|
-| Online translation | `translator_enabled` | On | The chain of Google, MyMemory, Lingva and LibreTranslate. Without it only the built-in glossaries work. |
-| Glossary | `glossary_enabled` | On | Ready-made phrases with a Russian reading and meanings. Without it phrases are translated by the services, with no reading hint. |
-| Slang and abbreviations | `slang` | On | `brb`, `afk`, `gg` and their Russian counterparts are expanded into full phrases before translation. |
-| Auto-translation | `auto_mode` | Off | Every N-th message is translated automatically. Requires online translation. Works only in partial mode. |
-| Sending into the game | `game_send` | On | The overlay opens the game chat, pastes the text and presses Enter. When off, the text is only copied to the clipboard. |
-| DeepL alongside (DLX) | `dlx_enabled` | Off | A local DeepL service used as the first translator. Needs consent and about 15 MB on disk. |
-| Animations | `anims_enabled` | Off | A keyword in your message starts `/anim` in the game, and `/sa` follows after the configured delay. Requires sending into the game. |
-| Global hotkey | `hotkey_enabled` | On | Opens the overlay from inside the game with one key. Without it — double-click the tray icon. |
+| Setting | What it does | Default |
+|---|---|---|
+| **Online translation** | The chain of Google, MyMemory, Lingva and LibreTranslate translates messages through the internet. Without it only the built-in glossaries work. | On |
+| **Glossary** | Ready-made phrases with a Russian reading and meanings. Lets you see "how to read aloud" instead of raw service translation. | On |
+| **Slang and abbreviations** | Expands `brb`, `afk`, `gg` and their Russian counterparts into full phrases before translation, so machine translation doesn't mangle the shortcut. | On |
+| **Auto-translation** | Every N-th message is translated automatically without pressing a button. Requires online translation. Works only in partial translation mode. | Off |
+| **Sending into the game** | The overlay opens the game chat, pastes the translated text and presses Enter. When off, the text is only copied to the clipboard. | On |
+| **DeepL alongside (DLX)** | A local DeepL service on your computer used as the first translator. Needs consent and about 15 MB on disk. | Off |
+| **Animations** | A keyword in your message starts `/anim` in the game, and `/sa` follows after the configured delay. Requires sending into the game. | Off |
+| **Global hotkey** | Opens the overlay from inside the game with one key. Without it — double-click the tray icon. | On |
 
 ### Configuration variables
 
 Settings are stored in `data/config.json` next to the executable. Do not put
 real keys into the repository — they belong in the local data folder only.
 
-#### Language and direction
+#### Language and direction of translation
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `target_lang` | no | `it` | Translation target language |
-| `send_mode` | no | `reading` | `reading` = Russian reading, `native` = foreign text |
-| `mode` | no | `partial` | Translation mode: `full` | `partial` | `to_ru` |
-| `direction` | no | `out` | Legacy duplicate of mode (`out` = Russian → language, `in` = language → Russian) |
+| Setting | Description | Default value |
+|---|---|---|
+| Target language | Which language to translate messages into (Italian, Spanish, English, etc.) | Italian (`it`) |
+| Sending mode | Which text to send to chat: Russian reading ("how to read aloud") or the original foreign text | Russian reading |
+| Translation mode | What text to translate: the whole message, only part, or any language → Russian | Partial |
 
-#### Interface
+#### Program interface
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `ui_lang` | no | `ru` | Interface language (`ru` / `en`) |
-| `ui_lang_chosen` | no | `false` | Player already picked the language |
-| `show_settings_on_start` | no | `true` | Show settings on start |
-| `setup_done` | no | `false` | First run completed |
-| `ui_scale` | no | `1.0` | Interface scale |
-| `always_on_top` | no | `true` | Overlay above the game |
+| Setting | Description | Default value |
+|---|---|---|
+| Interface language | Russian or English for menus and tooltips | Russian (`ru`) |
+| Interface scale | Size of overlay elements relative to the screen | 100 % |
+| Always on top | The overlay is displayed above the game and is not hidden behind it | Enabled |
 
 #### Modules
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `translator_enabled` | no | `true` | Online translation |
-| `glossary_enabled` | no | `true` | Glossary |
-| `hotkey_enabled` | no | `true` | Global hotkey |
-| `dlx_enabled` | no | `false` | DeepL alongside (DLX) |
-| `dlx_asked` | no | `false` | Consent already shown |
-| `dlx_port` | no | `0` | Service port, 0 means auto |
-| `dlx_autostart` | no | `true` | Start with the app |
-| `dlx_auto_update` | no | `true` | Check for updates |
-| `dlx_proxy` | no | `` | HTTP proxy for DeepL |
-| `dlx_use_system_proxy` | no | `true` | Use the Windows proxy |
-| `dlx_url` | no | `` | Own service address instead of dlx.exe |
-| `dlx_url_token` | no | `` | Token of that service |
-| `dlx_pro_token` | no | `` | DeepL Pro OAuth token |
-| `slang` | no | `true` | Slang and abbreviations |
-| `slang_lang` | no | `` | Abbreviation table language |
+| Setting | Description | Default value |
+|---|---|---|
+| Online translation | Online translation via Google, MyMemory, Lingva, LibreTranslate | On |
+| Glossary | Built-in ready-made phrases with Russian reading | On |
+| Global hotkey | Open the overlay with one key from inside the game | On |
+| DeepL alongside (DLX) | A local DeepL service on your computer | Off |
+| Slang and abbreviations | Expand `brb`, `afk`, `спс` and others before translation | On |
 
-#### Text and markers
+#### Text and special markers
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `marker_open` | no | `+` | "translate this" marker |
-| `marker_close` | no | `+` | Fragment close marker |
-| `max_chars` | no | `256` | Message length limit |
-| `debounce_ms` | no | `450` | Typing pause before translating |
-| `filler_always` | no | `true` | Fillers in every message |
+| Setting | Description | Default value |
+|---|---|---|
+| Forced fragment marker | Symbol to mark text that must be translated forced (`+...+`) | `+` |
+| Maximum message length | Character limit for one message to translate | 256 |
+| Pause before translation | Delay after typing before automatic translation starts | 450 ms |
+| Parasite words always | Add filler words (`Senti`, `Ma dai` etc.) to every message | Enabled |
 
 #### Auto-translation
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `auto_mode` | no | `false` | Auto-translate on |
-| `auto_every` | no | `4` | Every N-th message |
-| `auto_position` | no | `last` | `last` | `first` | `random` | number 1..N |
-| `auto_fragments` | no | `1` | Fragments per message |
-| `auto_min_words` | no | `1` | Fragment length min |
-| `auto_max_words` | no | `3` | Fragment length max |
-| `auto_prefer_glossary` | no | `true` | Prefer glossary phrases |
+| Setting | Description | Default value |
+|---|---|---|
+| Auto-translate on | Translate every N-th message automatically | Off |
+| Every N-th message | Frequency of automatic translation (which message number) | 4th |
+| Fragment position | Which part of the message to translate: end, beginning, random | End |
+| Dictionary priority | Check built-in dictionary before online translation | Enabled |
 
 #### Sending into the game
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `game_send` | no | `true` | Send into the game |
-| `game_press_enter` | no | `false` | Press Enter after pasting |
-| `game_submit` | no | `true` | Submit the message |
-| `game_chat_key` | no | `t` | In-game chat key |
-| `game_open_chat_first` | no | `true` | Open the game chat first |
-| `game_open_delay_ms` | no | `300` | Pause after opening chat |
-| `game_paste_delay_ms` | no | `150` | Pause before pasting |
-| `game_focus_delay_ms` | no | `150` | Pause before refocusing |
-| `game_input_mode` | no | `paste` | `paste` = Ctrl+V, `type` = typed input |
-| `game_window_class` | no | `grcWindow` | Game window class |
-| `game_extra_exes` | no | `[]` | Extra game processes |
+| Setting | Description | Default value |
+|---|---|---|
+| Send into the game | Pass text to the game chat window | On |
+| Press Enter | Press Enter automatically after pasting text | Off |
+| Chat key | Key to open chat in the game (e.g. `T`) | `T` |
+| Input method | How to insert text: via clipboard (Ctrl+V) or character by character | Clipboard |
 
 #### Animations
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `slang_order` | no | `[]` | User's abbreviation order |
-| `anims_enabled` | no | `false` | Animation module |
-| `anim_rules` | no | `[]` | Rules: keyword → `/anim` |
-| `anim_stop_key` | no | `f` | Stop key |
-| `anim_stop_by_sa` | no | `true` | Stop with `/sa` command |
-| `anim_stop_by_key` | no | `false` | Stop with the key |
-| `anim_skip_negation` | no | `true` | Skip negation |
-| `anim_extra_ms` | no | `50` | Tail after animation |
-| `anim_in_vehicle` | no | `false` | "In a vehicle" mode |
+| Setting | Description | Default value |
+|---|---|---|
+| Animations module | Enable animation launch by keywords | Off |
+| Animation rules | Which words trigger which animation (`/anim name`) | Empty |
+| Stop key | Key to stop animation playback | `F` |
+| Stop with `/sa` command | Stop animation with `/sa` command in game | Enabled |
+| "In a vehicle" mode | Don't play animations and don't send `/sa` while enabled | Off |
 
 <a id="translation-modes-and-special-symbols"></a>
-<img src="source/images/forum/hdr_modes_en.png" width="720" alt="Translation modes and special symbols">
+<img src="source/images/forum/hdr_modes_en.png" width="1200" alt="Translation modes and special symbols">
 
 The program supports several translation methods and special markers in text:
 
@@ -236,7 +205,7 @@ read aloud") and does not go to external translation services. The dictionary
 takes priority over network translation.
 
 <a id="deeplx-in-russia"></a>
-<img src="source/images/forum/hdr_deeplx_en.png" width="720" alt="DeepLX in Russia">
+<img src="source/images/forum/hdr_deeplx_en.png" width="1200" alt="DeepLX in Russia">
 
 Since June 2025, DeepL is blocked for Russian IP addresses. The local DLX
 service starts, but DeepL returns error `503` — state
@@ -248,12 +217,12 @@ If there is no proxy, simply disable DLX — the program falls back to regular
 translation services without restrictions.
 
 <a id="license"></a>
-<img src="source/images/forum/hdr_license_en.png" width="720" alt="License">
+<img src="source/images/forum/hdr_license_en.png" width="1200" alt="License">
 
 [MIT](LICENSE)
 
 <a id="contacts"></a>
-<img src="source/images/forum/hdr_contacts_en.png" width="720" alt="Contacts">
+<img src="source/images/forum/hdr_contacts_en.png" width="1200" alt="Contacts">
 
 - Author: [Ven4esters](https://github.com/Ven4esters)
 - Issues and suggestions: [GitHub Issues](https://github.com/Ven4esters/RP-Chat-Overlay/issues)
