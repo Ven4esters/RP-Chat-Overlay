@@ -1,5 +1,7 @@
 # 🎮 Chat&AutoAnimations RP Overhaul
 
+[🇷🇺 Читать на русском](README.ru.md)
+
 [![Windows 10 / 11](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&logoColor=white)](https://github.com/Ven4esters/RP-Chat-Overlay/releases)
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-312/)
 ![Языков: 13](https://img.shields.io/badge/languages-13-2e7d32)
