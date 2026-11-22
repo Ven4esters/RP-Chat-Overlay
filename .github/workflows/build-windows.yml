@@ -1,11 +1,11 @@
 name: Build Windows exe
 
-# Собирает source/ -> dist/RPChatOverlay.exe прямо в облаке GitHub.
+# Собирает source/ -> dist/Chat_n_AutoAnimations_RP_Overlay.exe прямо в облаке GitHub.
 #
 # Как получить exe бесплатно и без установки Python:
 #   1) залейте репозиторий (папки dist и source);
 #   2) вкладка Actions -> «Build Windows exe» -> Run workflow;
-#   3) через 3-5 минут скачайте RPChatOverlay.exe в разделе Artifacts
+#   3) через 3-5 минут скачайте Chat_n_AutoAnimations_RP_Overlay.exe в разделе Artifacts
 #      (или запустите `git tag v1.0 && git push --tags` — exe сам прикрепится к Releases).
 
 on:
@@ -38,28 +38,28 @@ jobs:
           pip install pyinstaller
 
       - name: Build exe into dist/
-        run: python -m PyInstaller --noconfirm --clean --distpath ../dist RPChatOverlay.spec
+        run: python -m PyInstaller --noconfirm --clean --distpath ../dist Chat_n_AutoAnimations_RP_Overlay.spec
 
       - name: Show result
         working-directory: .
         run: |
           dir dist
-          python -c "import os;print('RPChatOverlay.exe:', round(os.path.getsize('dist/RPChatOverlay.exe')/1048576, 1), 'MB')"
+          python -c "import os;print('Chat_n_AutoAnimations_RP_Overlay.exe:', round(os.path.getsize('dist/Chat_n_AutoAnimations_RP_Overlay.exe')/1048576, 1), 'MB')"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RPChatOverlay-exe
-          path: dist/RPChatOverlay.exe
+          name: Chat_n_AutoAnimations_RP_Overlay-exe
+          path: dist/Chat_n_AutoAnimations_RP_Overlay.exe
           if-no-files-found: error
 
       - name: Attach to Release (on tag)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/RPChatOverlay.exe
-          name: RP Chat Overlay ${{ github.ref_name }}
+          files: dist/Chat_n_AutoAnimations_RP_Overlay.exe
+          name: Chat&AutoAnimations RP Overlay ${{ github.ref_name }}
           body: |
-            Готовый файл: **RPChatOverlay.exe** — скачать и запустить, ничего устанавливать не нужно.
+            Готовый файл: **Chat_n_AutoAnimations_RP_Overlay.exe** — скачать и запустить, ничего устанавливать не нужно.
             Исходники и инструкции — в папке `source/` репозитория.
           draft: false

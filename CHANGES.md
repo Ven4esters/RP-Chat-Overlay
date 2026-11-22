@@ -8,6 +8,16 @@ This file records changes and their reasons so the same problems are not repeate
 
 ---
 
+## 2026-11-15 — Product rebrand to Chat&AutoAnimations RP Overlay
+
+**What changed:** Updated the product display name, application metadata, user-agent identifiers, mutex and data-folder identifiers, build spec and executable name, Windows build scripts/workflows, download graphics source, and English/Russian README references to use `Chat&AutoAnimations RP Overlay` and `Chat_n_AutoAnimations_RP_Overlay.exe`. The GitHub repository URL and repository identity remain unchanged. Kept the existing animation-export format identifier unchanged so previously exported rules remain compatible.
+
+**Upgrade compatibility:** When the application cannot write beside its executable, it now copies existing settings from the legacy `%LOCALAPPDATA%\\RPChatOverlay` directory into the newly named data directory on first launch. If copying fails, it continues using the legacy directory to avoid losing access to user settings.
+
+**Checks:** `ruff check source`, `ruff format --check source`, `python -m pytest source/tests -q` (48 passed), `python -m compileall -q source`, and `git diff --check` passed. A Windows executable build was not run in this Linux environment.
+
+---
+
 ## 2026-11-15 — Recent README and license updates
 
 **Commits:** `8d3b608`, `dc9ed6a`, `f1248c9`, `0ed4fe4`, `72bc046`, `a9634cd`, `2b053b0`.
@@ -132,6 +142,16 @@ Remaining partial items are test coverage and public docstring coverage; the pro
 # Справка о правках
 
 Этот файл фиксирует внесённые правки и их причины, чтобы не наступать на одни и те же грабли повторно.
+
+---
+
+## 2026-11-15 — Переименование продукта в Chat&AutoAnimations RP Overlay
+
+**Что изменено:** Обновлены отображаемое имя продукта, метаданные приложения, идентификаторы User-Agent, мьютекса и папки данных, spec сборки и имя EXE, BAT/CI-сборка, исходник кнопки скачивания, а также английский и русский README. Новое имя приложения — `Chat&AutoAnimations RP Overlay`, исполняемого файла — `Chat_n_AutoAnimations_RP_Overlay.exe`. URL и идентификатор GitHub-репозитория сохранены. Идентификатор формата экспорта анимаций оставлен без изменений для совместимости с ранее сохранёнными правилами.
+
+**Совместимость при обновлении:** Если приложению нельзя писать рядом с EXE, при первом запуске оно копирует настройки из прежней папки `%LOCALAPPDATA%\\RPChatOverlay` в новую. Если копирование не удалось, приложение продолжит использовать старую папку, чтобы не потерять доступ к настройкам.
+
+**Проверки:** `ruff check source`, `ruff format --check source`, `python -m pytest source/tests -q` (48 тестов пройдены), `python -m compileall -q source` и `git diff --check` прошли. Сборка Windows EXE в этой среде Linux не выполнялась.
 
 ---
 

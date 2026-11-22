@@ -178,7 +178,9 @@ def set_app_id() -> None:
     try:
         import ctypes
 
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("RPChatOverlay.Overlay.1")
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            "Chat_n_AutoAnimations_RP_Overlay.Overlay.1"
+        )
     except Exception:
         log.exception("Не удалось задать AppUserModelID для панели задач")
 

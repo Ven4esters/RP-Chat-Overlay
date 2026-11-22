@@ -8,7 +8,7 @@
 # --- Git LFS (по желанию) ---
 # Нужен только если вы хотите хранить собранный exe через Git LFS.
 # Порядок: установить git-lfs -> `git lfs install` -> раскомментировать строку ниже
-# -> `git add .gitattributes dist/RPChatOverlay.exe` -> commit -> push.
+# -> `git add .gitattributes dist/Chat_n_AutoAnimations_RP_Overlay.exe` -> commit -> push.
 # Без установленного git-lfs активная LFS-строка ломает `git add`, поэтому
 # по умолчанию она закомментирована.
 # dist/*.exe filter=lfs diff=lfs merge=lfs -text

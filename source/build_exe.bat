@@ -7,7 +7,7 @@ set "BV=%ROOT%.build-venv"
 set "PYEXE="
 
 echo ============================================
-echo  RP Chat Overlay - building RPChatOverlay.exe
+echo  Chat^&AutoAnimations RP Overlay - building Chat_n_AutoAnimations_RP_Overlay.exe
 echo ============================================
 echo.
 
@@ -44,15 +44,15 @@ if errorlevel 1 goto :pipfail
 REM ---- 4. build ----
 echo.
 echo Building exe ...
-"%BV%\Scripts\python.exe" -m PyInstaller --noconfirm --clean --distpath "%ROOT%..\dist" RPChatOverlay.spec
+"%BV%\Scripts\python.exe" -m PyInstaller --noconfirm --clean --distpath "%ROOT%..\dist" Chat_n_AutoAnimations_RP_Overlay.spec
 if errorlevel 1 goto :buildfail
 
 echo.
-if not exist "%ROOT%..\dist\RPChatOverlay.exe" goto :buildfail
-echo Done: %ROOT%..\dist\RPChatOverlay.exe
+if not exist "%ROOT%..\dist\Chat_n_AutoAnimations_RP_Overlay.exe" goto :buildfail
+echo Done: %ROOT%..\dist\Chat_n_AutoAnimations_RP_Overlay.exe
 echo.
 REM ---------- checksums of the built exe ----------
-set "EXE=%ROOT%..\dist\RPChatOverlay.exe"
+set "EXE=%ROOT%..\dist\Chat_n_AutoAnimations_RP_Overlay.exe"
 set "SHA="
 set "MD5="
 for /f "usebackq tokens=*" %%H in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "(Get-FileHash -Algorithm SHA256 -LiteralPath '%EXE%').Hash.ToLower()"`) do set "SHA=%%H"
@@ -73,7 +73,7 @@ echo.
 echo VirusTotal for this build: https://www.virustotal.com/gui/file/%SHA%
 echo.
 echo The exe is self-contained: Python and PySide6 are inside.
-echo Give players only RPChatOverlay.exe - no installation needed.
+echo Give players only Chat_n_AutoAnimations_RP_Overlay.exe - no installation needed.
 echo First start creates data\ and logs\ next to the exe.
 echo.
 echo To publish it: use GitHub Releases, not a repo upload.
@@ -104,7 +104,7 @@ exit /b 1
 
 :buildfail
 echo.
-echo Build failed. Details are above; the log is in build\RPChatOverlay\warn-RPChatOverlay.txt
+echo Build failed. Details are above; the log is in build\Chat_n_AutoAnimations_RP_Overlay\warn-Chat_n_AutoAnimations_RP_Overlay.txt
 pause
 exit /b 1
 

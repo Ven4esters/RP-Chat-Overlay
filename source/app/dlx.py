@@ -106,7 +106,7 @@ def _http_get_json(url: str, timeout: float = 6.0) -> Any:
     """GET с JSON-ответом (для проверки обновлений) / GET returning JSON."""
     request = urllib.request.Request(url, method="GET")
     request.add_header("Accept", "application/vnd.github+json")
-    request.add_header("User-Agent", "RP-Chat-Overlay")
+    request.add_header("User-Agent", "Chat_n_AutoAnimations_RP_Overlay")
     with urllib.request.urlopen(request, timeout=timeout) as answer:
         return json.loads(answer.read().decode("utf-8", "replace"))
 
@@ -360,7 +360,7 @@ def proxy_exit(proxy: str, timeout: float = 10.0) -> tuple[bool, str]:
             tls.sendall(
                 (
                     f"GET {path} HTTP/1.1\r\nHost: {host}\r\n"
-                    "User-Agent: RP-Chat-Overlay\r\nConnection: close\r\n\r\n"
+                    "User-Agent: Chat_n_AutoAnimations_RP_Overlay\r\nConnection: close\r\n\r\n"
                 ).encode("ascii")
             )
             raw = b""
@@ -1309,7 +1309,9 @@ class DlxService:
             f"{self.binary.name}.{os.getpid()}.{threading.get_ident()}.tmp"
         )
         try:
-            request = urllib.request.Request(url, headers={"User-Agent": "RP-Chat-Overlay"})
+            request = urllib.request.Request(
+                url, headers={"User-Agent": "Chat_n_AutoAnimations_RP_Overlay"}
+            )
             with urllib.request.urlopen(request, timeout=60) as answer, temp.open("wb") as out:
                 while True:
                     chunk = answer.read(65536)
@@ -1339,7 +1341,9 @@ class DlxService:
         """Положить рядом лицензию MIT / keep the MIT license next to the binary."""
         target = self.dir / "LICENSE-DLX.txt"
         try:
-            request = urllib.request.Request(LICENSE_URL, headers={"User-Agent": "RP-Chat-Overlay"})
+            request = urllib.request.Request(
+                LICENSE_URL, headers={"User-Agent": "Chat_n_AutoAnimations_RP_Overlay"}
+            )
             with urllib.request.urlopen(request, timeout=15) as answer:
                 text = answer.read().decode("utf-8", "replace")
         except Exception:

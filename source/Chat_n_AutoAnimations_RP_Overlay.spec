@@ -1,14 +1,14 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""RPChatOverlay.spec — сборка одного exe-файла через PyInstaller.
+"""Chat_n_AutoAnimations_RP_Overlay.spec — сборка одного exe-файла через PyInstaller.
 
 Собирает source/main.py вместе с пакетом source/app (модули программы,
-словари языков, интерфейс) в один RPChatOverlay.exe.
+словари языков, интерфейс) в один Chat_n_AutoAnimations_RP_Overlay.exe.
 Bundles source/main.py together with the source/app package (program modules,
-language packs, interface) into a single RPChatOverlay.exe.
+language packs, interface) into a single Chat_n_AutoAnimations_RP_Overlay.exe.
 
 Сборка (Windows, Python 3.12):
-    pyinstaller --noconfirm --clean RPChatOverlay.spec
-Результат: dist\\RPChatOverlay.exe (один файл, ничего дополнительно ставить не нужно).
+    pyinstaller --noconfirm --clean Chat_n_AutoAnimations_RP_Overlay.spec
+Результат: dist\\Chat_n_AutoAnimations_RP_Overlay.exe (один файл, ничего дополнительно ставить не нужно).
 
 Проще всего — запустить build_exe.bat: он сам создаст окружение, поставит
 PyInstaller и соберёт exe.
@@ -81,7 +81,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name="RPChatOverlay",
+    name="Chat_n_AutoAnimations_RP_Overlay",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

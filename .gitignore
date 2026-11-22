@@ -18,4 +18,4 @@ dist/logs/
 #   * или выкладывайте его в Releases (лимит 2 ГБ) — самый простой путь;
 #   * или раскомментируйте строку ниже и коммитьте через Git LFS
 #     (см. .gitattributes) — тогда exe будет храниться прямо в dist/.
-# dist/RPChatOverlay.exe
+# dist/Chat_n_AutoAnimations_RP_Overlay.exe

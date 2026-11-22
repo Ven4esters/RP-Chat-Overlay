@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 import sys
 from pathlib import Path
 from typing import Any, Final, Mapping
@@ -32,9 +33,11 @@ def _root() -> Path:
 
     Program folder: next to the .exe in a build, or the source folder otherwise.
     Если писать в неё нельзя (например, Program Files), данные переезжают
-    в %LOCALAPPDATA%\\RPChatOverlay — программа работает и оттуда.
+    в %LOCALAPPDATA%\\Chat_n_AutoAnimations_RP_Overlay. Старые настройки будут
+    скопированы при первом запуске.
     If the folder is not writable (Program Files, for example), data moves to
-    %LOCALAPPDATA%\\RPChatOverlay and the program keeps working from there.
+    %LOCALAPPDATA%\\Chat_n_AutoAnimations_RP_Overlay. Legacy settings are
+    copied on first launch.
     """
     base = (
         Path(sys.executable).resolve().parent
@@ -48,10 +51,20 @@ def _root() -> Path:
         probe.unlink()
         return base
     except OSError:
-        fallback = (
-            Path(os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or Path.home())
-            / "RPChatOverlay"
-        )
+        appdata = Path(os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or Path.home())
+        fallback = appdata / "Chat_n_AutoAnimations_RP_Overlay"
+        legacy_fallback = appdata / "RPChatOverlay"
+        # Сохраняем настройки пользователей, обновляющихся со старого названия.
+        # Preserve settings for users upgrading from the previous product name.
+        # Старое имя папки используется только для однократного переноса.
+        # The legacy folder name is used only for this one-time migration.
+        if not fallback.exists() and legacy_fallback.is_dir():
+            try:
+                shutil.copytree(legacy_fallback, fallback)
+            except OSError:
+                # Remove a partial copy so the next launch can retry safely.
+                shutil.rmtree(fallback, ignore_errors=True)
+                fallback = legacy_fallback
         try:
             fallback.mkdir(parents=True, exist_ok=True)
         except OSError:

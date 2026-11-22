@@ -1,5 +1,5 @@
 # Метаданные exe (VERSIONINFO) — то, что видно в «Свойствах» файла на вкладке «Подробнее».
-# Подключается в RPChatOverlay.spec параметром version="version_info.txt".
+# Подключается в Chat_n_AutoAnimations_RP_Overlay.spec параметром version="version_info.txt".
 # Зачем: exe с заполненными полями CompanyName/ProductName/FileDescription и версией
 # реже попадает под эвристику антивирусов, чем «безымянный» самораспаковывающийся файл.
 
@@ -20,13 +20,13 @@ VSVersionInfo(
         StringTable(
           "040904B0",
           [
-            StringStruct("CompanyName", "RP Chat Overlay"),
-            StringStruct("FileDescription", "RP Chat Overlay - perevodchik chata dlya GTA V / FiveM"),
+            StringStruct("CompanyName", "Chat&AutoAnimations RP Overlay"),
+            StringStruct("FileDescription", "Chat&AutoAnimations RP Overlay - perevodchik chata dlya GTA V / FiveM"),
             StringStruct("FileVersion", "1.18.0.0"),
-            StringStruct("InternalName", "RPChatOverlay"),
+            StringStruct("InternalName", "Chat_n_AutoAnimations_RP_Overlay"),
             StringStruct("LegalCopyright", "MIT License"),
-            StringStruct("OriginalFilename", "RPChatOverlay.exe"),
-            StringStruct("ProductName", "RP Chat Overlay"),
+            StringStruct("OriginalFilename", "Chat_n_AutoAnimations_RP_Overlay.exe"),
+            StringStruct("ProductName", "Chat&AutoAnimations RP Overlay"),
             StringStruct("ProductVersion", "1.18.0.0"),
             StringStruct("Comments", "Open source: https://github.com/Ven4esters/RP-Chat-Overlay"),
           ],
