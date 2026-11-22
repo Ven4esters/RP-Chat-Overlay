@@ -3052,6 +3052,7 @@ class SettingsWindow(QDialog):
         self.ed_dlx_src.clear()
         self.ed_dlx_dst.clear()
         self.lb_dlx_trans_note.setText("")
+        self.b_dlx_translate.setEnabled(True)
 
     def eventFilter(self, obj, event):
         """Открыть выпадающий список комбо при клике по полю ввода.
@@ -3098,6 +3099,18 @@ class SettingsWindow(QDialog):
         self.lb_dlx_trans_note.setStyleSheet("color:#a9c4ff;font-size:11px;")
         self.lb_dlx_trans_note.setText(i18n.t("Перевожу…"))
 
+        # Сторож на случай, если dlx.translate() никогда не вернётся
+        # (сервис принял соединение, но не отвечает). Без него кнопка и
+        # «Перевожу…» зависли бы навсегда.
+        # Watchdog in case dlx.translate() never returns (service accepted the
+        # connection but does not answer). Without it the button and
+        # «Translating…» would be stuck forever.
+        self._dlx_trans_watchdog = QTimer(self)
+        self._dlx_trans_watchdog.setSingleShot(True)
+        self._dlx_trans_watchdog.timeout.connect(
+            self._dlx_trans_watchdog_fired)
+        self._dlx_trans_watchdog.start(15000)  # 15 секунд / 15 seconds
+
         def run():
             try:
                 result = self.dlx.translate(text, source=source, target=target)
@@ -3108,11 +3121,20 @@ class SettingsWindow(QDialog):
                 self._dlx_trans_result = None
                 self._dlx_trans_error = str(error) or type(error).__name__
             finally:
-                # кнопку всегда возвращаем, даже если перевода не вышло
-                # the button is always re-enabled, even if translation failed
+                if hasattr(self, "_dlx_trans_watchdog"):
+                    self._dlx_trans_watchdog.stop()
                 QTimer.singleShot(0, self._dlx_translate_done)
 
         threading.Thread(target=run, daemon=True).start()
+
+    def _dlx_trans_watchdog_fired(self):
+        """Сторожевой таймер сработал: перевод не завершился за 15 с."""
+        if hasattr(self, "_dlx_trans_watchdog"):
+            self._dlx_trans_watchdog.stop()
+        self._dlx_trans_result = None
+        self._dlx_trans_error = i18n.t(
+            "Перевод не завершён за отведенное время — проверьте сервис DeepL")
+        self._dlx_translate_done()
 
     def _dlx_translate_done(self):
         """Результат перевода на главном потоке / result on the main thread."""

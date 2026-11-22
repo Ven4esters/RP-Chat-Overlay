@@ -841,6 +841,8 @@ STRINGS = {
     "Перевод не удался: %s": "Translation failed: %s",
     "Вставлено %d слов": "Pasted %d words",
     "Перевожу…": "Translating…",
+    "Перевод не завершён за отведенное время — проверьте сервис DeepL":
+        "Translation did not complete in time — check the DeepL service",
     # названия языков для комбобоксов переводчика / language names for translator comboboxes
     "Болгарский": "Bulgarian",
     "Чешский": "Czech",
