@@ -53,13 +53,12 @@ def head(name, text):
     bar = make_accent_bar(BAR_H)
     img.paste(bar, (14, bar_y))
 
-    # текст — центрируем по вертикали: базовая линия чуть выше центра,
-    # чтобы капитальные буквы смотрелись посередине панели
+    # текст — центрируем по вертикали через anchor="lm" (left, middle),
+    # как на эталонном изображении "Что умеет программа"
     max_w = W - 2 * 14 - BAR_W - 13 - 10
     size, font = fit_size(text, max_w, 17, bold=True)
-    text_y = H / 2 + size * 0.22
-    draw.text((14 + BAR_W + 13, text_y), text, font=font, fill=TXT,
-              anchor="la")
+    draw.text((14 + BAR_W + 13, H / 2), text, font=font, fill=TXT,
+              anchor="lm")
 
     out = OUT / f"{name}.png"
     img.save(out)
