@@ -24,10 +24,10 @@ import threading
 import time
 from pathlib import Path
 
-from PySide6.QtCore import (QEasingCurve, QObject, QPoint, QRect, QRectF, QSize, Qt,
-                            QTimer, QVariantAnimation, Signal)
-from PySide6.QtGui import (QColor, QDrag, QGuiApplication, QKeySequence, QPainter,
-                           QPixmap, QPolygon)
+from PySide6.QtCore import (QEasingCurve, QEvent, QObject, QPoint, QRect, QRectF,
+                            QSize, Qt, QTimer, QVariantAnimation, Signal)
+from PySide6.QtGui import (QColor, QDrag, QFont, QGuiApplication, QKeySequence,
+                           QPainter, QPixmap, QPolygon)
 import urllib.parse
 
 from PySide6.QtWidgets import (QAbstractButton, QAbstractItemView, QCheckBox, QComboBox,
@@ -2823,6 +2823,9 @@ class SettingsWindow(QDialog):
         self.cb_dlx_src.setToolTip(
             i18n.t("Язык, с которого переводить. «Автоопределение» — "
                    "сервис узнает язык сам."))
+        # клик по полю редактирования открывает список, как в Google Translate
+        # clicking the field opens the dropdown, like in Google Translate
+        self.cb_dlx_src.lineEdit().installEventFilter(self)
         left.addWidget(self.cb_dlx_src)
         self.ed_dlx_src = QPlainTextEdit()
         self.ed_dlx_src.setPlaceholderText(
@@ -2834,8 +2837,9 @@ class SettingsWindow(QDialog):
         # Кнопка обмена языками между панелями
         swap_col = QVBoxLayout()
         swap_col.addStretch(1)
-        self.b_dlx_swap = QToolButton()
-        self.b_dlx_swap.setText("⇄")
+        self.b_dlx_swap = QPushButton("⇄")
+        self.b_dlx_swap.setFont(QFont("Segoe UI Symbol", 16, QFont.Weight.Bold))
+        self.b_dlx_swap.setFixedSize(40, 40)
         self.b_dlx_swap.setToolTip(i18n.t("Поменять языки местами"))
         self.b_dlx_swap.clicked.connect(self._dlx_swap_langs)
         swap_col.addWidget(self.b_dlx_swap)
@@ -2862,6 +2866,9 @@ class SettingsWindow(QDialog):
         self.cb_dlx_dst.setCurrentIndex(idx if idx >= 0 else 0)
         self.cb_dlx_dst.setToolTip(
             i18n.t("Язык, на который переводить."))
+        # клик по полю редактирования открывает список, как в Google Translate
+        # clicking the field opens the dropdown, like in Google Translate
+        self.cb_dlx_dst.lineEdit().installEventFilter(self)
         right.addWidget(self.cb_dlx_dst)
         self.ed_dlx_dst = QPlainTextEdit()
         self.ed_dlx_dst.setPlaceholderText(
@@ -3045,6 +3052,21 @@ class SettingsWindow(QDialog):
         self.ed_dlx_src.clear()
         self.ed_dlx_dst.clear()
         self.lb_dlx_trans_note.setText("")
+
+    def eventFilter(self, obj, event):
+        """Открыть выпадающий список комбо при клике по полю ввода.
+
+        Open the combo popup when the user clicks the editable field,
+        not only the arrow button — like in Google Translate.
+        """
+        if event.type() == QEvent.MouseButtonPress:
+            if obj is self.cb_dlx_src.lineEdit():
+                self.cb_dlx_src.showPopup()
+                return True
+            if obj is self.cb_dlx_dst.lineEdit():
+                self.cb_dlx_dst.showPopup()
+                return True
+        return super().eventFilter(obj, event)
 
     def _dlx_translate(self):
         """Перевести текст через сервис DeepL / translate via DeepL service."""
