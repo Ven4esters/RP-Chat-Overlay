@@ -19,7 +19,7 @@
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [VirusTotal report and 2/70 detections](#virustotal-report)
-- [Settings](#settings)
+- [Module system](#module-system)
 - [Translation modes and special symbols](#translation-modes-and-special-symbols)
 - [DeepLX in Russia](#deeplx-in-russia)
 - [License](#license)
@@ -102,10 +102,8 @@ do not run the file. If your antivirus blocks it, review the vendor's exact
 detection name and submit the file to that vendor for analysis rather than
 disabling protection globally.
 
-<a id="settings"></a>
-<img src="source/images/forum/hdr_configuration_en.png" width="1000" alt="Settings">
-
-## Module system
+<a id="module-system"></a>
+<img src="source/images/forum/hdr_modules_en.png" width="1000" alt="Module system">
 
 The program is built from independent modules. Any module can be disabled in
 settings — a disabled module does not break the rest, the program keeps
