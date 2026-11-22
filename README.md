@@ -11,7 +11,7 @@
 > Chat overlay with DeepL/Google translation and automatic animation application for roleplay games (GTA 5).
 
 <a id="contents"></a>
-<img src="source/images/forum/hdr_contents_en.png" width="1000" alt="Contents">
+<img src="source/images/forum/hdr_contents_en.png" width="720" alt="Contents">
 
 - [About the project](#about-the-project)
 - [Features](#features)
@@ -25,7 +25,7 @@
 - [Contacts](#contacts)
 
 <a id="about-the-project"></a>
-<img src="source/images/forum/hdr_about_en.png" width="1000" alt="About the project">
+<img src="source/images/forum/hdr_about_en.png" width="720" alt="About the project">
 
 The project is an overlay for roleplay chat in GTA 5. It translates incoming
 and outgoing messages through DeepL (local service) or Google Translate, and
@@ -34,7 +34,7 @@ The interface language can be switched between Russian and English without
 restarting.
 
 <a id="features"></a>
-<img src="source/images/forum/hdr_features_en.png" width="1000" alt="Features">
+<img src="source/images/forum/hdr_features_en.png" width="720" alt="Features">
 
 - Translate chat messages through DeepL or Google Translate
 - Automatic animation triggers based on keyword matching
@@ -43,12 +43,12 @@ restarting.
 - Russian and English interface
 
 <a id="tech-stack"></a>
-<img src="source/images/forum/hdr_stack_en.png" width="1000" alt="Tech stack">
+<img src="source/images/forum/hdr_stack_en.png" width="720" alt="Tech stack">
 
 Python 3.12 · PySide6 · deep-translator
 
 <a id="requirements"></a>
-<img src="source/images/forum/hdr_requirements_en.png" width="1000" alt="Requirements">
+<img src="source/images/forum/hdr_requirements_en.png" width="720" alt="Requirements">
 
 - Windows 10 / 11
 - GTA 5
@@ -56,7 +56,7 @@ Python 3.12 · PySide6 · deep-translator
 - Internet connection for translation services
 
 <a id="installation"></a>
-<img src="source/images/forum/hdr_installation_en.png" width="1000" alt="Installation">
+<img src="source/images/forum/hdr_installation_en.png" width="720" alt="Installation">
 
 ### Compiled release (recommended)
 
@@ -79,7 +79,7 @@ Run `source/start.bat` — it finds or installs Python 3.12, creates a virtual
 environment, installs dependencies and launches the app.
 
 <a id="settings"></a>
-<img src="source/images/forum/hdr_configuration_en.png" width="1000" alt="Settings">
+<img src="source/images/forum/hdr_configuration_en.png" width="720" alt="Settings">
 
 ## Module system
 
@@ -170,7 +170,7 @@ real keys into the repository — they belong in the local data folder only.
 | "In a vehicle" mode | Don't play animations and don't send `/sa` while enabled | Off |
 
 <a id="translation-modes-and-special-symbols"></a>
-<img src="source/images/forum/hdr_modes_en.png" width="1000" alt="Translation modes and special symbols">
+<img src="source/images/forum/hdr_modes_en.png" width="720" alt="Translation modes and special symbols">
 
 The program supports several translation methods and special markers in text:
 
@@ -205,7 +205,7 @@ read aloud") and does not go to external translation services. The dictionary
 takes priority over network translation.
 
 <a id="deeplx-in-russia"></a>
-<img src="source/images/forum/hdr_deeplx_en.png" width="1000" alt="DeepLX in Russia">
+<img src="source/images/forum/hdr_deeplx_en.png" width="720" alt="DeepLX in Russia">
 
 Since June 2025, DeepL is blocked for Russian IP addresses. The local DLX
 service starts, but DeepL returns error `503` — state
@@ -217,12 +217,12 @@ If there is no proxy, simply disable DLX — the program falls back to regular
 translation services without restrictions.
 
 <a id="license"></a>
-<img src="source/images/forum/hdr_license_en.png" width="1000" alt="License">
+<img src="source/images/forum/hdr_license_en.png" width="720" alt="License">
 
 [MIT](LICENSE)
 
 <a id="contacts"></a>
-<img src="source/images/forum/hdr_contacts_en.png" width="1000" alt="Contacts">
+<img src="source/images/forum/hdr_contacts_en.png" width="720" alt="Contacts">
 
 - Author: [Ven4esters](https://github.com/Ven4esters)
 - Issues and suggestions: [GitHub Issues](https://github.com/Ven4esters/RP-Chat-Overlay/issues)

@@ -11,7 +11,7 @@
 > Оверлей чата с переводом через DeepL/Google и автоматизация применения анимаций для ролевой игры (GTA 5).
 
 <a id="содержание"></a>
-<img src="source/images/forum/hdr_contents_ru.png" width="1000" alt="Содержание">
+<img src="source/images/forum/hdr_contents_ru.png" width="720" alt="Содержание">
 
 ## Содержание
 
@@ -27,7 +27,7 @@
 - [Контакты](#контакты)
 
 <a id="о-проекте"></a>
-<img src="source/images/forum/hdr_about_ru.png" width="1000" alt="О проекте">
+<img src="source/images/forum/hdr_about_ru.png" width="720" alt="О проекте">
 
 Проект — оверлей для ролевого чата в GTA 5. Переводит входящие и исходящие
 сообщения через DeepL (локальный сервис) или Google Translate, а также
@@ -35,7 +35,7 @@
 Язык интерфейса можно переключать между русским и английским без перезапуска.
 
 <a id="возможности"></a>
-<img src="source/images/forum/hdr_features_ru.png" width="1000" alt="Возможности">
+<img src="source/images/forum/hdr_features_ru.png" width="720" alt="Возможности">
 
 - Перевод сообщений чата через DeepL или Google Translate
 - Автоматический запуск анимаций по совпадению ключевых слов
@@ -44,12 +44,12 @@
 - Интерфейс на русском и английском языках
 
 <a id="стек-технологий"></a>
-<img src="source/images/forum/hdr_stack_ru.png" width="1000" alt="Стек технологий">
+<img src="source/images/forum/hdr_stack_ru.png" width="720" alt="Стек технологий">
 
 Python 3.12 · PySide6 · deep-translator
 
 <a id="требования"></a>
-<img src="source/images/forum/hdr_requirements_ru.png" width="1000" alt="Требования">
+<img src="source/images/forum/hdr_requirements_ru.png" width="720" alt="Требования">
 
 - Windows 10 / 11
 - GTA 5
@@ -57,7 +57,7 @@ Python 3.12 · PySide6 · deep-translator
 - Подключение к интернету для сервисов перевода
 
 <a id="установка"></a>
-<img src="source/images/forum/hdr_installation_ru.png" width="1000" alt="Установка">
+<img src="source/images/forum/hdr_installation_ru.png" width="720" alt="Установка">
 
 ### Скомпилированный релиз (рекомендуется)
 
@@ -80,7 +80,7 @@ cd RP-Chat-Overlay
 виртуальное окружение, установит зависимости и запустит приложение.
 
 <a id="настройки"></a>
-<img src="source/images/forum/hdr_configuration_ru.png" width="1000" alt="Настройки">
+<img src="source/images/forum/hdr_configuration_ru.png" width="720" alt="Настройки">
 
 ## Система модулей
 
@@ -172,7 +172,7 @@ cd RP-Chat-Overlay
 | Режим «В машине» | Не играть анимации и не отправлять `/sa`, пока включено | Выключено |
 
 <a id="режимы-перевода-испецсимволы"></a>
-<img src="source/images/forum/hdr_modes_ru.png" width="1000" alt="Режимы перевода и спецсимволы">
+<img src="source/images/forum/hdr_modes_ru.png" width="720" alt="Режимы перевода и спецсимволы">
 
 Программа поддерживает несколько способов перевода и особые маркеры в тексте:
 
@@ -204,7 +204,7 @@ cd RP-Chat-Overlay
 внешние сервисы перевода. Словарь имеет приоритет над сетевым переводом.
 
 <a id="deeplxвроссии"></a>
-<img src="source/images/forum/hdr_deeplx_ru.png" width="1000" alt="DeepLX в России">
+<img src="source/images/forum/hdr_deeplx_ru.png" width="720" alt="DeepLX в России">
 
 С июня 2025 года DeepL закрыт для российских IP-адресов. Локальный сервис DLX
 запускается, но DeepL возвращает ошибку `503` — состояние
@@ -216,12 +216,12 @@ cd RP-Chat-Overlay
 сервисам перевода без ограничений.
 
 <a id="лицензия"></a>
-<img src="source/images/forum/hdr_license_ru.png" width="1000" alt="Лицензия">
+<img src="source/images/forum/hdr_license_ru.png" width="720" alt="Лицензия">
 
 [MIT](LICENSE)
 
 <a id="контакты"></a>
-<img src="source/images/forum/hdr_contacts_ru.png" width="1000" alt="Контакты">
+<img src="source/images/forum/hdr_contacts_ru.png" width="720" alt="Контакты">
 
 - Автор: [Ven4esters](https://github.com/Ven4esters)
 - Вопросы и предложения: [GitHub Issues](https://github.com/Ven4esters/RP-Chat-Overlay/issues)
