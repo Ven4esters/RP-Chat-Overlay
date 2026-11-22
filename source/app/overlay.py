@@ -181,6 +181,9 @@ class Overlay(QWidget):
         self._hints = []              # подсказки ключевых слов / keyword hints
         self._hint_pick = -1          # которая выбрана пролистыванием / picked
         self._hint_done = ""          # только что подставленный ключ / just applied
+        self._pending_text = ""       # набранное, сохранённое при закрытии оверлея
+                                      # typed text saved when the overlay closes, so it
+                                      # survives minimising/restoring the game
 
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
                             | Qt.WindowType.Tool)
@@ -309,6 +312,15 @@ class Overlay(QWidget):
 
     def _show_overlay(self):
         self._reset()
+        # Восстановить набранное, если оверлей был закрыт не по отправке
+        # (например, игра свернули) — текст вернётся в поле ввода.
+        # Restore what was typed if the overlay was closed without sending
+        # (e.g. the game was minimised) — the text comes back into the input.
+        if self._pending_text:
+            self.input.blockSignals(True)
+            self.input.setText(self._pending_text)
+            self.input.blockSignals(False)
+            self._pending_text = ""
         if self._rev():
             self.input.setPlaceholderText(
                 i18n.t("Фраза на вашем языке — перевод уйдёт в чат по Enter"))
@@ -317,6 +329,7 @@ class Overlay(QWidget):
                 i18n.t("Текст, +фраза для перевода+, *действие*"))
         self.place()
         self._count()
+        self.on_text()          # подсказки ключевых слов для восстановленного текста
         self.shown_at = time.time()
         self.show()
         self.raise_()
@@ -357,6 +370,13 @@ class Overlay(QWidget):
         was_open = self.game_chat_open
         hwnd = self.game_hwnd
         self.game_chat_open = False
+        # Сохраним то, что игрок набрал, чтобы текст не пропал при закрытии
+        # оверлея — в том числе при сворачивании игры (потеря фокуса). При
+        # повторном открытии вернём его обратно в поле ввода.
+        # Save what the player typed so it is not lost when the overlay closes —
+        # including when the game is minimised (focus lost). Restore it back into
+        # the input field on the next open.
+        self._pending_text = self.input.text()
         self._reset()
         self.hide()
         if was_open and modules.is_enabled(self.cfg, "game_send") and hwnd:
@@ -821,6 +841,8 @@ class Overlay(QWidget):
         chat_open = self.game_chat_open            # чат уже открыт при открытии оверлея
         self.game_chat_open = False
         self._reset()
+        self._pending_text = ""   # отправленное не возвращаем при следующем открытии
+        # sent text is not brought back on the next open
         self.hide()
         if modules.is_enabled(self.cfg, "game_send") and hwnd:
             self.sending = True
