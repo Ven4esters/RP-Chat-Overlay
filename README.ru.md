@@ -1,4 +1,4 @@
-# 🎮 Chat&AutoAnimations RP Overhaul
+# 🎮 Chat&AutoAnimations RP Overlay
 
 [🇬🇧 Read in English](README.md)
 
