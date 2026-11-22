@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Рисует двуязычную графику поста в тёмном стиле RP Overlay.
 
-Главный баннер центрирован; заголовки разделов выровнены влево. Таблицы
-сохраняются как PNG, поскольку форум ненадёжно отображает BBCode-таблицы.
+Только главный баннер центрирован; все заголовки разделов, включая «Что
+нового?», выровнены влево. Таблицы сохраняются как PNG, поскольку форум
+ненадёжно отображает BBCode-таблицы.
 
 Generate bilingual forum-post artwork in the existing dark RP Overlay style.
-The hero is centered, section headers are left-aligned, and tables are PNGs
-because the target forum does not render BBCode tables reliably.
+Only the hero is centered; all section headers, including “What’s new?”, are
+left-aligned. Tables are PNGs because the target forum does not render BBCode
+tables reliably.
 
 Требуется Pillow; запуск из корня проекта: `python source/images/forum/generate_forum_post.py`.
 Requires Pillow; run from the project root with the command above.
@@ -127,6 +129,31 @@ def hero(name: str, locale: str) -> None:
         draw.line((x, h - 4 * SCALE, x, h - 1), fill=color)
     save(image, name)
 
+
+def whats_new_header(name: str, locale: str) -> None:
+    title = "Что нового?" if locale == "ru" else "What’s new?"
+    height = 62
+    image = Image.new("RGB", (WIDTH * SCALE, height * SCALE), BG)
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle(
+        (1 * SCALE, 1 * SCALE, (WIDTH - 2) * SCALE, (height - 2) * SCALE),
+        radius=12 * SCALE,
+        fill=PANEL,
+        outline=BORDER,
+        width=1 * SCALE,
+    )
+    draw.rounded_rectangle(
+        (18 * SCALE, 14 * SCALE, 23 * SCALE, 48 * SCALE),
+        radius=3 * SCALE,
+        fill=GREEN,
+    )
+    title_font = font(19, True)
+    title_x = 38 * SCALE
+    title_y = 31 * SCALE
+    draw.text((title_x, title_y), title, font=title_font, fill=TEXT, anchor="lm")
+    line_start = title_x + int(draw.textlength(title, font=title_font)) + 18 * SCALE
+    draw.line((line_start, title_y, 690 * SCALE, title_y), fill=BORDER, width=1 * SCALE)
+    save(image, name)
 
 def section(name: str, label: str, number: int) -> None:
     height = 62
@@ -348,6 +375,7 @@ def generate(locale: str) -> None:
         ]
     )
     hero("sm_header.png" if is_ru else "sm_header_en.png", locale)
+    whats_new_header(f"post_whats_new_{locale}.png", locale)
     for number, label in enumerate(labels, start=1):
         section(f"post_section_{number:02d}_{locale}.png", label, number)
     forms_cards(f"post_animation_forms_{locale}.png", locale)

@@ -8,6 +8,16 @@ This file records changes and their reasons so the same problems are not repeate
 
 ---
 
+## 2026-11-15 — Bilingual “What’s new?” forum section
+
+**What changed:** Added a copy-ready RU/EN highlights section to `docs/FORUM_BBCODE.md`, covering major changes from versions 1.6 through 1.18, linking to the full GitHub changelog, and grouping minor changes under a short closing line. Added matching left-aligned RU/EN section-title artwork in the existing dark visual style.
+
+**Artwork:** Updated `source/images/forum/generate_forum_post.py`; generated `post_whats_new_ru.png` and `post_whats_new_en.png` (720×62 each). Existing generated assets were unchanged.
+
+**Checks:** Generator ran with Pillow; verified both artwork files exist, image URLs match local assets, RU/EN sections are present, and the BBCode contains no spoiler/table tags. `git diff --check` passed.
+
+---
+
 ## 2026-11-15 — Detailed animation settings and word-form guide
 
 **What changed:** Expanded both forum BBCode versions with a full explanation of animation rule modes, per-rule fields, durations, stopping and looping, the manually controlled in-vehicle silence mode, negation filtering, suggestions, queue order, testing, variants, and import/export. Added bilingual visual cards explaining Exact, Stems, and Lemmas, including the `pymorphy3` fallback.
