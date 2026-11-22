@@ -10,7 +10,7 @@ This file records changes and their reasons so the same problems are not repeate
 
 ## 2026-11-15 — Bilingual “What’s new?” forum section
 
-**What changed:** Added a copy-ready RU/EN highlights section to `docs/FORUM_BBCODE.md`, covering major changes from versions 1.6 through 1.18, linking to the full GitHub changelog, and grouping minor changes under a short closing line. Added matching left-aligned RU/EN section-title artwork in the existing dark visual style.
+**What changed:** Split RU/EN “What’s new?” content into its own copy-ready BBCode block, separate from the main forum post. The standalone snippets cover major changes from versions 1.6 through 1.18, link to the full GitHub changelog, and group minor changes under a short closing line. Added matching left-aligned RU/EN section-title artwork in the existing dark visual style.
 
 **Artwork:** Updated `source/images/forum/generate_forum_post.py`; generated `post_whats_new_ru.png` and `post_whats_new_en.png` (720×62 each). Existing generated assets were unchanged.
 

@@ -2,15 +2,15 @@
 
 # Форумный пост / Forum post
 
-BBCode внутри блоков готов к копированию. Ссылки на изображения ведут в `main`, поэтому сначала влейте эту ветку: после этого картинки будут доступны по постоянным URL. В разметке постов нет спойлеров, таблиц, якорей и внутренних ссылок; таблицы вынесены в PNG. По центру стоит только главный баннер; заголовок «Что нового?», остальные заголовки и текст выровнены по левому краю.
+BBCode внутри блоков готов к копированию: для каждой языковой версии отдельно приведены блок «Что нового?» и основной пост без него. Ссылки на изображения ведут в `main`, поэтому сначала влейте эту ветку: после этого картинки будут доступны по постоянным URL. В разметке постов нет спойлеров, таблиц, якорей и внутренних ссылок; табличная информация вынесена в PNG. По центру стоит только главный баннер; заголовки и текст выровнены по левому краю.
 
 <a id="russian"></a>
 
 ## 🇷🇺 Русская версия
 
-```text
-[center][img]https://raw.githubusercontent.com/Ven4esters/RP-Chat-Overlay/main/source/images/forum/sm_header.png[/img][/center]
+### Отдельный BBCode-блок «Что нового?»
 
+```text
 [img]https://raw.githubusercontent.com/Ven4esters/RP-Chat-Overlay/main/source/images/forum/post_whats_new_ru.png[/img]
 [left]Полный список изменений — в [url=https://github.com/Ven4esters/RP-Chat-Overlay/blob/main/CHANGELOG.md]CHANGELOG.md на GitHub[/url]. Ниже — только основные обновления после версии 1.5.[/left]
 [left][b]1.6 — DeepL и DLX.[/b] Добавлен необязательный локальный сервис DeepL: программа устанавливает и запускает его, а при необходимости использует прокси и токен DeepL Pro.[/left]
@@ -24,6 +24,12 @@ BBCode внутри блоков готов к копированию. Ссыл�
 [left][b]1.17 — ручной режим «В машине».[/b] При включении очищается очередь и отправляется один /sa, затем команда анимаций молчит, пока игрок вручную не выключит режим.[/left]
 [left][b]1.18 — быстрый ввод ключевых слов.[/b] Оверлей предлагает совпадающие ключи прямо во время набора; список можно листать с клавиатуры. Таблицу правил можно искать, настраивать по высоте и разворачивать на весь экран.[/left]
 [left]И другие минорные изменения.[/left]
+```
+
+### Основной BBCode-пост
+
+```text
+[center][img]https://raw.githubusercontent.com/Ven4esters/RP-Chat-Overlay/main/source/images/forum/sm_header.png[/img][/center]
 
 [img]https://raw.githubusercontent.com/Ven4esters/RP-Chat-Overlay/main/source/images/forum/post_section_01_ru.png[/img]
 [left]RP Chat Overlay — оверлей для ролевого чата в GTA V и FiveM. Переводите сообщения, общайтесь на выбранном языке и запускайте игровые анимации, не отвлекаясь от игры.[/left]
@@ -89,9 +95,9 @@ BBCode внутри блоков готов к копированию. Ссыл�
 
 ## 🇬🇧 English version
 
-```text
-[center][img]https://raw.githubusercontent.com/Ven4esters/RP-Chat-Overlay/main/source/images/forum/sm_header_en.png[/img][/center]
+### Standalone “What’s new?” BBCode
 
+```text
 [img]https://raw.githubusercontent.com/Ven4esters/RP-Chat-Overlay/main/source/images/forum/post_whats_new_en.png[/img]
 [left]The full version history is in [url=https://github.com/Ven4esters/RP-Chat-Overlay/blob/main/CHANGELOG.md]CHANGELOG.md on GitHub[/url]. Below are the major updates since version 1.5 only.[/left]
 [left][b]1.6 — DeepL and DLX.[/b] Added an optional local DeepL service that the app can install and launch, with proxy and DeepL Pro token support when needed.[/left]
@@ -105,6 +111,12 @@ BBCode внутри блоков готов к копированию. Ссыл�
 [left][b]1.17 — manual “In a vehicle” mode.[/b] Enabling it clears the queue and sends one /sa; animation commands stay silent until the player switches the mode off manually.[/left]
 [left][b]1.18 — faster keyword entry.[/b] Matching keywords are suggested as you type and can be navigated with the keyboard. The rules table is searchable, height-adjustable, and can be expanded full-screen.[/left]
 [left]And other minor changes.[/left]
+```
+
+### Main forum-post BBCode
+
+```text
+[center][img]https://raw.githubusercontent.com/Ven4esters/RP-Chat-Overlay/main/source/images/forum/sm_header_en.png[/img][/center]
 
 [img]https://raw.githubusercontent.com/Ven4esters/RP-Chat-Overlay/main/source/images/forum/post_section_01_en.png[/img]
 [left]RP Chat Overlay is a roleplay chat overlay for GTA V and FiveM. Translate messages, communicate in your chosen language, and trigger in-game animations without leaving the game.[/left]
