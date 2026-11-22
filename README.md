@@ -23,8 +23,7 @@
 - [License](#license)
 - [Contacts](#contacts)
 
-## About the project
-
+<a id="about-the-project"></a>
 <img src="source/images/forum/hdr_about_en.png" width="720" alt="About the project">
 
 The project is an overlay for roleplay chat in GTA 5. It translates incoming
@@ -33,8 +32,7 @@ automatically applies character animations based on keyword matching.
 The interface language can be switched between Russian and English without
 restarting.
 
-## Features
-
+<a id="features"></a>
 <img src="source/images/forum/hdr_features.png" width="720" alt="Features">
 
 - Translate chat messages through DeepL or Google Translate
@@ -43,14 +41,12 @@ restarting.
 - DLX local service management (install, start, stop, proxy)
 - Russian and English interface
 
-## Tech stack
-
+<a id="tech-stack"></a>
 <img src="source/images/forum/hdr_stack_en.png" width="720" alt="Tech stack">
 
 Python 3.12 · PySide6 · deep-translator
 
-## Requirements
-
+<a id="requirements"></a>
 <img src="source/images/forum/hdr_requirements_en.png" width="720" alt="Requirements">
 
 - Windows 10 / 11
@@ -58,8 +54,7 @@ Python 3.12 · PySide6 · deep-translator
 - Python ≥ 3.12 (to run from sources)
 - Internet connection for translation services
 
-## Installation
-
+<a id="installation"></a>
 <img src="source/images/forum/hdr_download.png" width="720" alt="Installation">
 
 ### Compiled release (recommended)
@@ -82,8 +77,7 @@ cd RP-Chat-Overlay
 Run `source/start.bat` — it finds or installs Python 3.12, creates a virtual
 environment, installs dependencies and launches the app.
 
-## Quick start
-
+<a id="quick-start"></a>
 <img src="source/images/forum/hdr_how.png" width="720" alt="Quick start">
 
 ```bash
@@ -97,8 +91,7 @@ animations start on keyword match.
 Open **Settings → DeepL** to configure the local translation service, or
 **Settings → Animations** to manage animation rules.
 
-## Configuration
-
+<a id="configuration"></a>
 <img src="source/images/forum/hdr_settings.png" width="720" alt="Configuration">
 
 | Variable | Required | Default | Description |
@@ -111,8 +104,7 @@ Open **Settings → DeepL** to configure the local translation service, or
 Settings are stored in `data/config.json` next to the executable. Do not put
 real keys into the repository — they belong in the local data folder only.
 
-## Translation modes and special symbols
-
+<a id="translation-modes-and-special-symbols"></a>
 <img src="source/images/forum/hdr_modes_en.png" width="720" alt="Translation modes and special symbols">
 
 The program supports several translation methods and special markers in text:
@@ -147,8 +139,7 @@ according to the dictionary entry (with the Russian transcription "how to
 read aloud") and does not go to external translation services. The dictionary
 takes priority over network translation.
 
-## DeepLX in Russia
-
+<a id="deeplx-in-russia"></a>
 <img src="source/images/forum/hdr_deeplx_en.png" width="720" alt="DeepLX in Russia">
 
 Since June 2025, DeepL is blocked for Russian IP addresses. The local DLX
@@ -160,14 +151,12 @@ DLX server abroad ([detailed instructions](docs/DEEPLX-RUSSIA.md)).
 If there is no proxy, simply disable DLX — the program falls back to regular
 translation services without restrictions.
 
-## License
-
+<a id="license"></a>
 <img src="source/images/forum/hdr_license_en.png" width="720" alt="License">
 
 [MIT](LICENSE)
 
-## Contacts
-
+<a id="contacts"></a>
 <img src="source/images/forum/hdr_contacts_en.png" width="720" alt="Contacts">
 
 - Author: [Ven4esters](https://github.com/Ven4esters)
