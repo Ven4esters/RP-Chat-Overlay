@@ -1163,18 +1163,10 @@ class DlxService:
 
     def translate(self, text: str, source: str = "auto", target: str = "IT",
                   timeout: float = 8.0) -> str:
-        """Перевести текст через локальный сервис / translate via the service.
-
-        «auto» не передаётся как source_lang: DeepL не принимает такое значение.
-        Для автоопределения языка параметр source_lang просто опускается.
-        "auto" is not sent as source_lang: DeepL rejects it. For auto-detect,
-        the source_lang parameter is omitted entirely.
-        """
+        """Перевести текст через локальный сервис / translate via the service."""
         if not self._alive():
             raise DlxError("локальный сервис не запущен")
-        payload = {"text": text, "target_lang": target}
-        if source and source != "auto":
-            payload["source_lang"] = source
+        payload = {"text": text, "source_lang": source, "target_lang": target}
         try:
             answer = _http_post_json(self._url(), payload, self._auth(),
                                      timeout)

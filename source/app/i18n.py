@@ -822,57 +822,6 @@ STRINGS = {
     "Локальный сервис DeepL снова работает.":
         "The local DeepL service runs again.",
 
-    # ---------------- Переводчик DeepL ----------------
-    # DeepL translator widget
-    "Переводчик DeepL": "DeepL translator",
-    "Язык исходного текста": "Source language",
-    "Язык перевода": "Target language",
-    "Автоопределение языка": "Auto-detect language",
-    "Поменять языки местами": "Swap languages",
-    "Перевести": "Translate",
-    "Очистить": "Clear",
-    "Вставьте или наберите текст…": "Paste or type text…",
-    "Перевод появится здесь": "Translation will appear here",
-    "Сервис не запущен": "Service not running",
-    "Запустите сервис DeepL выше": "Start the DeepL service above",
-    "Слишком длинный текст (макс. 1500 символов)":
-        "Text too long (max 1500 characters)",
-    "Нет связи с сервисом": "No connection to the service",
-    "Перевод не удался: %s": "Translation failed: %s",
-    "Вставлено %d слов": "Pasted %d words",
-    "Перевожу…": "Translating…",
-    "Перевод не завершён за отведенное время — проверьте сервис DeepL":
-        "Translation did not complete in time — check the DeepL service",
-    # названия языков для комбобоксов переводчика / language names for translator comboboxes
-    "Болгарский": "Bulgarian",
-    "Чешский": "Czech",
-    "Датский": "Danish",
-    "Немецкий": "German",
-    "Греческий": "Greek",
-    "Английский": "English",
-    "Испанский": "Spanish",
-    "Эстонский": "Estonian",
-    "Финский": "Finnish",
-    "Французский": "French",
-    "Венгерский": "Hungarian",
-    "Индонезийский": "Indonesian",
-    "Итальянский": "Italian",
-    "Японский": "Japanese",
-    "Корейский": "Korean",
-    "Литовский": "Lithuanian",
-    "Латышский": "Latvian",
-    "Нидерландский": "Dutch",
-    "Польский": "Polish",
-    "Португальский": "Portuguese",
-    "Румынский": "Romanian",
-    "Русский": "Russian",
-    "Словацкий": "Slovak",
-    "Словенский": "Slovenian",
-    "Шведский": "Swedish",
-    "Турецкий": "Turkish",
-    "Украинский": "Ukrainian",
-    "Китайский": "Chinese",
-
     # ---------- окно настроек: страница «Модули» ----------
     # settings window: the "Modules" page
     "Модули": "Modules",
