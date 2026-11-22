@@ -1,7 +1,5 @@
 # 🎮 Chat&AutoAnimations RP Overhaul
 
-> Оверлей чата с переводом через DeepL/Google и автоматизация применения анимаций для ролевой игры (GTA 5).
-
 [![Windows 10 / 11](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&logoColor=white)](https://github.com/Ven4esters/RP-Chat-Overlay/releases)
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-312/)
 ![Языков: 13](https://img.shields.io/badge/языков-13-2e7d32)
@@ -9,6 +7,8 @@
 ![EXE ~47.7 МиБ](https://img.shields.io/badge/exe-~47.7%20МиБ-66d18b)
 [![VirusTotal: отчёт](https://img.shields.io/badge/VirusTotal-отчёт-394eff)](https://www.virustotal.com/gui/file/9a6c8da2e9472ee89ee3a6f6311844ed0a983d00327857a1749dc5782cc34749?nocache=1)
 ![Лицензия: MIT](https://img.shields.io/badge/лицензия-MIT-green)
+
+> Оверлей чата с переводом через DeepL/Google и автоматизация применения анимаций для ролевой игры (GTA 5).
 
 ## Содержание
 
@@ -26,12 +26,16 @@
 
 ## О проекте
 
+<img src="source/images/forum/hdr_about_ru.png" width="720" alt="О проекте">
+
 Проект — оверлей для ролевого чата в GTA 5. Переводит входящие и исходящие
 сообщения через DeepL (локальный сервис) или Google Translate, а также
 автоматически применяет анимации персонажа по совпадению ключевых слов.
 Язык интерфейса можно переключать между русским и английским без перезапуска.
 
 ## Возможности
+
+<img src="source/images/forum/hdr_features.png" width="720" alt="Возможности">
 
 - Перевод сообщений чата через DeepL или Google Translate
 - Автоматический запуск анимаций по совпадению ключевых слов
@@ -41,9 +45,13 @@
 
 ## Стек технологий
 
+<img src="source/images/forum/hdr_stack_ru.png" width="720" alt="Стек технологий">
+
 Python 3.12 · PySide6 · deep-translator
 
 ## Требования
+
+<img src="source/images/forum/hdr_requirements_ru.png" width="720" alt="Требования">
 
 - Windows 10 / 11
 - GTA 5
@@ -51,6 +59,8 @@ Python 3.12 · PySide6 · deep-translator
 - Подключение к интернету для сервисов перевода
 
 ## Установка
+
+<img src="source/images/forum/hdr_download.png" width="720" alt="Установка">
 
 ### Скомпилированный релиз (рекомендуется)
 
@@ -74,6 +84,8 @@ cd RP-Chat-Overlay
 
 ## Быстрый старт
 
+<img src="source/images/forum/hdr_how.png" width="720" alt="Быстрый старт">
+
 ```bash
 source/start.bat
 ```
@@ -87,6 +99,8 @@ source/start.bat
 
 ## Конфигурация
 
+<img src="source/images/forum/hdr_settings.png" width="720" alt="Конфигурация">
+
 | Переменная | Обязательна | По умолчанию | Описание |
 |---|---|---|---|
 | `ui_lang` | нет | `ru` | Язык интерфейса (`ru` / `en`) |
@@ -99,6 +113,8 @@ source/start.bat
 папке с данными.
 
 ## Режимы перевода и спецсимволы
+
+<img src="source/images/forum/hdr_modes_ru.png" width="720" alt="Режимы перевода и спецсимволы">
 
 Программа поддерживает несколько способов перевода и особые маркеры в тексте:
 
@@ -131,6 +147,8 @@ source/start.bat
 
 ## DeepLX в России
 
+<img src="source/images/forum/hdr_deeplx_ru.png" width="720" alt="DeepLX в России">
+
 С июня 2025 года DeepL закрыт для российских IP-адресов. Локальный сервис DLX
 запускается, но DeepL возвращает ошибку `503` — состояние
 **«Работает, но DeepL не отвечает (503)»**.
@@ -142,9 +160,13 @@ source/start.bat
 
 ## Лицензия
 
+<img src="source/images/forum/hdr_license_ru.png" width="720" alt="Лицензия">
+
 [MIT](LICENSE)
 
 ## Контакты
+
+<img src="source/images/forum/hdr_contacts_ru.png" width="720" alt="Контакты">
 
 - Автор: [Ven4esters](https://github.com/Ven4esters)
 - Вопросы и предложения: [GitHub Issues](https://github.com/Ven4esters/RP-Chat-Overlay/issues)
