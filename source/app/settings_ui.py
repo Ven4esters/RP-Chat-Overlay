@@ -1135,7 +1135,7 @@ class SettingsWindow(QDialog):
         self._hist_field = {}  # поле -> последнее значение / field metadata
         self._disk_cache = {"cfg": {}, "docs": {}}  # диск на момент снимка / disk view
 
-        self.setWindowTitle("Настройки — Chat&AutoAnimations RP Overlay")
+        self.setWindowTitle("Настройки — RP Chat Overlay")
         self.setStyleSheet(style_sheet(self._ui_scale()))
         if parent is None:
             self.setWindowFlags(Qt.WindowType.Window)
@@ -1190,7 +1190,7 @@ class SettingsWindow(QDialog):
         root.addWidget(self._build_footer())
 
         self._load_language(self.glang, reload_table=True)
-        self.setWindowTitle(i18n.t("Настройки — Chat&AutoAnimations RP Overlay"))
+        self.setWindowTitle(i18n.t("Настройки — RP Chat Overlay"))
         i18n.retranslate(self)
         self._slang_pending = False
         self._fill_slang()
@@ -1228,10 +1228,7 @@ class SettingsWindow(QDialog):
         lay.setContentsMargins(20, 14, 20, 12)
         lay.setSpacing(2)
         self.header_title = _title(
-            "Настройки"
-            if not self.first_run
-            else "Добро пожаловать в Chat&AutoAnimations RP Overlay",
-            "h1",
+            "Настройки" if not self.first_run else "Добро пожаловать в RP Chat Overlay", "h1"
         )
         lay.addWidget(self.header_title)
         self.header_sub = QLabel()
@@ -6365,7 +6362,7 @@ class SettingsWindow(QDialog):
             # the first run is over, yet the window stays open: the player decides
             # when to finish and the program never hides into the tray by itself
             self.first_run = False
-            self.setWindowTitle(i18n.t("Настройки — Chat&AutoAnimations RP Overlay"))
+            self.setWindowTitle(i18n.t("Настройки — RP Chat Overlay"))
             self.header_title.setText(i18n.t("Настройки"))
             log.info("Первичная настройка завершена, окно остаётся открытым")
         self._flash_hint()

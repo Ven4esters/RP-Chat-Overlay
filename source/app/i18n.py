@@ -189,7 +189,7 @@ def retranslate(root):
 STRINGS = {
     # ---------- окно настроек: каркас ----------
     # settings window: the frame
-    "Настройки — Chat&AutoAnimations RP Overlay": "Settings — Chat&AutoAnimations RP Overlay",
+    "Настройки — RP Chat Overlay": "Settings — RP Chat Overlay",
     "Настройки": "Settings",
     "Основные": "General",
     "Автоперевод": "Auto-translation",
@@ -203,7 +203,7 @@ STRINGS = {
     "Вернуть заводские настройки (словари не затрагиваются)": "Restore factory settings (glossaries are kept)",
     "Изменения применятся после «Сохранить».": "Changes apply after you press Save.",
     "Настройки сброшены — нажмите «Сохранить», чтобы применить.": "Settings reset — press Save to apply.",
-    "Добро пожаловать в Chat&AutoAnimations RP Overlay": "Welcome to Chat&AutoAnimations RP Overlay",
+    "Добро пожаловать в RP Chat Overlay": "Welcome to RP Chat Overlay",
     "Язык: %s · горячая клавиша: %s · частота автоперевода: каждое %d-е": "Language: %s · hotkey: %s · auto-translation: every %d-th message",
     # ---------- Основные: язык перевода ----------
     # General: the translation language

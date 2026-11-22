@@ -5,12 +5,12 @@ cd /d "%~dp0"
 set "ROOT=%~dp0"
 set "VENV=%ROOT%.venv"
 REM --- if a ready exe exists (..\dist or next to this file), just run it ---
-if exist "%ROOT%..\dist\Chat_n_AutoAnimations_RP_Overlay.exe" (
-    start "" "%ROOT%..\dist\Chat_n_AutoAnimations_RP_Overlay.exe"
+if exist "%ROOT%..\dist\RPChatOverlay.exe" (
+    start "" "%ROOT%..\dist\RPChatOverlay.exe"
     exit /b 0
 )
-if exist "%ROOT%Chat_n_AutoAnimations_RP_Overlay.exe" (
-    start "" "%ROOT%Chat_n_AutoAnimations_RP_Overlay.exe"
+if exist "%ROOT%RPChatOverlay.exe" (
+    start "" "%ROOT%RPChatOverlay.exe"
     exit /b 0
 )
 

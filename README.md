@@ -67,18 +67,15 @@ Download the latest build from [GitHub Releases](https://github.com/Ven4esters/R
 
 | File | SHA-256 | MD5 | Size |
 |---|---|---|---|
-| `RPChatOverlay.exe` (previous release filename) | `9a6c8da2e9472ee89ee3a6f6311844ed0a983d00327857a1749dc5782cc34749` | `d854ac6a2c7d860ec59a5dd7acbc1a9e` | 47.7 MiB (49 990 457 bytes) |
+| `RPChatOverlay.exe` | `9a6c8da2e9472ee89ee3a6f6311844ed0a983d00327857a1749dc5782cc34749` | `d854ac6a2c7d860ec59a5dd7acbc1a9e` | 47.7 MiB (49 990 457 bytes) |
 
-These checksums identify the previously published `RPChatOverlay.exe` only; they do
-not verify a rebuilt, renamed executable. Verify that legacy file before running
-it. The renamed build will need its own checksum and VirusTotal report before
-publication.
+Verify the checksum after downloading, then run `RPChatOverlay.exe`.
 
 ### From sources
 
 ```bash
-git clone https://github.com/Ven4esters/RP-Chat-Overlay.git Chat_n_AutoAnimations_RP_Overlay
-cd Chat_n_AutoAnimations_RP_Overlay
+git clone https://github.com/Ven4esters/RP-Chat-Overlay.git
+cd RP-Chat-Overlay
 ```
 
 Run `source/start.bat` — it finds or installs Python 3.12, creates a virtual
@@ -88,7 +85,7 @@ environment, installs dependencies and launches the app.
 <img src="source/images/forum/hdr_virustotal_en.png" width="1000" alt="VirusTotal report and 2/70 detections">
 
 The linked [VirusTotal report](https://www.virustotal.com/gui/file/9a6c8da2e9472ee89ee3a6f6311844ed0a983d00327857a1749dc5782cc34749?nocache=1)
-refers to the previous release file (`RPChatOverlay.exe`), not a rebuilt renamed executable. That release hash shows **2 of 70** antivirus engines flagging the executable.
+for this release hash shows **2 of 70** antivirus engines flagging the executable.
 The ratio alone does not prove either that the file is malicious or that the
 detections are false positives; engines use different signatures and heuristics,
 and results can change over time.
@@ -102,9 +99,8 @@ explanations for the exact two detections. Check the engine names and detection
 labels in the linked report for the current details.
 
 Download the executable only from the official [GitHub Releases](https://github.com/Ven4esters/RP-Chat-Overlay/releases)
-page. For the previous release file, verify its SHA-256 against the value above;
-that value is not valid for a renamed rebuild. If a checksum differs, do not run
-the file. If your antivirus blocks it, review the vendor's exact
+page and verify its SHA-256 against the value above. If the checksum differs,
+do not run the file. If your antivirus blocks it, review the vendor's exact
 detection name and submit the file to that vendor for analysis rather than
 disabling protection globally.
 

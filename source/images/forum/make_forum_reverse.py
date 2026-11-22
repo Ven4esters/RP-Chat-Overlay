@@ -111,9 +111,9 @@ def flow():
 # --------------------------------------- две кнопки скачивания (480 px)
 def btn_exe():
     w, h = 480, 80
-    t1, t2 = "Скачать программу", "Chat&AutoAnimations RP Overlay · Windows 10/11"
+    t1, t2 = "Скачать программу", "RPChatOverlay.exe · 37,4 МБ · Windows 10/11"
     s1 = fit(t1, 340, 20, bold=True, spacing=0.4)
-    s2 = fit(t2, 390, 11.5)
+    s2 = fit(t2, 336, 11.5)
     b = [
         f'<rect x="3" y="3" width="{w - 6}" height="{h - 6}" rx="13" fill="#0b1a12" stroke="#2b7d51"/>',
         f'<rect x="6" y="6" width="{w - 12}" height="{h - 12}" rx="10" fill="url(#green)"/>',

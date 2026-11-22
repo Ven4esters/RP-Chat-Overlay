@@ -91,12 +91,12 @@ jobs:
         run: |
           cd source
           python -m pip install pyinstaller
-          python -m PyInstaller --noconfirm --clean --distpath ../dist Chat_n_AutoAnimations_RP_Overlay.spec
+          python -m PyInstaller --noconfirm --clean --distpath ../dist RPChatOverlay.spec
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
 
       - name: Upload exe artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Chat_n_AutoAnimations_RP_Overlay-exe
-          path: dist/Chat_n_AutoAnimations_RP_Overlay.exe
+          name: RPChatOverlay-exe
+          path: dist/RPChatOverlay.exe
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
