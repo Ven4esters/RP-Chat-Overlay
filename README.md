@@ -10,17 +10,17 @@
 
 > Chat overlay with DeepL/Google translation and automatic animation application for roleplay games (GTA 5).
 
-<a id="about-the-project"></a>
+<a id="contents"></a>
 <img src="source/images/forum/hdr_contents_en.png" width="720" alt="Contents">
 
-## Содержание
+## Contents
+
 - [About the project](#about-the-project)
 - [Features](#features)
 - [Tech stack](#tech-stack)
 - [Requirements](#requirements)
 - [Installation](#installation)
-- [Quick start](#quick-start)
-- [Configuration](#configuration)
+- [Settings](#settings)
 - [Translation modes and special symbols](#translation-modes-and-special-symbols)
 - [DeepLX in Russia](#deeplx-in-russia)
 - [License](#license)
@@ -80,35 +80,125 @@ cd RP-Chat-Overlay
 Run `source/start.bat` — it finds or installs Python 3.12, creates a virtual
 environment, installs dependencies and launches the app.
 
-<a id="quick-start"></a>
-<img src="source/images/forum/hdr_quickstart_en.png" width="720" alt="Quick start">
+<a id="settings"></a>
+<img src="source/images/forum/hdr_configuration_en.png" width="720" alt="Settings">
 
-The overlay appears as a tray icon. Press the configured hotkey to show the
-chat window. Type in Russian — the translation is sent to the game chat.
-Type in a foreign language — the Russian translation goes to chat.
-Incoming/outgoing messages are translated automatically; animations start
-on keyword match.
+## Module system
 
-Open **Settings → DeepL** to configure the local translation service, or
-**Settings → Animations** to manage animation rules.
+The program is built from independent modules. Any module can be disabled in
+settings — a disabled module does not break the rest, the program keeps
+working in a reduced mode. If a module that another depends on is disabled,
+the dependent is also reported as disabled.
 
-<a id="configuration"></a>
-<img src="source/images/forum/hdr_configuration_en.png" width="720" alt="Configuration">
+### Modules (in settings window order)
 
-The program is built from independent modules. Any module can be disabled
-in settings — a disabled module does not break the rest, the program keeps
-working in a reduced mode. Each module has its own settings block with
-toggles, fields and buttons that can be changed at any time.
+| Module | Config key | Default | Purpose |
+|---|---|---|---|
+| Online translation | `translator_enabled` | On | The chain of Google, MyMemory, Lingva and LibreTranslate. Without it only the built-in glossaries work. |
+| Glossary | `glossary_enabled` | On | Ready-made phrases with a Russian reading and meanings. Without it phrases are translated by the services, with no reading hint. |
+| Slang and abbreviations | `slang` | On | `brb`, `afk`, `gg` and their Russian counterparts are expanded into full phrases before translation. |
+| Auto-translation | `auto_mode` | Off | Every N-th message is translated automatically. Requires online translation. Works only in partial mode. |
+| Sending into the game | `game_send` | On | The overlay opens the game chat, pastes the text and presses Enter. When off, the text is only copied to the clipboard. |
+| DeepL alongside (DLX) | `dlx_enabled` | Off | A local DeepL service used as the first translator. Needs consent and about 15 MB on disk. |
+| Animations | `anims_enabled` | Off | A keyword in your message starts `/anim` in the game, and `/sa` follows after the configured delay. Requires sending into the game. |
+| Global hotkey | `hotkey_enabled` | On | Opens the overlay from inside the game with one key. Without it — double-click the tray icon. |
+
+### Configuration variables
+
+Settings are stored in `data/config.json` next to the executable. Do not put
+real keys into the repository — they belong in the local data folder only.
+
+#### Language and direction
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `target_lang` | no | `it` | Translation target language |
+| `send_mode` | no | `reading` | `reading` = Russian reading, `native` = foreign text |
+| `mode` | no | `partial` | Translation mode: `full` | `partial` | `to_ru` |
+| `direction` | no | `out` | Legacy duplicate of mode (`out` = Russian → language, `in` = language → Russian) |
+
+#### Interface
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `ui_lang` | no | `ru` | Interface language (`ru` / `en`) |
-| `target_lang` | no | `it` | Translation target language |
-| `dlx_url` | no | — | Address of your own DeepL service |
-| `dlx_url_token` | no | — | Bearer token for your own DeepL service |
+| `ui_lang_chosen` | no | `false` | Player already picked the language |
+| `show_settings_on_start` | no | `true` | Show settings on start |
+| `setup_done` | no | `false` | First run completed |
+| `ui_scale` | no | `1.0` | Interface scale |
+| `always_on_top` | no | `true` | Overlay above the game |
 
-Settings are stored in `data/config.json` next to the executable. Do not put
-real keys into the repository — they belong in the local data folder only.
+#### Modules
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `translator_enabled` | no | `true` | Online translation |
+| `glossary_enabled` | no | `true` | Glossary |
+| `hotkey_enabled` | no | `true` | Global hotkey |
+| `dlx_enabled` | no | `false` | DeepL alongside (DLX) |
+| `dlx_asked` | no | `false` | Consent already shown |
+| `dlx_port` | no | `0` | Service port, 0 means auto |
+| `dlx_autostart` | no | `true` | Start with the app |
+| `dlx_auto_update` | no | `true` | Check for updates |
+| `dlx_proxy` | no | `` | HTTP proxy for DeepL |
+| `dlx_use_system_proxy` | no | `true` | Use the Windows proxy |
+| `dlx_url` | no | `` | Own service address instead of dlx.exe |
+| `dlx_url_token` | no | `` | Token of that service |
+| `dlx_pro_token` | no | `` | DeepL Pro OAuth token |
+| `slang` | no | `true` | Slang and abbreviations |
+| `slang_lang` | no | `` | Abbreviation table language |
+
+#### Text and markers
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `marker_open` | no | `+` | "translate this" marker |
+| `marker_close` | no | `+` | Fragment close marker |
+| `max_chars` | no | `256` | Message length limit |
+| `debounce_ms` | no | `450` | Typing pause before translating |
+| `filler_always` | no | `true` | Fillers in every message |
+
+#### Auto-translation
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `auto_mode` | no | `false` | Auto-translate on |
+| `auto_every` | no | `4` | Every N-th message |
+| `auto_position` | no | `last` | `last` | `first` | `random` | number 1..N |
+| `auto_fragments` | no | `1` | Fragments per message |
+| `auto_min_words` | no | `1` | Fragment length min |
+| `auto_max_words` | no | `3` | Fragment length max |
+| `auto_prefer_glossary` | no | `true` | Prefer glossary phrases |
+
+#### Sending into the game
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `game_send` | no | `true` | Send into the game |
+| `game_press_enter` | no | `false` | Press Enter after pasting |
+| `game_submit` | no | `true` | Submit the message |
+| `game_chat_key` | no | `t` | In-game chat key |
+| `game_open_chat_first` | no | `true` | Open the game chat first |
+| `game_open_delay_ms` | no | `300` | Pause after opening chat |
+| `game_paste_delay_ms` | no | `150` | Pause before pasting |
+| `game_focus_delay_ms` | no | `150` | Pause before refocusing |
+| `game_input_mode` | no | `paste` | `paste` = Ctrl+V, `type` = typed input |
+| `game_window_class` | no | `grcWindow` | Game window class |
+| `game_extra_exes` | no | `[]` | Extra game processes |
+
+#### Animations
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `slang_order` | no | `[]` | User's abbreviation order |
+| `anims_enabled` | no | `false` | Animation module |
+| `anim_rules` | no | `[]` | Rules: keyword → `/anim` |
+| `anim_stop_key` | no | `f` | Stop key |
+| `anim_stop_by_sa` | no | `true` | Stop with `/sa` command |
+| `anim_stop_by_key` | no | `false` | Stop with the key |
+| `anim_skip_negation` | no | `true` | Skip negation |
+| `anim_extra_ms` | no | `50` | Tail after animation |
+| `anim_in_vehicle` | no | `false` | "In a vehicle" mode |
 
 <a id="translation-modes-and-special-symbols"></a>
 <img src="source/images/forum/hdr_modes_en.png" width="720" alt="Translation modes and special symbols">
