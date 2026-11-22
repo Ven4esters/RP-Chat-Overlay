@@ -4,8 +4,6 @@ chcp 65001 >nul
 cd /d "%~dp0"
 set "ROOT=%~dp0"
 set "VENV=%ROOT%.venv"
-set "PYEXE="
-
 REM --- if a ready exe exists (..\dist or next to this file), just run it ---
 if exist "%ROOT%..\dist\RPChatOverlay.exe" (
     start "" "%ROOT%..\dist\RPChatOverlay.exe"
@@ -119,7 +117,7 @@ py -3.12 -c "import sys;print(sys.executable)" > "%TEMP%\pyexe.txt" 2>nul
 if errorlevel 1 exit /b 0
 set "PYTMP="
 set /p PYTMP=<"%TEMP%\pyexe.txt"
-if defined PYTMP call :try "%PYTMP%"
+if not "%PYTMP%"=="" call :try "%PYTMP%"
 exit /b 0
 
 :install_local
