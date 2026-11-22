@@ -17,6 +17,7 @@ and submits it. Windows only, it talks to the Win32 API.
   * при ошибке текст остаётся в буфере обмена — игрок вставит его сам;
     on failure the text stays in the clipboard for a manual paste.
 """
+
 import ctypes
 import ctypes.wintypes as wt
 import os
@@ -28,16 +29,30 @@ from app.config import log
 user32 = ctypes.WinDLL("user32", use_last_error=True)
 kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 ULONG_PTR = ctypes.c_size_t
+HANDLE = ctypes.c_void_p
+CF_UNICODETEXT = 13  # формат буфера обмена / clipboard format
+GMEM_MOVEABLE = 0x0002  # память под данные буфера / clipboard memory
 
 
 class MOUSEINPUT(ctypes.Structure):
-    _fields_ = [("dx", wt.LONG), ("dy", wt.LONG), ("mouseData", wt.DWORD),
-                ("dwFlags", wt.DWORD), ("time", wt.DWORD), ("dwExtraInfo", ULONG_PTR)]
+    _fields_ = [
+        ("dx", wt.LONG),
+        ("dy", wt.LONG),
+        ("mouseData", wt.DWORD),
+        ("dwFlags", wt.DWORD),
+        ("time", wt.DWORD),
+        ("dwExtraInfo", ULONG_PTR),
+    ]
 
 
 class KEYBDINPUT(ctypes.Structure):
-    _fields_ = [("wVk", wt.WORD), ("wScan", wt.WORD), ("dwFlags", wt.DWORD),
-                ("time", wt.DWORD), ("dwExtraInfo", ULONG_PTR)]
+    _fields_ = [
+        ("wVk", wt.WORD),
+        ("wScan", wt.WORD),
+        ("dwFlags", wt.DWORD),
+        ("time", wt.DWORD),
+        ("dwExtraInfo", ULONG_PTR),
+    ]
 
 
 class _IU(ctypes.Union):
@@ -66,11 +81,17 @@ user32.SendInput.restype = wt.UINT
 user32.MapVirtualKeyW.argtypes = [wt.UINT, wt.UINT]
 kernel32.OpenProcess.argtypes = [wt.DWORD, wt.BOOL, wt.DWORD]
 kernel32.OpenProcess.restype = wt.HANDLE
-kernel32.QueryFullProcessImageNameW.argtypes = [wt.HANDLE, wt.DWORD, wt.LPWSTR, ctypes.POINTER(wt.DWORD)]
+kernel32.QueryFullProcessImageNameW.argtypes = [
+    wt.HANDLE,
+    wt.DWORD,
+    wt.LPWSTR,
+    ctypes.POINTER(wt.DWORD),
+]
 kernel32.CloseHandle.argtypes = [wt.HANDLE]
 kernel32.GetCurrentThreadId.restype = wt.DWORD
 
 VK_RETURN, VK_CONTROL, VK_MENU, VK_V, VK_ESCAPE = 0x0D, 0x11, 0x12, 0x56, 0x1B
+VK_A, VK_BACK = 0x41, 0x08
 Win = namedtuple("Win", "hwnd title cls exe w h")
 
 
@@ -108,8 +129,16 @@ def list_windows() -> list[Win]:
                 user32.GetWindowTextW(hwnd, title, 256)
                 pid = wt.DWORD(0)
                 user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
-                out.append(Win(hwnd, title.value, cls.value, _exe(pid.value),
-                               r.right - r.left, r.bottom - r.top))
+                out.append(
+                    Win(
+                        hwnd,
+                        title.value,
+                        cls.value,
+                        _exe(pid.value),
+                        r.right - r.left,
+                        r.bottom - r.top,
+                    )
+                )
         except Exception:
             pass
         return True
@@ -127,7 +156,9 @@ def is_game(w: Win, cfg) -> bool:
     The window class, the process name and the extra processes from the
     settings are all taken into account.
     """
-    exes = {"gta5.exe", "gta5_enhanced.exe"} | {str(e).lower() for e in cfg.get("game_extra_exes", [])}
+    exes = {"gta5.exe", "gta5_enhanced.exe"} | {
+        str(e).lower() for e in cfg.get("game_extra_exes", [])
+    }
     if w.cls == cfg.get("game_window_class", "grcWindow") or w.exe in exes:
         return True
     return w.exe.startswith(("fivem", "cfx")) and "gtaprocess" in w.exe
@@ -190,7 +221,7 @@ def _send(*items):
 
 
 def _vk_event(vk, up=False):
-    return _kb(0, user32.MapVirtualKeyW(vk, 0), 0x8 | (0x2 if up else 0))   # SCANCODE
+    return _kb(0, user32.MapVirtualKeyW(vk, 0), 0x8 | (0x2 if up else 0))  # SCANCODE
 
 
 def tap(vk: int, hold: float = 0.05) -> None:
@@ -199,6 +230,54 @@ def tap(vk: int, hold: float = 0.05) -> None:
     _send(_vk_event(vk))
     time.sleep(hold)
     _send(_vk_event(vk, True))
+
+
+def set_clipboard(text: str, tries: int = 5) -> bool:
+    """Положить текст в буфер обмена Windows; работает из любого потока.
+
+    Puts the text into the Windows clipboard; callable from any thread.
+
+    Зачем не Qt: команды анимаций отправляются из своего потока, а виджеты и
+    QClipboard трогать оттуда нельзя. Win32-буфер обмена от потока не зависит.
+    Why not Qt: animation commands are sent from their own thread, and Qt widgets
+    and QClipboard must not be touched from there. The Win32 clipboard does not
+    care about threads.
+
+    Буфер может быть занят другой программой, поэтому открытие повторяется.
+    The clipboard may be held by another program, so opening is retried.
+    """
+    if not text:
+        return False
+    kernel32.GlobalAlloc.restype = ctypes.c_void_p
+    kernel32.GlobalAlloc.argtypes = [wt.UINT, ctypes.c_size_t]
+    kernel32.GlobalLock.restype = ctypes.c_void_p
+    kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
+    kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+    user32.SetClipboardData.restype = ctypes.c_void_p
+    user32.SetClipboardData.argtypes = [wt.UINT, HANDLE]
+    data = ctypes.create_unicode_buffer(text)
+    size = ctypes.sizeof(data)
+    for _ in range(max(1, tries)):
+        if not user32.OpenClipboard(None):
+            time.sleep(0.03)
+            continue
+        try:
+            user32.EmptyClipboard()
+            handle = kernel32.GlobalAlloc(GMEM_MOVEABLE, size)
+            if not handle:
+                return False
+            pointer = kernel32.GlobalLock(handle)
+            if not pointer:
+                return False
+            ctypes.memmove(pointer, data, size)
+            kernel32.GlobalUnlock(handle)
+            if not user32.SetClipboardData(CF_UNICODETEXT, handle):
+                return False
+            return True
+        finally:
+            user32.CloseClipboard()
+    log.warning("Не удалось открыть буфер обмена Windows")
+    return False
 
 
 def paste() -> None:
@@ -211,13 +290,36 @@ def paste() -> None:
     _send(_vk_event(VK_CONTROL, True))
 
 
+def clear_chat_input() -> None:
+    """Полностью очистить поле ввода чата игры перед вставкой.
+
+    Clear the game chat input completely before pasting anything into it.
+
+    Ctrl+A выделяет всё, что уже набрано (хвост прошлой команды, остатки
+    автодополнения, случайные нажатия), Backspace стирает выделенное. Без этого
+    вставка прилипает к остатку: вместо `/anim wave` в чат уходит
+    `привет/anim wave`, и команда ломается — а вместе с ней и следующая за ней.
+    Ctrl+A selects whatever is already typed (the tail of a previous command,
+    autocomplete leftovers, stray key presses) and Backspace deletes it. Without
+    it the paste sticks to the leftover: instead of `/anim wave` the chat gets
+    `hello/anim wave` and the command breaks — along with the one after it.
+    """
+    _send(_vk_event(VK_CONTROL))
+    time.sleep(0.04)
+    tap(VK_A, hold=0.04)
+    _send(_vk_event(VK_CONTROL, True))
+    time.sleep(0.04)
+    tap(VK_BACK, hold=0.04)
+    time.sleep(0.06)
+
+
 def type_text(text: str) -> None:
     """Посимвольный ввод Unicode-текста / type the text character by character."""
 
     data = text.encode("utf-16-le")
     for k in range(0, len(data), 2):
-        u = int.from_bytes(data[k:k + 2], "little")
-        _send(_kb(0, u, 0x4), _kb(0, u, 0x4 | 0x2))                          # UNICODE
+        u = int.from_bytes(data[k : k + 2], "little")
+        _send(_kb(0, u, 0x4), _kb(0, u, 0x4 | 0x2))  # UNICODE
         time.sleep(0.008)
 
 
@@ -237,11 +339,13 @@ def focus(hwnd, tries: int = 3) -> bool:
         if is_fg(hwnd):
             return True
         cur = kernel32.GetCurrentThreadId()
-        tids = {user32.GetWindowThreadProcessId(user32.GetForegroundWindow(), None),
-                user32.GetWindowThreadProcessId(hwnd, None)} - {0, cur}
+        tids = {
+            user32.GetWindowThreadProcessId(user32.GetForegroundWindow(), None),
+            user32.GetWindowThreadProcessId(hwnd, None),
+        } - {0, cur}
         att = [t for t in tids if user32.AttachThreadInput(cur, t, True)]
         try:
-            if n:                                   # запасной приём: «тап» Alt
+            if n:  # запасной приём: «тап» Alt
                 _send(_kb(VK_MENU, 0, 0), _kb(VK_MENU, 0, 0x2))
             user32.BringWindowToTop(hwnd)
             user32.SetForegroundWindow(hwnd)
@@ -257,7 +361,10 @@ def _ms(cfg, key, default):
 
 
 def chat_key_vk(cfg):
-    """Виртуальный код клавиши чата (по умолчанию T)."""
+    """Виртуальный код клавиши чата (по умолчанию T).
+
+    The virtual key code of the chat key (T by default).
+    """
     key = (str(cfg.get("game_chat_key", "t")).strip().upper() or "T")[0]
     return ord(key)
 
@@ -310,6 +417,9 @@ def send_to_open_chat(cfg, hwnd, text):
         return False, "Не удалось переключиться в игру (она запущена от администратора?)."
     _ms(cfg, "game_focus_delay_ms", 150)
     log.info("Вставка в открытый чат игры, режим %s, %r", cfg.get("game_input_mode"), text)
+    # сначала чистим поле ввода: остаток прошлой строки не должен приклеиться
+    # first clear the input: a leftover from the previous line must not stick
+    clear_chat_input()
     if cfg.get("game_input_mode", "paste") == "type":
         type_text(text)
     else:
@@ -343,6 +453,11 @@ def send_chat(cfg, hwnd, text, chat_open=False):
     _ms(cfg, "game_open_delay_ms", 300)
     if not is_fg(hwnd):
         return lost
+    # чат открылся: сначала полностью очищаем поле ввода, потом вставляем —
+    # иначе остаток от прошлой команды склеится с нашей и сломает её
+    # the chat is open: clear the input first, then paste — otherwise the
+    # leftover from a previous command glues onto ours and breaks it
+    clear_chat_input()
     if cfg.get("game_input_mode", "paste") == "type":
         type_text(text)
     else:

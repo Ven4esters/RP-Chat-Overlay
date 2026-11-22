@@ -1,776 +1,277 @@
-# 🎮 RP Chat Overlay — переводчик чата для GTA V / FiveM
+# 🎮 Chat&AutoAnimations RP Overhaul
 
-![Windows](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
-![Языков](https://img.shields.io/badge/языков-13-2e7d32)
-![Сокращений](https://img.shields.io/badge/сокращений-180-8e6bd8)
-![EXE](https://img.shields.io/badge/exe%20в%20dist-37%2C4%20МиБ%20готов-66d18b)
-![Changelog](https://img.shields.io/badge/changelog-1.6-3d6fd8)
-![VirusTotal](https://img.shields.io/badge/VirusTotal-отчёт-394eff)
+[🇷🇺 Читать на русском](README.ru.md)
 
-Печатаете по-русски — в чат игры уходит фраза на выбранном языке.
-Оверлей сначала открывает чат игры (**T**), чтобы окружающие видели, что вы пишете,
-затем показывает окно перевода и отправляет текст. Работает и в обратную сторону:
-для иностранного игрока на русскоязычном сервере — пишете на своём, в чат уходит русский.
+[![Windows 10 / 11](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&logoColor=white)](https://github.com/Ven4esters/RP-Chat-Overlay/releases)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-312/)
+![Языков: 13](https://img.shields.io/badge/languages-13-2e7d32)
+![Сокращений: 300×6](https://img.shields.io/badge/abbreviations-300×6-8e6bd8)
+![EXE ~47.7 MiB](https://img.shields.io/badge/exe-~47.7%20MiB-66d18b)
+[![VirusTotal: 2/70](https://img.shields.io/badge/VirusTotal-2%2F70-394eff)](https://www.virustotal.com/gui/file/9a6c8da2e9472ee89ee3a6f6311844ed0a983d00327857a1749dc5782cc34749?nocache=1)
+![Лицензия: MIT](https://img.shields.io/badge/license-MIT-green)
 
-**Весь функционал кратко:** перевод в обе стороны · 13 языков · словарь и свои фразы ·
-180 сокращений (`brb`, `afk`, `gg`, `спс`) · свои сокращения и слова-паразиты ·
-автоперевод по счётчику и по маркерам `+…+` · действия `*…*` · отправка прямо в чат игры ·
-интерфейс на русском и английском · адаптивное окно с масштабом · проверка перевода
-в обе стороны · несколько сервисов перевода с подменой при занятости.
+> Chat overlay with DeepL/Google translation and automatic animation application for roleplay games (GTA 5).
 
-> 📌 Изменения по версиям: **[CHANGELOG.md](CHANGELOG.md)** (на русском и английском).
+<a id="contents"></a>
+<img src="source/images/forum/hdr_contents_en.png" width="1000" alt="Contents">
 
----
+- [About the project](#about-the-project)
+- [Features](#features)
+- [Tech stack](#tech-stack)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [VirusTotal report and 2/70 detections](#virustotal-report)
+- [Module system](#module-system)
+- [Translation modes and special symbols](#translation-modes-and-special-symbols)
+- [DeepLX in Russia](#deeplx-in-russia)
+- [License](#license)
+- [Contacts](#contacts)
 
-# ✅ ГОТОВЫЙ EXE УЖЕ ЛЕЖИТ В ПАПКЕ `dist`
+<a id="about-the-project"></a>
+<img src="source/images/forum/hdr_about_en.png" width="1000" alt="About the project">
 
-> ### 📦 `dist/RPChatOverlay.exe` — 37,4 МиБ, запускайте двойным кликом
->
-> | | |
-> |---|--|
-> | **Что сделать** | Скачать папку `dist` и запустить `RPChatOverlay.exe` |
-> | **Что устанавливать** | **Ничего** — Python, PySide6 и все библиотеки внутри exe |
-> | **Первый запуск** | Рядом появятся `data\` (настройки и словари) и `logs\` (журнал) |
-> | **Сборка** | версия **1.6** · Python 3.12.8 · PySide6 6.8.1 · PyInstaller 6.22 · onefile |
-> | **MD5** | `99648a90c173504c9b95ce6794748319` |
-> | **VirusTotal** | [отчёт по SHA-256](https://www.virustotal.com/gui/file/47d81b8109ff9a926571508b7437e1b8765dd66e6504f6500584bad92ac2e3fb) |
->
-> Папка **`source/`** нужна только для разработки и пересборки — игрокам её передавать не обязательно.
-> Подробности про файл: **`dist/ЧИТАЙ_МЕНЯ.txt`** (или `dist/READ_ME.txt` — то же самое латиницей:
-> некоторые архиваторы показывают кириллические имена как `╨з╨Ш╨в╨Р╨Щ_╨Ь╨Х╨Э╨п`, это одно и то же).
+The project is an overlay for roleplay chat in GTA 5. It translates incoming
+and outgoing messages through DeepL (local service) or Google Translate, and
+automatically applies character animations based on keyword matching.
+The interface language can be switched between Russian and English without
+restarting.
 
-> ⚠️ **Антивирус / «Не удалось проверить издателя»** — exe не подписан, это обычная реакция
-> на PyInstaller: «Подробнее» → «Выполнить в любом случае». Если файл удаляется — добавьте папку в исключения.
->
-> 🛡 **Отчёт VirusTotal по этой сборке** (SHA-256 `47d81b81…e3fb`):
-> [virustotal.com/gui/file/47d81b81…e3fb](https://www.virustotal.com/gui/file/47d81b8109ff9a926571508b7437e1b8765dd66e6504f6500584bad92ac2e3fb) — постоянная ссылка на файл,
-> а не на отдельный анализ, поэтому всегда открывает свежий отчёт.
+<a id="features"></a>
+<img src="source/images/forum/hdr_features_en.png" width="1000" alt="Features">
 
----
+- Translate chat messages through DeepL or Google Translate
+- Automatic animation triggers based on keyword matching
+- Built-in glossaries and slang expansion for several languages
+- DLX local service management (install, start, stop, proxy)
+- Russian and English interface
 
-## 🧩 Что умеет программа
+<a id="tech-stack"></a>
+<img src="source/images/forum/hdr_stack_en.png" width="1000" alt="Tech stack">
 
-| Возможность | Как это выглядит на практике |
-|---|---|
-| **Перевод из русского** | `привет, брат` → `Ciao, fratello` — выбранный язык уходит в чат игры |
-| **Режим для иностранного игрока** | пишете на своём языке — в чат уходит русский перевод, целиком, вместе с `*действиями*` |
-| **13 языков перевода** | итальянский, испанский, мексиканский, pt-BR, китайский, японский, английский, немецкий, французский, польский, турецкий, корейский, арабский |
-| **Словарь** | 100+ готовых фраз со своей русской записью («как это читается вслух») и русскими значениями; свои фразы, импорт JSON/CSV, экспорт |
-| **Сленг и сокращения** | 180 сокращений плюс растянутый смех (`looool`, `xD`, `kek`), 31 русское: «brb» → «I'll be right back» → «я скоро вернусь»; «спс» → «спасибо» |
-| **Свои сокращения** | раздел как у словаря: сокращение · разворот · русский вариант, «★» перекрывает встроенное, пустые колонки выключают |
-| **Автоперевод** | каждое N-е сообщение, доля текста, приоритет словаря; `/to /lto /l /wt /s /st` считаются наравне с обычными сообщениями |
-| **Маркеры `+…+`** | принудительный перевод фрагмента, даже когда автоперевод выключен |
-| **Действия `*…*`** | переводятся целиком, служебные команды `/me`, `/do`, `/to` и ники — нет |
-| **Слова-паразиты** | `Senti`, `Ma dai`, `Oye`, `那个` — в **каждом** сообщении, независимо от счётчика; включаются галочкой у фразы в словаре |
-| **Отправка в игру** | чат открывается сам (`T`), текст вставляется и отправляется по Enter; три настраиваемые задержки |
-| **Язык интерфейса** | при первом запуске выбор **Русский / English**, меняется в настройках сразу, без перезапуска |
-| **Адаптивное окно** | размер подгоняется под экран (не больше 94 % рабочей области), разделы прокручиваются, масштаб 80–180 % |
-| **Проверка перевода** | оба направления, «Русский → выбранный язык перевода» и «Ваш язык → русский»: видно, что именно уйдёт в чат |
-| **DeepL рядом (DLX)** | по желанию: локальный сервис DeepL (~15 МБ, MIT) как первый переводчик; при сбое — автоматический откат на Google и остальные |
-| **Несколько сервисов перевода** | Google gtx → Google clients5 → Google web → MyMemory → Lingva → LibreTranslate: если один ответил «429», берётся следующий |
-| **Трей** | четыре строки: статус, направление перевода, «Настройки…», «Выход»; двойной клик — оверлей |
-| **Модули** | каждую часть программы можно выключить в разделе «Модули» — см. ниже |
+Python 3.12 · PySide6 · deep-translator
 
----
+<a id="requirements"></a>
+<img src="source/images/forum/hdr_requirements_en.png" width="1000" alt="Requirements">
 
-## 🧩 Модули
+- Windows 10 / 11
+- GTA 5
+- Python ≥ 3.12 (to run from sources)
+- Internet connection for translation services
 
-Программа собрана из независимых частей, и любую из них можно выключить
-в настройках → **Модули**. Выключенный модуль не ломает остальное: программа
-продолжает работать в урезанном виде, данные (словари, сокращения, настройки)
-остаются на месте.
+<a id="installation"></a>
+<img src="source/images/forum/hdr_installation_en.png" width="1000" alt="Installation">
 
-| Модуль | Что даёт | Если выключить |
-| --- | --- | --- |
-| **Перевод по сети** | цепочка Google → MyMemory → Lingva → LibreTranslate | работают только встроенные словари, без сети |
-| **DeepL рядом (DLX)** | локальный сервис DeepL первым в цепочке | перевод идёт через Google и остальные сервисы |
-| **Словарь** | готовые фразы, русская запись, слова-паразиты | фразы переводятся сервисами, без подсказки «как читается» |
-| **Сленг и сокращения** | `brb`, `afk`, `gg`, `спс` раскрываются до перевода | сокращения уходят как есть |
-| **Автоперевод** | каждое N-е сообщение переводится само | перевод только по `+маркерам+` и вручную |
-| **Отправка в игру** | оверлей открывает чат игры и нажимает Enter | текст только копируется в буфер обмена |
-| **Глобальная клавиша** | вызов оверлея из игры одной клавишей | оверлей открывается двойным щелчком по значку в трее |
+### Compiled release (recommended)
 
-Зависимости соблюдаются автоматически: если выключить перевод по сети,
-автоперевод тоже перестаёт работать — он без сети не имеет смысла.
+Download the latest build from [GitHub Releases](https://github.com/Ven4esters/RP-Chat-Overlay/releases):
 
----
+| File | SHA-256 | MD5 | Size |
+|---|---|---|---|
+| `RPChatOverlay.exe` | `9a6c8da2e9472ee89ee3a6f6311844ed0a983d00327857a1749dc5782cc34749` | `d854ac6a2c7d860ec59a5dd7acbc1a9e` | 47.7 MiB (49 990 457 bytes) |
 
-## 📁 Структура проекта
+Verify the checksum after downloading, then run `RPChatOverlay.exe`.
 
-```
-RP Chat Overhaul/
-├─ dist/                          ← ГОТОВАЯ ПРОГРАММА (последняя сборка — 1.5)
-│  ├─ RPChatOverlay.exe           ← запускать это (37,4 МиБ)
-│  ├─ ЧИТАЙ_МЕНЯ.txt              ← инфо о файле: размер, MD5, сборка
-│  └─ READ_ME.txt                 ← тот же текст, имя латиницей (для старых архиваторов)
-│
-├─ source/                        ← исходники и сборка (версия 1.6)
-│  ├─ main.py                     ← точка входа (--settings, --selftest, --find-game, --langs, --version)
-│  ├─ app/                        ← весь код программы одним пакетом
-│  │  ├─ config.py                ← пути, журнал, config.json и настройки по умолчанию
-│  │  ├─ modules.py               ← реестр модулей: что можно выключить и что от чего зависит
-│  │  ├─ engine.py                ← маркеры, действия, словарь, автоперевод, паразиты
-│  │  ├─ translator.py            ← цепочка сервисов перевода и кэш
-│  │  ├─ slang.py                 ← 180 сокращений и свои записи игрока
-│  │  ├─ translit.py              ← русская запись по звучанию
-│  │  ├─ langs.py                 ← 13 языков перевода
-│  │  ├─ langpacks/               ← встроенные словари по языкам
-│  │  ├─ glossary_data.py         ← итальянский словарь (103 фразы)
-│  │  ├─ i18n.py · ui_lang.py     ← русский/английский интерфейс и окно первого запуска
-│  │  ├─ overlay.py               ← оверлей: чат игры → окно → отправка
-│  │  ├─ settings_ui.py           ← окно настроек (7 разделов, прокрутка, масштаб)
-│  │  ├─ gamesend.py · hotkey.py  ← окно GTA, ввод и глобальная клавиша
-│  │  └─ autoplan.py              ← счётчик автоперевода
-│  ├─ start.bat                   ← запуск из исходников (сам ставит Python и библиотеки)
-│  ├─ build_exe.bat               ← сборка exe → ../dist/RPChatOverlay.exe
-│  ├─ RPChatOverlay.spec          ← пресет PyInstaller
-│  ├─ requirements.txt · icon.ico · icon.png · version_info.txt
-│  └─ images/                     ← картинки для этого README и для темы на форуме
-│
-├─ .github/workflows/build-windows.yml   ← сборка exe в облаке GitHub
-├─ CHANGELOG.md                   ← история версий (RU + EN)
-├─ .gitignore · .gitattributes
-└─ README.md
-```
-
-Запуск из исходников: `source\start.bat` (если `dist\RPChatOverlay.exe` уже есть — он просто откроет его).
-Сборка exe: `source\build_exe.bat` → результат **всегда** в `dist\`.
-
----
-
-## 🧠 DeepL рядом (DLX)
-
-Хотите перевод получше — рядом с программой можно развернуть **отдельный
-локальный сервис перевода**: бесплатную программу **DLX** с открытым кодом
-(лицензия MIT). Она работает на вашем компьютере и переводит через движок DeepL.
-
-**Что важно знать до включения:**
-
-- сервис занимает около **15 МБ** и скачивается с GitHub **только с вашего
-  согласия** — при первом запуске программа спрашивает и объясняет, что к чему;
-- текст перевода уходит **на серверы DeepL** — так же, как сейчас уходит в Google;
-- сервис **неофициальный**: DeepL может ограничить запросы, и тогда перевод
-  **сам вернётся** к стандартным сервисам — программа не сломается;
-- выключить можно в любой момент: **Настройки → DeepL**, там же «Остановить»
-  и «Удалить сервис».
-
-**Что программа делает сама:**
-
-- скачивает и обновляет сервис, следит за ним и перезапускает, если он упал;
-- проверяет готовность коротким запросом при запуске и говорит, чем переводит;
-- держит сервис на `127.0.0.1`: свободный порт выбирается автоматически, запросы
-  подписываются токеном, чужие программы доступа не получают;
-- гасит сервис вместе с программой, в том числе при аварийном завершении —
-  «сирот» в системе не остаётся, а зависший процесс с прошлого запуска
-  закрывается при старте;
-- сам выбирает рабочий порт: если 1188 занят чужой программой или не отвечает,
-  берётся свободный рядом, и это видно в состоянии;
-- сам лечится, если файл сервиса скачался битым: выбрасывает его и скачивает
-  заново;
-- если сервис почему-то остановлен, в трее появляется сообщение, что часть
-  функционала ограничена, и как это вернуть.
-
-**Откуда берётся сервис.** Программа скачивает готовый бинарник с официальных
-релизов проекта — `github.com/OwO-Network/DLX` (в июле 2026 года проект
-переименовали из DeepLX в DLX из-за претензии по торговой марке, файлы в релизах
-по-прежнему называются `deeplx_*`). Ничего своего мы не собираем и не
-переупаковываем: файл кладётся как есть, лицензия MIT — рядом с ним
-(`data/dlx/LICENSE-DLX.txt`).
-
-**Если DeepL отвечает отказом 503.** С июня 2025 года DeepL закрыт для
-российских адресов, и тогда сам сервис DLX работает, а DeepL не пускает запрос.
-Программа не молчит: в трее появится сообщение, а на странице «DeepL» будет
-состояние «Работает, но DeepL не отвечает (503)». Помогает только выход не из
-России — на той же странице есть два поля:
-
-- **HTTP-прокси** — например `http://127.0.0.1:10809` (v2rayN), `http://127.0.0.1:7890`
-  (Clash), `socks5://127.0.0.1:1080`; если прокси требует логин и пароль, они
-  пишутся в самом адресе: `socks5://user:pass@127.0.0.1:1080`;
-- **галочка «Брать прокси из настроек Windows»** — если VPN работает в режиме
-  «системный прокси», адрес берётся оттуда автоматически: сам DLX реестр не
-  читает, а без этого DeepL видел бы российский адрес при включённом VPN;
-- **кнопка «Проверить выход»** показывает адрес и страну, из которой выходит
-  прокси. Проверка идёт через сам прокси (запрос к `ipinfo.io`), поэтому видно не
-  ваш адрес, а его: «136.86.224.66 (US · The Dalles, Google LLC)» — годится,
-  «(RU …) — выход из России» — DeepL откажет, меняйте сервер в клиенте;
-- протокол программа определяет сама по ответу прокси: если на `http://…:1080`
-  отвечает SOCKS5, адрес автоматически превращается в `socks5://…:1080`
-  (в состоянии появится «прокси распознан как socks5»), а недоступный прокси
-  виден сразу — «прокси … недоступен», без восьми секунд ожидания;
-- **токен DeepL Pro** — если у вас есть подписка DeepL Pro, её токен снимает
-  проблему с бесплатным путём.
-
-**Своего прокси DLX не поднимает** — это переводческий сервер, а не туннель: он
-лишь отправляет свои запросы через тот прокси, который вы указали. Поэтому:
-
-- если ваш VPN заворачивает весь трафик системы (TUN-режим) и выходит за границу —
-  поле оставьте пустым, DLX пойдёт через туннель как обычная программа;
-- если VPN открывает локальный порт — впишите его (порт смотрите в своём клиенте);
-- **Cloudflare WARP / Cloudflare One Client не подойдут**: они не меняют страну,
-  трафик выходит через ближайший узел Cloudflare, а он у нас в России. Выбор
-  страны выхода у них есть только в платном Enterprise (dedicated egress IPs);
-- **токен DeepL Pro региональную блокировку не снимает** — он для владельцев
-  подписки и снимает лимиты, но не обходит запрет по стране.
-
-Оба поля необязательные. Пока они пусты и DeepL отказывает, перевод идёт через
-Google и остальные сервисы, как раньше; чтобы не тратить запросы впустую, снимите
-галочку «Переводить через DeepL в первую очередь».
-
-### Свой сервис по адресу — вместо файла
-
-Если `dlx.exe` не скачивается или не запускается, сервис можно держать отдельно:
-в **Настройки → DeepL** есть поля **«Свой адрес сервиса»** и **«Токен своего
-сервиса»**. Пока адрес пуст, программа работает как раньше, со своим файлом.
-Как только адрес задан, файл не нужен вовсе: программа проверяет адрес, шлёт
-переводы туда и показывает в состоянии «свой сервис 127.0.0.1:1188».
-Адрес можно вставлять целиком, вместе с `/translate` или `/api/translate` —
-лишний хвост программа отрежет сама.
-
-Готовый сервер лежит в `source/tools/deeplx-local` (Node.js 18+, лицензия MIT):
-он говорит на том же языке, что и DLX — те же адреса, тот же формат ответа,
-тот же необязательный токен.
+### From sources
 
 ```bash
-cd source/tools/deeplx-local
-npm install
-npm start                 # слушает 0.0.0.0:1188
+git clone https://github.com/Ven4esters/RP-Chat-Overlay.git
+cd RP-Chat-Overlay
 ```
 
-Зачем он: старые сборки DeepLX 2024 года (в том числе
-`bropines/Deeplx-vercel` → `LegendLeo/deeplx-serverless`, на который ссылаются
-как на «локальный DeepLX») ходят на `www2.deepl.com/jsonrpc` и представляются
-клиентом DeepL для iOS версии 2.9.1. Сегодня DeepL отвечает на такой запрос
-текстом «You're using an older version of DeepL» **вместо перевода** — сервер
-формально работает, но переводит служебной фразой. В `deeplx-local` используется
-актуальный путь `oneshot-free.www.deepl.com/v1/translate`, а версия клиента
-берётся из открытого App Store lookup, как это делает сам DLX.
+Run `source/start.bat` — it finds or installs Python 3.12, creates a virtual
+environment, installs dependencies and launches the app.
 
-Свой сервис можно и не держать у себя: тот же код разворачивается на Vercel
-(бесплатно, без своего компьютера) и переводит с зарубежного адреса — пошаговая
-инструкция лежит в `source/tools/deeplx-local/VERCEL.md`. После развёртывания в
-поле «Свой адрес сервиса» вписывается адрес вида
-`https://имя-проекта.vercel.app`, а в «Токен своего сервиса» — тот токен, с
-которым вы его развернули.
+<a id="virustotal-report"></a>
+<img src="source/images/forum/hdr_virustotal_en.png" width="1000" alt="VirusTotal report and 2/70 detections">
 
-Важно: сервер в `deeplx-local` — это тот же DeepL, а не обход блокировки. Если
-DeepL закрыт для российских адресов, локальный сервер получит тот же отказ, что
-и `dlx.exe`; помогают только прокси с зарубежным выходом (см. выше) или сервис,
-развёрнутый за границей.
+The linked [VirusTotal report](https://www.virustotal.com/gui/file/9a6c8da2e9472ee89ee3a6f6311844ed0a983d00327857a1749dc5782cc34749?nocache=1)
+for this release hash shows **2 of 70** antivirus engines flagging the executable.
+The ratio alone does not prove either that the file is malicious or that the
+detections are false positives; engines use different signatures and heuristics,
+and results can change over time.
 
-Лицензия сервиса кладётся рядом с ним (`data/dlx/LICENSE-DLX.txt`), файлы сервиса
-лежат в `data/dlx/` рядом с программой. Сервис слушает только `127.0.0.1`.
+A plausible source of generic or heuristic detections is the way the app is
+distributed: it is a self-contained Windows executable built with PyInstaller,
+bundling the Python runtime and dependencies. Packed applications that unpack
+components when launched, and builds with little reputation, can attract
+heuristic alerts. These are possible contributing factors—not verified
+explanations for the exact two detections. Check the engine names and detection
+labels in the linked report for the current details.
 
----
+Download the executable only from the official [GitHub Releases](https://github.com/Ven4esters/RP-Chat-Overlay/releases)
+page and verify its SHA-256 against the value above. If the checksum differs,
+do not run the file. If your antivirus blocks it, review the vendor's exact
+detection name and submit the file to that vendor for analysis rather than
+disabling protection globally.
 
-## 🗂 Журналы
+<a id="module-system"></a>
+<img src="source/images/forum/hdr_modules_en.png" width="1000" alt="Module system">
 
-Программа ведёт два файла в папке `logs/` рядом с собой:
+The program is built from independent modules. Any module can be disabled in
+settings — a disabled module does not break the rest, the program keeps
+working in a reduced mode. If a module that another depends on is disabled,
+the dependent is also reported as disabled.
 
-| Файл | Что внутри |
-| --- | --- |
-| `app.log` | обычный ход работы: запуск, смена настроек, переключение сервисов |
-| `errors.log` | ошибки: необработанные исключения, сбои в фоновых потоках, сообщения Qt, стеки при аварийном завершении и при зависании окна |
+### Modules (in settings window order)
 
-Если что-то сломалось — приложите к сообщению оба файла (или хотя бы
-`errors.log`): по стеку видно, что именно случилось, без догадок. Порог
-зависания — 20 секунд: если окно перестало отвечать, в журнал попадут стеки
-всех потоков.
+| Setting | What it does | Default |
+|---|---|---|
+| **Online translation** | The chain of Google, MyMemory, Lingva and LibreTranslate translates messages through the internet. Without it only the built-in glossaries work. | On |
+| **Glossary** | Ready-made phrases with a Russian reading and meanings. Lets you see "how to read aloud" instead of raw service translation. | On |
+| **Slang and abbreviations** | Expands `brb`, `afk`, `gg` and their Russian counterparts into full phrases before translation, so machine translation doesn't mangle the shortcut. | On |
+| **Auto-translation** | Every N-th message is translated automatically without pressing a button. Requires online translation. Works only in partial translation mode. | Off |
+| **Sending into the game** | The overlay opens the game chat, pastes the translated text and presses Enter. When off, the text is only copied to the clipboard. | On |
+| **DeepL alongside (DLX)** | A local DeepL service on your computer used as the first translator. Needs consent and about 15 MB on disk. | Off |
+| **Animations** | A keyword in your message starts `/anim` in the game, and `/sa` follows after the configured delay. Requires sending into the game. | Off |
+| **Global hotkey** | Opens the overlay from inside the game with one key. Without it — double-click the tray icon. | On |
 
----
+### Configuration variables
 
-## 🚀 Быстрый старт
+Settings are stored in `data/config.json` next to the executable. Do not put
+real keys into the repository — they belong in the local data folder only.
 
-| Шаг | Действие |
-|:---:|----------|
-| **1** | Запустите `dist\RPChatOverlay.exe` |
-| **2** | На первом запуске выберите язык интерфейса, затем язык перевода и горячую клавишу → **Сохранить** |
-| **3** | В игре: **F6** → печатаете по-русски → **Enter** → текст улетает в чат |
+#### Language and direction of translation
 
-> 💡 **Esc** — отмена: закрываются и оверлей, и пустой чат игры.
-> ⚠️ Если игра запущена от администратора — программу тоже запускайте от администратора.
+| Setting | Description | Default value |
+|---|---|---|
+| Target language | Which language to translate messages into (Italian, Spanish, English, etc.) | Italian (`it`) |
+| Sending mode | Which text to send to chat: Russian reading ("how to read aloud") or the original foreign text | Russian reading |
+| Translation mode | What text to translate: the whole message, only part, or any language → Russian | Partial |
 
----
+#### Program interface
 
-## 🖼 Как это выглядит
+| Setting | Description | Default value |
+|---|---|---|
+| Interface language | Russian or English for menus and tooltips | Russian (`ru`) |
+| Interface scale | Size of overlay elements relative to the screen | 100 % |
+| Always on top | The overlay is displayed above the game and is not hidden behind it | Enabled |
 
-![Порядок работы: F6 → T в игре → оверлей → Enter → чат игры](source/images/flow.png)
+#### Modules
 
-![Окно настроек](source/images/settings.png)
+| Setting | Description | Default value |
+|---|---|---|
+| Online translation | Online translation via Google, MyMemory, Lingva, LibreTranslate | On |
+| Glossary | Built-in ready-made phrases with Russian reading | On |
+| Global hotkey | Open the overlay with one key from inside the game | On |
+| DeepL alongside (DLX) | A local DeepL service on your computer | Off |
+| Slang and abbreviations | Expand `brb`, `afk`, `спс` and others before translation | On |
 
-![Проверка перевода: что именно уйдёт в чат](source/images/settings_test.png)
+#### Text and special markers
 
-![13 языков перевода](source/images/langs.png)
+| Setting | Description | Default value |
+|---|---|---|
+| Forced fragment marker | Symbol to mark text that must be translated forced (`+...+`) | `+` |
+| Maximum message length | Character limit for one message to translate | 256 |
+| Pause before translation | Delay after typing before automatic translation starts | 450 ms |
+| Parasite words always | Add filler words (`Senti`, `Ma dai` etc.) to every message | Enabled |
 
----
+#### Auto-translation
 
-## ⚙️ Окно настроек
+| Setting | Description | Default value |
+|---|---|---|
+| Auto-translate on | Translate every N-th message automatically | Off |
+| Every N-th message | Frequency of automatic translation (which message number) | 4th |
+| Fragment position | Which part of the message to translate: end, beginning, random | End |
+| Dictionary priority | Check built-in dictionary before online translation | Enabled |
 
-Открывается при запуске (можно отключить) и из меню трея → **«Настройки…»**.
-В меню трея всего четыре строки: статус переводчика, направление перевода,
-**«Настройки…»** и **«Выход»** — всё остальное настраивается в этом окне.
-Двойной клик по значку в трее открывает оверлей.
-Слева разделы, справа параметры; подсказка есть у каждого поля; изменения применяются по кнопке **«Сохранить»**.
+#### Sending into the game
 
-| Раздел | Что настраивается |
-|--------|-------------------|
-| 🧩 **Основные** | Язык перевода · «что уходит в чат» (русская запись или текст на языке) · **язык интерфейса** · горячая клавиша с ловлей нажатия · открывать окно при запуске · **масштаб интерфейса 80–180 %** · скобки перевода · лимит символов · задержка перевода · **раскрытие сленга и сокращений** |
-| 🔁 **Автоперевод** | включение · частота «каждое N-е» · какое сообщение в серии · число и длина фрагментов · приоритет словаря · **слова-паразиты «всегда»** + их список |
-| 💾 **Сохранение** | «Сохранить» (Ctrl+S) применяет настройки и **не закрывает окно**; «Закрыть» предупредит о несохранённых правках |
-| 🎮 **Чат игры** | вставлять в чат · **сначала открывать чат (T)** · отправлять сразу (Enter) · клавиша чата · три задержки |
-| 📚 **Словарь** | таблица «фраза · русская запись · русские значения» с поиском · добавить/удалить · **Импорт JSON/CSV** · **Экспорт** · вернуть встроенный словарь |
-| ★ **Сокращения** | свои сокращения по образцу словаря: сокращение · разворот · русский вариант · поиск · импорт/экспорт · вернуть встроенные |
-| 🔍 **Проверка** | живой предпросмотр в обе стороны: «Русский → выбранный язык перевода» и «Ваш язык → русский» — видно, что именно уйдёт в чат игры |
+| Setting | Description | Default value |
+|---|---|---|
+| Send into the game | Pass text to the game chat window | On |
+| Press Enter | Press Enter automatically after pasting text | Off |
+| Chat key | Key to open chat in the game (e.g. `T`) | `T` |
+| Input method | How to insert text: via clipboard (Ctrl+V) or character by character | Clipboard |
 
-Окно подстраивается под экран: на 1366×768 оно занимает не больше 94 % рабочей области,
-разделы прокручиваются, а масштаб шрифта и отступов задаётся ползунком **Масштаб интерфейса**.
+#### Animations
 
----
+| Setting | Description | Default value |
+|---|---|---|
+| Animations module | Enable animation launch by keywords | Off |
+| Animation rules | Which words trigger which animation (`/anim name`) | Empty |
+| Stop key | Key to stop animation playback | `F` |
+| Stop with `/sa` command | Stop animation with `/sa` command in game | Enabled |
+| "In a vehicle" mode | Don't play animations and don't send `/sa` while enabled | Off |
 
-## 🔄 Режим для иностранного игрока
+<a id="translation-modes-and-special-symbols"></a>
+<img src="source/images/forum/hdr_modes_en.png" width="1000" alt="Translation modes and special symbols">
 
-Для тех, кто играет на русскоязычном сервере и не говорит по-русски: пишете в оверлее
-на своём языке — в чат уходит готовый русский текст.
+The program supports several translation methods and special markers in text:
 
-| | |
-|---|---|
-| **Где включить** | Настройки → **Основные** → «Переводить на русский»; или меню трея → «Ваш язык → русский» |
-| **Что переводится** | всё сообщение целиком, включая действия `*машет рукой*` |
-| **Что не переводится** | служебные команды в начале строки (`/me`, `/do`, `/to`, `/l` и прочие) и ник у `/to`, `/lto` |
-| **Язык-источник** | определяется автоматически, отдельных настроек не требует |
-| **Enter** | отправляет перевод в чат игры — как обычное сообщение |
-| **Счётчик автоперевода** | не действует: переводится каждое сообщение |
+### Auto-translate
 
-Порядок работы: **F6** → в игре открывается чат (`T`) → пишете фразу → **Enter** → перевод уходит в чат.
+Every N-th message is translated automatically. For commands `/to`, `/lto`,
+`/l`, `/wt`, `/s`, `/st` auto-translate applies the same as to regular
+messages.
 
----
+### Forced fragment translation `+...+`
 
-## 🌐 Язык интерфейса
+Wrap part of the text in `+` — the fragment will be translated even when
+auto-translate is disabled. Example: `+`привет, брат`+` — always goes to chat
+in the target language.
 
-При первом запуске программа спрашивает, на каком языке показывать кнопки,
-подсказки и меню: **Русский** или **English**. Выбор записывается в конфиг,
-а поменять его можно в любой момент: **Настройки → Основные → Язык интерфейса** —
-переключение происходит сразу, без перезапуска.
+### Actions `*...*`
 
-Переведено всё, что видит игрок: окно настроек со всеми разделами, подсказки у
-полей, названия языков перевода (`Italian (Italiano)`), меню в трее, строка состояния
-оверлея, уведомления и сообщения о сохранении и импорте. Русские тексты остаются
-исходными: английский вариант лежит рядом, в таблице `i18n.py`, поэтому оба
-языка всегда описывают одно и то же.
+Text in asterisks is perceived as character action and translated in full.
+Service commands (`/me`, `/do`, `/to`) and nicknames are not translated.
 
----
+### Parasite words
 
-## 💬 Сленг и сокращения
+These are filler words inserted into **every** message regardless of the
+auto-translate counter: `Senti`, `Ma dai`, `Oye`, `那个` and others. Enabled
+with a checkbox next to the phrase in the dictionary.
 
-В живом чате пишут не словами, а сокращениями. Машинный перевод такие токены
-либо оставляет латиницей, либо переводит по одной букве — в русской строке
-появляется мусор. Программа раскрывает сокращение **до** перевода.
+### Dictionary priority over translation
 
-| | |
-|---|---|
-| **Как работает** | «brb» → «I'll be right back» → «я скоро вернусь»: полная фраза уходит в переводчик, поэтому падеж, род и время получаются верными сами собой |
-| **Если сервис вернул латиницу** | подставляется короткий русский вариант: «afk» → «не за клавиатурой», «gg» → «хорошая игра», «idc» → «мне всё равно» |
-| **Обратное направление** | русские сокращения раскрываются так же: «спс» → «спасибо», «мб» → «может быть», «пж» → «пожалуйста» |
-| **Сколько в таблице** | **180** сокращений и растянутый смех (`looool`, `xD`, `kek`) плюс 31 русское |
-| **Где включить** | Настройки → **Основные** → «Разворачивать сленг и сокращения» — включено по умолчанию |
+If a phrase exists in the built-in or user dictionary, it is translated
+according to the dictionary entry (with the Russian transcription "how to
+read aloud") and does not go to external translation services. The dictionary
+takes priority over network translation.
 
-Поддерживаются три пласта: переписка (`ty`, `thx`, `np`, `pls`, `sry`, `tbh`, `ngl`,
-`afaik`, `iirc`, `ttyl`, `hmu`, `lmk`, `tyvm`, `wby`, `wdyt`, `nvm`, `idk`, `idc`, `brb`,
-`bbs`, `omw`, `gtg`, `cya`, `l8r`, `2moro`, `gr8`, `m8`, `b4`, `w8`…), игры (`gg`, `wp`,
-`ez`, `nt`, `gj`, `glhf`, `op`, `pvp`, `pve`, `npc`, `dps`, `xp`, `lvl`, `ult`, `aoe`,
-`dc`, `vc`, `inv`, `acc`, `srv`, `wtb`, `wts`, `wtt`, `ff`…) и ролевой отыгрыш (`rp`,
-`ooc`, `ic`, `em`, `para`).
+<a id="deeplx-in-russia"></a>
+<img src="source/images/forum/hdr_deeplx_en.png" width="1000" alt="DeepLX in Russia">
 
-Русская колонка подобрана так, чтобы фраза стояла в любом месте предложения:
-без рода («не за клавиатурой»), в первом лице без прошедшего времени
-(«скоро вернусь», «уже иду») или наречием («кстати», «по-моему»).
+Since June 2025, DeepL is blocked for Russian IP addresses. The local DLX
+service starts, but DeepL returns error `503` — the status is
+**“Running, but DeepL answers 503”**.
 
-### Свои сокращения
+Workaround: use an **HTTP proxy** (v2rayN, Clash, SOCKS5) or deploy your own
+DLX server abroad ([detailed instructions](docs/DEEPLX-RUSSIA.md)).
+If there is no proxy, simply disable DLX — the program falls back to regular
+translation services without restrictions.
 
-Раздел **Настройки → Сокращения** устроен как словарь: таблица «сокращение ·
-разворот · русский вариант», поиск, кнопки «Добавить сокращение», «Удалить»,
-**«Импорт…»** (JSON или CSV), **«Экспорт…»** и «Вернуть встроенные». Своя строка
-помечена «★» и перекрывает встроенную — так можно и переписать `afk` по-своему,
-и выключить ненужное сокращение, оставив обе колонки пустыми. Хранится всё в
-`data/slang.json`, поэтому настройки переживают перезапуск и переносятся на
-другой компьютер одним файлом.
+<a id="license"></a>
+<img src="source/images/forum/hdr_license_en.png" width="1000" alt="License">
 
----
+This project is distributed under the MIT License. The canonical English license
+is also available in [`LICENSE`](LICENSE).
 
-## 🌍 Языки
+```text
+MIT License
 
-| Код | Язык | Словарь | Паразиты |
-|-----|------|:-------:|:--------:|
-| `it` | 🇮🇹 Итальянский (Italiano) | 103 | 10 (из PDF) |
-| `es` | 🇪🇸 Испанский (Español) | 46 | 7 |
-| `es-MX` | 🇲🇽 Мексиканский | 51 | 8 |
-| `pt-BR` | 🇧🇷 Португальский (Brasil) | 49 | 8 |
-| `zh-CN` | 🇨🇳 Китайский (中文) | 46 | 8 |
-| `ja` | 🇯🇵 Японский (日本語) | 40 | 8 |
-| `en` | 🇬🇧 Английский (English) | 37 | 8 |
-| `de` | 🇩🇪 Немецкий (Deutsch) | 32 | 8 |
-| `fr` | 🇫🇷 Французский (Français) | 33 | 9 |
-| `pl` | 🇵🇱 Польский (Polski) | 36 | 8 |
-| `tr` | 🇹🇷 Турецкий (Türkçe) | 41 | 9 |
-| `ko` | 🇰🇷 Корейский (한국어) | сеть | — |
-| `ar` | 🇸🇦 Арабский (العربية) | сеть | — |
+Copyright (c) 2026 Ven4esters
 
-<details>
-<summary><b>Почему именно эти языки</b></summary>
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-На RP-серверах GTA V за пределами русскоязычного сегмента чаще всего встречаются
-английский, бразильский португальский, немецкий, французский, испанский (в том числе
-мексиканский), польский, турецкий, арабский; отдельные крупные сообщества — итальянские,
-японские, корейские.
-</details>
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
----
-
-## 📚 Свои словари
-
-Раздел **«Словарь» → «Импорт…»**, два формата.
-
-**CSV** (`;`, заголовок можно не писать):
-
-```csv
-Фраза;Русская запись;Русские значения
-Andiamo;анджамо;пошли; идём; поехали
-Che bello;ке белло;как красиво; класс; супер
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
-**JSON**:
-
-```json
-{"_version": 1, "phrases": {"Andiamo": "анджамо | пошли; идём; поехали"}}
-```
-
-> Импорт **дополняет**: новые фразы добавляются, у существующих дописываются значения,
-> ваши транскрипции не меняются. Файлы словарей: `data/glossaries/<код>.json` рядом с exe.
-> Галочка в первой колонке таблицы делает фразу **словом-паразитом**: она переводится
-> в каждом сообщении, даже когда автоперевод ещё не сработал. Выбор сохраняется вместе
-> со словарём и не сбрасывается обновлением встроенных фраз.
-
----
-
-## 🧠 Как это работает
-
-| Приём | Пример | Результат |
-|-------|--------|-----------|
-| Обычный текст | `привет` | `Чао` (или `Ciao` в режиме «текст на языке») |
-| Принудительно | `+привет+` | `Чао` — даже если автоперевод выключен |
-| Действие | `*почесал затылок*` | остаётся как есть |
-| Автоперевод | `мне срочно нужна Aiutami` | одно сообщение из N |
-| Слова-паразиты | `Слушай, брат` | `Сенти, брат` — **в каждом** сообщении |
-| Команда с ником | `/to Ivan слушай` | `/to Ivan Сенти` — ник не переводится |
-
-<details>
-<summary><b>Счётчик сообщений и команды</b></summary>
-
-`/to`, `/lto`, `/l`, `/wt`, `/s`, `/st` считаются наравне с обычными сообщениями:
-двигают серию автоперевода и сами могут переводиться.
-`/me`, `/do`, `/b` в счётчик не идут, но `+маркеры+` в них работают.
-</details>
-
-<details>
-<summary><b>Слова-паразиты по языкам</b></summary>
-
-| Язык | Примеры |
-|------|---------|
-| Итальянский | Senti · Ma dai · Madonn' · Mannaggia · Capisci? · Che vuoi fare? · Scemo · Agita · Allora · Piano piano |
-| Испанский | Oye · ¿Entiendes? · Pues · Joder · Venga · Qué le vamos a hacer · Poco a poco |
-| Мексиканский | Órale · No manches · Güey · ¿Mande? · Ni modo |
-| Португальский | Ouve · Entendeu? · Então · Tipo · Pô · Nossa · Fazer o quê |
-| Китайский | 那个 · 就是 · 你听我说 · 你懂吗 · 没办法 · 慢慢来 |
-| Японский | あの · なんか · 聞いて · わかる? · しょうがない · ゆっくり |
-| Английский, немецкий, французский, польский, турецкий | по 8–9 фраз |
-</details>
-
-<details>
-<summary><b>Сервисы перевода и что делать, если Google «занят»</b></summary>
-
-Программа идёт по цепочке и берёт первый ответивший сервис:
-
-`Google gtx → Google clients5 → Google web → MyMemory → Lingva → LibreTranslate`
-
-- у Google два независимых эндпоинта, поэтому ответ «429 Too Many Requests» на одном
-  не мешает второму перевести фразу;
-- сервис, ответивший «429 / too many requests», выключается на 2 минуты, чтобы не
-  тратить время на заведомо занятый адрес;
-- на всю цепочку отведено 16 секунд: быстрее показать ошибку, чем держать «перевожу…»;
-- MyMemory и LibreTranslate не умеют автоопределение языка, поэтому в режиме
-  «ваш язык → русский» работают Google (оба эндпоинта) и Lingva;
-- удачные переводы кэшируются в `data/cache.json`, повторная фраза не ходит в сеть;
-- без сети и без словаря в чат всё равно можно отправить текст как есть (Enter).
-</details>
-
----
-
-## 🛠 Пересборка exe
-
-```bat
-source\build_exe.bat
-:: результат: dist\RPChatOverlay.exe
-```
-
-Что делает скрипт: находит Python 3.12 → создаёт окружение `source\.build-venv` →
-ставит `deep-translator`, `PySide6`, `PyInstaller` → собирает один exe по
-`source\RPChatOverlay.spec` → кладёт результат в `dist\`.
-
-<details>
-<summary><b>Что учтено в сборке</b></summary>
-
-- `console=False` — окно консоли не появляется, журнал пишется в `logs\app.log`;
-- иконка `icon.ico` в exe и в трее;
-- `langpacks/*` импортируются статически (иначе PyInstaller не включает модули и exe падает
-  с «No module named langpacks.it»);
-- `deep_translator` и его зависимости включены;
-- лишние модули Qt (QML, WebEngine, Multimedia, Charts, 3D, OpenGL) исключены — поэтому exe «всего» 37 МиБ;
-- `data\` и `logs\` создаются рядом с exe; если там нет прав записи (например, `Program Files`) —
-  данные уходят в `%LOCALAPPDATA%\RPChatOverlay`.
-</details>
-
----
-
-## ❓ FAQ
-
-<details>
-<summary><b>Не удалось проверить издателя / антивирус ругается</b></summary>
-
-Exe не подписан — «Подробнее» → «Выполнить в любом случае», папку добавьте в исключения антивируса.
-</details>
-
-<details>
-<summary><b>Китайский / японский в чате виден как «???»</b></summary>
-
-Сервер или шрифт игры не поддерживает CJK. Переключите «Что уходит в чат» на **русскую запись** —
-в чат уйдёт «Нихао» вместо 你好.
-</details>
-
-<details>
-<summary><b>Сообщения не появляются в чате</b></summary>
-
-Увеличьте «После открытия чата» до 500–800 мс в разделе **Чат игры**; проверьте, что игра и оверлей
-запущены с одинаковыми правами.
-</details>
-
-<details>
-<summary><b>Перевод не идёт, в окне «Проверка» ошибка</b></summary>
-
-Скорее всего все сервисы заняты или нет сети. Проверка подсказывает причину («сервисы заняты,
-Google ограничил запросы (429)»). Фразы из словаря и слова-паразиты работают офлайн,
-а текст без перевода можно отправить как есть — Enter.
-</details>
-
-<details>
-<summary><b>На ноутбуке окно настроек не помещается на экран</b></summary>
-
-Окно занимает не больше 94 % рабочей области и прокручивается внутри; если шрифт великоват —
-**Настройки → Основные → Масштаб интерфейса** поставьте 90–100 %.
-</details>
-
-<details>
-<summary><b>Где настройки, словари и логи</b></summary>
-
-`data\config.json` · `data\glossaries\<код>.json` · `data\slang.json` · `data\cache.json` ·
-`logs\app.log` (рядом с `RPChatOverlay.exe`).
-</details>
-
----
-
-## 🧪 Диагностика из консоли
-
-```bat
-cd source
-python main.py --selftest      :: проверка перевода по нескольким языкам (офлайн)
-python main.py --langs         :: список языков и наличие словарей
-python main.py --find-game     :: список окон и найденная игра
-python main.py --settings      :: сразу открыть настройки
-```
-
----
-
-# 🇬🇧 English
-
-**RP Chat Overlay** — a chat translator for GTA V / FiveM. You type in Russian, the game
-chat receives the phrase in the chosen language. The overlay opens the in-game chat first
-(**T**), so people around see that you are typing, then shows the translation window and
-sends the text. It also works the other way round: on a Russian-speaking server a foreign
-player types in their own language and the chat receives Russian.
-
-## Features at a glance
-
-| Feature | What it does |
-|---|---|
-| **Russian → chosen language** | `привет, брат` → `Ciao, fratello`, sent straight to the game chat |
-| **Foreign player mode** | type in your own language — the chat receives full Russian, `*actions*` included |
-| **13 target languages** | Italian, Spanish, Mexican Spanish, pt-BR, Chinese, Japanese, English, German, French, Polish, Turkish, Korean, Arabic |
-| **Glossary** | 100+ ready phrases with a Russian reading ("how it sounds out loud") and Russian meanings; own phrases, JSON/CSV import, export |
-| **Slang and abbreviations** | 180 abbreviations plus stretched laughter (`looool`, `xD`, `kek`) and 31 Russian ones: `brb` → "I'll be right back" → «я скоро вернусь»; «спс» → «спасибо» |
-| **Own abbreviations** | glossary-style section: abbreviation · expansion · short Russian variant, `★` overrides a built-in row, empty columns switch it off |
-| **Auto-translation** | every N-th message, share of the text, glossary priority; `/to /lto /l /wt /s /st` count as ordinary messages |
-| **Markers `+…+`** | force translation of a fragment even when auto-translation is off |
-| **Actions `*…*`** | translated as a whole; service commands `/me`, `/do`, `/to` and nicknames are not |
-| **Filler words** | `Senti`, `Ma dai`, `Oye`, `那个` — in **every** message, regardless of the counter; switched on with a checkbox next to the phrase |
-| **Sending to the game** | the chat is opened automatically (`T`), the text is pasted and submitted with Enter; three adjustable delays |
-| **Interface language** | first run asks **Русский / English**, switchable in Settings instantly, no restart |
-| **Adaptive window** | fits the screen (at most 94 % of the work area), sections scroll, interface scale 80–180 % |
-| **Translation check** | both directions, "Russian → selected translation language" and "Your language → Russian", shows exactly what the chat will receive |
-| **DeepL alongside (DLX)** | optional: a local DeepL service (~15 MB, MIT) as the first translator, with an automatic fallback to Google |
-| **Several translation services** | Google gtx → Google clients5 → Google web → MyMemory → Lingva → LibreTranslate: if one answers 429, the next one is used |
-| **Tray** | four lines only: status, translation direction, "Settings…", "Exit"; double click opens the overlay |
-
-## Modules
-
-The program is built from independent parts, and every one of them can be
-switched off in **Settings → Modules**. A disabled module never breaks the rest:
-the program keeps working in a reduced form and no data (glossaries,
-abbreviations, settings) is lost.
-
-| Module | What it does | When switched off |
-| --- | --- | --- |
-| **Online translation** | the Google → MyMemory → Lingva → LibreTranslate chain | only the built-in glossaries work, offline |
-| **Glossary** | ready phrases, Russian reading, filler words | phrases are translated by the services, with no reading hint |
-| **Slang and abbreviations** | `brb`, `afk`, `gg` are expanded before translation | abbreviations go out as they are |
-| **Auto-translation** | every N-th message is translated automatically | translation only by `+markers+` and by hand |
-| **Sending into the game** | the overlay opens the chat and presses Enter | the text is only copied to the clipboard |
-| **Global hotkey** | opens the overlay from the game with one key | the overlay opens by double clicking the tray icon |
-
-Dependencies are honoured automatically: with online translation off,
-auto-translation is off as well, because it cannot work without a network.
-
-## DeepL alongside (DLX)
-
-For better quality a separate **local translation service** can be deployed next
-to the app: the free open-source program **DLX** (MIT). It runs on your machine
-and translates through the DeepL engine.
-
-- about **15 MB**, downloaded from GitHub **only with your consent** — the app
-  asks once at the first start and explains what happens;
-- translated text goes **to DeepL servers**, exactly as it now goes to Google;
-- the service is **unofficial**: DeepL may rate-limit it, and translation then
-  **falls back** to the regular services on its own — the program keeps working;
-- switch it off any time: **Settings → DeepL**, where you can also stop or remove it.
-
-**Where the service comes from.** The program downloads a ready-made binary from
-the official releases of the project — `github.com/OwO-Network/DLX` (in July 2026
-it was renamed from DeepLX to DLX after a trademark notice; the release files are
-still called `deeplx_*`). Nothing is rebuilt or repacked: the file is stored as is
-and the MIT license sits next to it in `data/dlx/LICENSE-DLX.txt`.
-
-**When DeepL refuses with 503.** The service itself is running, DeepL just will not
-take the request — a common situation from Russia. The program does not stay
-silent: the tray says so and the DeepL page shows "Running, but DeepL answers
-503". Two optional fields on the same page fix it: **HTTP proxy**
-(`http://127.0.0.1:10809` for v2rayN, `http://127.0.0.1:7890` for Clash,
-`socks5://127.0.0.1:1080`) and a **DeepL Pro token** if you have a subscription.
-**DLX does not raise a proxy of its own** — it is a translation server, not a
-tunnel, and only sends its requests through the proxy you name. So: a system-wide
-VPN (TUN) that exits abroad needs nothing, a client with a local port needs that
-port. **Cloudflare WARP / One Client will not do**: they do not change your
-country, the traffic leaves through the nearest Cloudflare node which sits in
-Russia, and a choice of exit country exists only in paid Enterprise (dedicated
-egress IPs). A **DeepL Pro token does not lift the regional block** either; it
-only removes rate limits for subscribers. While the fields are empty and DeepL refuses,
-translation goes through Google as before; untick "Translate through DeepL first"
-to stop spending requests for nothing. While both are empty and DeepL refuses,
-translation goes through Google and the rest as before. The service listens on
-`127.0.0.1` only.
-
-### A service of your own instead of the file
-
-When `dlx.exe` cannot be downloaded or will not start, the service can live
-elsewhere: **Settings → DeepL** has **"Your own service address"** and **"Your own
-service token"**. While the address is empty the program behaves as before, with
-its own file. Once it is set, no file is needed at all: the program checks the
-address, sends translations there and shows "your own service 127.0.0.1:1188" as
-the state. The address may be pasted whole, `/translate` or `/api/translate`
-included — the extra tail is trimmed.
-
-A ready server lives in `source/tools/deeplx-local` (Node.js 18+, MIT): it speaks
-the DLX language — same routes, same answer shape, same optional token.
-
-```bash
-cd source/tools/deeplx-local
-npm install
-npm start                 # listens on 0.0.0.0:1188
-```
-
-Why it exists: 2024-era DeepLX builds (including `bropines/Deeplx-vercel` →
-`LegendLeo/deeplx-serverless`, commonly linked as "local DeepLX") call
-`www2.deepl.com/jsonrpc` and introduce themselves as DeepL for iOS 2.9.1. Today
-DeepL answers that with "You're using an older version of DeepL" **instead of a
-translation** — the server runs, but it translates into a service message.
-`deeplx-local` uses the current `oneshot-free.www.deepl.com/v1/translate` path and
-resolves the client version from Apple's open lookup, the way DLX itself does.
-
-The service can live off your machine as well: the same code deploys to Vercel
-(free, no computer of your own) and translates from a foreign address — the
-step-by-step guide is `source/tools/deeplx-local/VERCEL.md`. Afterwards put
-`https://your-project.vercel.app` into "Your own service address" and the token
-you deployed with into "Your own service token".
-
-Note: the `deeplx-local` server is the same DeepL, not a way around the block. If
-DeepL is closed for Russian addresses, a local server gets the same refusal as
-`dlx.exe`; only a proxy with a foreign exit (see above) or a service deployed
-abroad helps.
-
-The app downloads and updates the service, watches it, restarts it after a crash,
-checks it with a short request at startup, keeps it on `127.0.0.1` with a free
-port and an access token, and stops it together with the app — no orphan
-processes. Its MIT license is stored next to the binary in `data/dlx/`.
-
-## Logs
-
-The program keeps two files in the `logs/` folder next to itself:
-
-| File | Contents |
-| --- | --- |
-| `app.log` | the normal flow: start, settings changes, service switching |
-| `errors.log` | errors: unhandled exceptions, failures in background threads, Qt messages, stacks on a hard crash and on a frozen window |
-
-When something breaks, attach both files to your report (or at least
-`errors.log`): the stack shows exactly what happened, with no guessing. The stall
-threshold is 20 seconds: when the window stops answering, the stacks of every
-thread land in the log.
-
-## Quick start
-
-1. Run `dist/RPChatOverlay.exe` (nothing to install, 37.4 MiB onefile).
-2. On the first run pick the interface language, then the target language and the hotkey → **Save**.
-3. In game: **F6** → type in Russian → **Enter** → the text goes to the chat. **Esc** cancels.
-
-## Settings sections
-
-| Section | Contents |
-|---|---|
-| **General** | target language · what goes to the chat (Russian reading or the foreign text) · interface language · hotkey capture · open this window on start · interface scale · translation brackets · character limit · translation delay · slang and abbreviation expansion |
-| **Auto-translation** | on/off · "every N-th" · which message in the series · number and length of fragments · glossary priority · filler words "always" and their list |
-| **Game chat** | paste into chat · open the chat first (T) · submit immediately (Enter) · chat key · three delays |
-| **Glossary** | phrase · Russian reading · Russian meanings with search, add/remove, JSON/CSV import, export, restore the built-in dictionary |
-| **Abbreviations** | own abbreviations with expansion and short Russian variant, search, import/export, restore built-ins |
-| **Test** | live preview in both directions — exactly what the game chat will receive |
-
-## The rest in one paragraph
-
-Translation services are tried in a chain with a 16-second budget and a two-minute cool-down
-for a service that answered "429", so one busy endpoint never blocks the work; successful
-translations are cached in `data/cache.json`. Phrase files live in `data/glossaries/<code>.json`,
-own abbreviations in `data/slang.json`, settings in `data/config.json`, the log in `logs/app.log`
-— all next to the exe. Interface is fully bilingual (Russian/English) and switches without a
-restart. The window adapts to the screen and scrolls instead of squeezing widgets. Everything
-can be rebuilt from `source/` with `build_exe.bat`; the ready exe is always placed in `dist/`.
-
-## Verification
-
-The exe is not code-signed (that is normal for PyInstaller builds), so Windows may show
-«Не удалось проверить издателя» / "Unknown publisher" — choose "More info" → "Run anyway".
-The VirusTotal report for this exact build is a permanent link to the file by hash:
-**[47d81b8109ff… — VirusTotal report](https://www.virustotal.com/gui/file/47d81b8109ff9a926571508b7437e1b8765dd66e6504f6500584bad92ac2e3fb)**.
-
-## Changelog
-
-See **[CHANGELOG.md](CHANGELOG.md)** — every version in Russian and English.
-
----
-
-<p align="center"><sub>RP Chat Overlay · Windows 10/11 · Python 3.12 · PySide6 · перевод: Google (2 эндпоинта) → MyMemory → Lingva → LibreTranslate · <a href="CHANGELOG.md">changelog</a></sub></p>
+<a id="contacts"></a>
+<img src="source/images/forum/hdr_contacts_en.png" width="1000" alt="Contacts">
+
+- Author: [Ven4esters](https://github.com/Ven4esters)
+- Issues and suggestions: [GitHub Issues](https://github.com/Ven4esters/RP-Chat-Overlay/issues)

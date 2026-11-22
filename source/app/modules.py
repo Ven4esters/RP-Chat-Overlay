@@ -41,7 +41,11 @@ class Module:
     config_key   ключ в config.json, где хранится флаг / config flag name
     default      состояние при первом запуске / state on the first run
     requires     модули, без которых этот не работает / hard dependencies
-    settings_page  раздел настроек, где включается, или None для своего флажка
+    page_key       имя страницы настроек для блокировки, когда модуль выключен
+                   the settings page name to dim when the module is off
+    modes          режимы перевода, в которых модуль вообще нужен; пусто —
+                   нужен во всех / translation modes that need this module; empty
+                   means it is needed in every mode
     """
 
     key: str
@@ -52,7 +56,8 @@ class Module:
     config_key: str
     default: bool = True
     requires: tuple[str, ...] = ()
-    settings_page: int | None = None
+    page_key: str = ""
+    modes: tuple[str, ...] = ()
 
 
 # Порядок в таблице = порядок в окне настроек.
@@ -63,20 +68,22 @@ MODULES: Final[tuple[Module, ...]] = (
         title_ru="Перевод по сети",
         title_en="Online translation",
         desc_ru="Цепочка сервисов Google, MyMemory, Lingva и LibreTranslate. "
-                "Без него работают только встроенные словари.",
+        "Без него работают только встроенные словари.",
         desc_en="The chain of Google, MyMemory, Lingva and LibreTranslate. "
-                "Without it only the built-in glossaries work.",
+        "Without it only the built-in glossaries work.",
         config_key="translator_enabled",
+        page_key="page_test",
     ),
     Module(
         key="glossary",
         title_ru="Словарь",
         title_en="Glossary",
         desc_ru="Готовые фразы с русской записью и значениями. Без него фразы "
-                "переводятся сервисами, без подсказки «как читается».",
+        "переводятся сервисами, без подсказки «как читается».",
         desc_en="Ready-made phrases with a Russian reading and meanings. Without it "
-                "phrases are translated by the services, with no reading hint.",
+        "phrases are translated by the services, with no reading hint.",
         config_key="glossary_enabled",
+        page_key="page_glossary",
     ),
     Module(
         key="slang",
@@ -84,53 +91,70 @@ MODULES: Final[tuple[Module, ...]] = (
         title_en="Slang and abbreviations",
         desc_ru="brb, afk, gg, спс, мб раскрываются в полные фразы до перевода.",
         desc_en="brb, afk, gg and their Russian counterparts are expanded into "
-                "full phrases before translation.",
+        "full phrases before translation.",
         config_key="slang",
-        settings_page=0,
+        page_key="page_slang",
     ),
     Module(
         key="autotranslate",
         title_ru="Автоперевод",
         title_en="Auto-translation",
         desc_ru="Каждое N-е сообщение переводится само. Требует перевода по сети.",
-        desc_en="Every N-th message is translated automatically. Requires online "
-                "translation.",
+        desc_en="Every N-th message is translated automatically. Requires online translation.",
         config_key="auto_mode",
         requires=("translator",),
-        settings_page=1,
+        page_key="page_auto",
+        # автоперевод существует только в частичном режиме: в полном переводится
+        # всё сообщение, в обратном — весь чужой текст, и выбирать там нечего
+        # auto-translation only exists in partial mode: full mode translates the
+        # whole message and reverse mode all foreign text, so there is no choice
+        modes=("partial",),
     ),
     Module(
         key="game_send",
         title_ru="Отправка в игру",
         title_en="Sending into the game",
         desc_ru="Оверлей сам открывает чат игры, вставляет текст и нажимает Enter. "
-                "Если выключено — текст только копируется в буфер обмена.",
+        "Если выключено — текст только копируется в буфер обмена.",
         desc_en="The overlay opens the game chat, pastes the text and presses Enter. "
-                "When off, the text is only copied to the clipboard.",
+        "When off, the text is only copied to the clipboard.",
         config_key="game_send",
-        settings_page=2,
+        page_key="page_game",
     ),
     Module(
         key="dlx",
         title_ru="DeepL рядом (DLX)",
         title_en="DeepL alongside (DLX)",
         desc_ru="Локальный сервис DeepL как первый переводчик. Требует согласия и "
-                "около 15 МБ на диске; без него работает обычная цепочка сервисов.",
+        "около 15 МБ на диске; без него работает обычная цепочка сервисов.",
         desc_en="A local DeepL service used as the first translator. It needs consent "
-                "and about 15 MB on disk; without it the regular service chain runs.",
+        "and about 15 MB on disk; without it the regular service chain runs.",
         config_key="dlx_enabled",
         default=False,
         requires=("translator",),
-        settings_page=7,
+        page_key="page_dlx",
+    ),
+    Module(
+        key="anims",
+        title_ru="Анимации",
+        title_en="Animations",
+        desc_ru="Ключевое слово в вашем сообщении запускает /anim в игре; через "
+        "заданное время уходит /sa. Требует отправки в игру.",
+        desc_en="A keyword in your message starts /anim in the game, and /sa "
+        "follows after the configured delay. Requires sending into the game.",
+        config_key="anims_enabled",
+        default=False,
+        requires=("game_send",),
+        page_key="page_anims",
     ),
     Module(
         key="hotkey",
         title_ru="Глобальная клавиша",
         title_en="Global hotkey",
         desc_ru="Вызов оверлея из игры одной клавишей. Без него оверлей "
-                "открывается двойным щелчком по значку в трее.",
+        "открывается двойным щелчком по значку в трее.",
         desc_en="Opens the overlay from inside the game with one key. Without it the "
-                "overlay opens by double-clicking the tray icon.",
+        "overlay opens by double-clicking the tray icon.",
         config_key="hotkey_enabled",
     ),
 )
@@ -141,11 +165,6 @@ BY_KEY: Final[dict[str, Module]] = {m.key: m for m in MODULES}
 def get(key: str) -> Module | None:
     """Описание модуля по ключу или None / module by key, or None."""
     return BY_KEY.get(key)
-
-
-def config_keys() -> dict[str, bool]:
-    """Ключи конфигурации и значения по умолчанию / config keys and defaults."""
-    return {m.config_key: m.default for m in MODULES}
 
 
 def _raw_flag(cfg: Mapping[str, Any], module: Module) -> bool:
@@ -166,8 +185,8 @@ def is_enabled(cfg: Mapping[str, Any], key: str, _seen: frozenset[str] = frozens
     if not _raw_flag(cfg, module):
         return False
     for dep in module.requires:
-        if dep in _seen:            # защита от циклических зависимостей
-            continue            # cycle guard
+        if dep in _seen:  # защита от циклических зависимостей
+            continue  # cycle guard
         if not is_enabled(cfg, dep, _seen | {key}):
             return False
     return True
@@ -183,6 +202,40 @@ def apply_defaults(cfg: dict[str, Any]) -> dict[str, Any]:
     for module in MODULES:
         cfg.setdefault(module.config_key, module.default)
     return cfg
+
+
+def needed_in_other_mode(cfg: Mapping[str, Any], key: str) -> bool:
+    """Модуль не нужен в текущем режиме, но нужен в другом / needed elsewhere only.
+
+    Так «Сокращения» и «Автоперевод» честно гаснут в режимах, где их нет,
+    с подсказкой: в этом режиме модуль не нужен, в другом — нужен.
+    This is how Auto-translation dims in the modes that do not use it, with a
+    tooltip saying it belongs to another mode.
+    """
+    module = BY_KEY.get(key)
+    if module is None or not module.modes:
+        return False
+    return str(cfg.get("mode") or "partial") not in module.modes
+
+
+def blockers(cfg: Mapping[str, Any], key: str) -> list[str]:
+    """Какие выключенные родители мешают включить модуль / disabled parents.
+
+    Пустой список — модуль можно включать: он либо не зависит ни от чего, либо
+    всё, что ему нужно, уже включено. Нужен, чтобы предложить включить родителя,
+    а не просто погасить флажок.
+    An empty list means the module may be switched on: it depends on nothing, or
+    everything it needs is already on. This is what makes it possible to offer to
+    switch the parent on instead of just dimming the checkbox.
+    """
+    module = BY_KEY.get(key)
+    if module is None:
+        return []
+    out: list[str] = []
+    for dep in module.requires:
+        if not is_enabled(cfg, dep):
+            out.append(dep)
+    return out
 
 
 def summary(cfg: Mapping[str, Any]) -> str:

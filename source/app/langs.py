@@ -16,38 +16,146 @@ exists and whether a Russian reading can be produced.
     pack      — модуль со встроенным словарём в пакете langpacks (или None)
     reading   — есть ли русская запись по звучанию
 """
+
 from app.translit import has_reading
 
 LANGUAGES = [
     # --- полностью поддерживаемые языки со встроенным словарём ---
-    dict(code="it", name_en="Italian", name="Итальянский", native="Italiano", tr="it", pack="it",
-         about="Базовый язык программы: самый большой встроенный словарь и слова-паразиты.", about_en="The base language of the program: the largest built-in glossary and filler words."),
-    dict(code="es", name_en="Spanish", name="Испанский", native="Español", tr="es", pack="es",
-         about="Испанский (Испания). Встроенный словарь RP-фраз и слова-паразиты.", about_en="Spanish (Spain). A built-in glossary of RP phrases and filler words."),
-    dict(code="es-MX", name_en="Spanish (Mexico)", name="Испанский (Мексика)", native="Español (México)", tr="es", pack="mx",
-         about="Мексиканский испанский: güey, órale, no manches.", about_en="Mexican Spanish: güey, órale, no manches."),
-    dict(code="pt-BR", name_en="Portuguese (Brazil)", name="Португальский (Бразилия)", native="Português (Brasil)", tr="pt",
-         pack="pt", about="Бразильский португальский — самый популярный вариант на RP-серверах.", about_en="Brazilian Portuguese, the most common variant on RP servers."),
-    dict(code="zh-CN", name_en="Chinese", name="Китайский", native="中文", tr="zh-CN", pack="zh",
-         about="Китайский (упрощённый) с пиньинь-подсказками в словаре.", about_en="Simplified Chinese with pinyin hints in the glossary."),
-    dict(code="ja", name_en="Japanese", name="Японский", native="日本語", tr="ja", pack="ja",
-         about="Японский с ромадзи-подсказками в словаре.", about_en="Japanese with romaji hints in the glossary."),
-    dict(code="en", name_en="English", name="Английский", native="English", tr="en", pack="en",
-         about="Английский — язык большинства международных RP-серверов.", about_en="English, the language of most international RP servers."),
+    # fully supported languages with a built-in glossary
+    dict(
+        code="it",
+        name_en="Italian",
+        name="Итальянский",
+        native="Italiano",
+        tr="it",
+        pack="it",
+        about="Базовый язык программы: самый большой встроенный словарь и слова-паразиты.",
+        about_en="The base language of the program: the largest built-in glossary and filler words.",
+    ),
+    dict(
+        code="es",
+        name_en="Spanish",
+        name="Испанский",
+        native="Español",
+        tr="es",
+        pack="es",
+        about="Испанский (Испания). Встроенный словарь RP-фраз и слова-паразиты.",
+        about_en="Spanish (Spain). A built-in glossary of RP phrases and filler words.",
+    ),
+    dict(
+        code="es-MX",
+        name_en="Spanish (Mexico)",
+        name="Испанский (Мексика)",
+        native="Español (México)",
+        tr="es",
+        pack="mx",
+        about="Мексиканский испанский: güey, órale, no manches.",
+        about_en="Mexican Spanish: güey, órale, no manches.",
+    ),
+    dict(
+        code="pt-BR",
+        name_en="Portuguese (Brazil)",
+        name="Португальский (Бразилия)",
+        native="Português (Brasil)",
+        tr="pt",
+        pack="pt",
+        about="Бразильский португальский — самый популярный вариант на RP-серверах.",
+        about_en="Brazilian Portuguese, the most common variant on RP servers.",
+    ),
+    dict(
+        code="zh-CN",
+        name_en="Chinese",
+        name="Китайский",
+        native="中文",
+        tr="zh-CN",
+        pack="zh",
+        about="Китайский (упрощённый) с пиньинь-подсказками в словаре.",
+        about_en="Simplified Chinese with pinyin hints in the glossary.",
+    ),
+    dict(
+        code="ja",
+        name_en="Japanese",
+        name="Японский",
+        native="日本語",
+        tr="ja",
+        pack="ja",
+        about="Японский с ромадзи-подсказками в словаре.",
+        about_en="Japanese with romaji hints in the glossary.",
+    ),
+    dict(
+        code="en",
+        name_en="English",
+        name="Английский",
+        native="English",
+        tr="en",
+        pack="en",
+        about="Английский — язык большинства международных RP-серверов.",
+        about_en="English, the language of most international RP servers.",
+    ),
     # --- языки с переводом и словарём-заготовкой ---
-    dict(code="de", name_en="German", name="Немецкий", native="Deutsch", tr="de", pack="de",
-         about="Немецкий: много крупных RP-серверов (Grand RP German и другие).", about_en="German: many large RP servers (Grand RP German and others)."),
-    dict(code="fr", name_en="French", name="Французский", native="Français", tr="fr", pack="fr",
-         about="Французский: несколько больших RP-проектов.", about_en="French: several big RP projects."),
-    dict(code="pl", name_en="Polish", name="Польский", native="Polski", tr="pl", pack="pl",
-         about="Польский: крупные RP-сервера (Majestic RP Warsaw и др.).", about_en="Polish: large RP servers (Majestic RP Warsaw and others)."),
-    dict(code="tr", name_en="Turkish", name="Турецкий", native="Türkçe", tr="tr", pack="tr",
-         about="Турецкий: большие RP-сообщества FiveM.", about_en="Turkish: big FiveM RP communities."),
+    # languages translated online with a starter glossary
+    dict(
+        code="de",
+        name_en="German",
+        name="Немецкий",
+        native="Deutsch",
+        tr="de",
+        pack="de",
+        about="Немецкий: много крупных RP-серверов (Grand RP German и другие).",
+        about_en="German: many large RP servers (Grand RP German and others).",
+    ),
+    dict(
+        code="fr",
+        name_en="French",
+        name="Французский",
+        native="Français",
+        tr="fr",
+        pack="fr",
+        about="Французский: несколько больших RP-проектов.",
+        about_en="French: several big RP projects.",
+    ),
+    dict(
+        code="pl",
+        name_en="Polish",
+        name="Польский",
+        native="Polski",
+        tr="pl",
+        pack="pl",
+        about="Польский: крупные RP-сервера (Majestic RP Warsaw и др.).",
+        about_en="Polish: large RP servers (Majestic RP Warsaw and others).",
+    ),
+    dict(
+        code="tr",
+        name_en="Turkish",
+        name="Турецкий",
+        native="Türkçe",
+        tr="tr",
+        pack="tr",
+        about="Турецкий: большие RP-сообщества FiveM.",
+        about_en="Turkish: big FiveM RP communities.",
+    ),
     # --- перевод без встроенного словаря и без русской записи ---
-    dict(code="ko", name_en="Korean", name="Корейский", native="한국어", tr="ko", pack=None,
-         about="Перевод через интернет; словарь можно загрузить вручную.", about_en="Translated over the internet; the glossary can be loaded manually."),
-    dict(code="ar", name_en="Arabic", name="Арабский", native="العربية", tr="ar", pack=None,
-         about="Перевод через интернет; словарь можно загрузить вручную.", about_en="Translated over the internet; the glossary can be loaded manually."),
+    # translation only, with neither a built-in glossary nor a Russian reading
+    dict(
+        code="ko",
+        name_en="Korean",
+        name="Корейский",
+        native="한국어",
+        tr="ko",
+        pack=None,
+        about="Перевод через интернет; словарь можно загрузить вручную.",
+        about_en="Translated over the internet; the glossary can be loaded manually.",
+    ),
+    dict(
+        code="ar",
+        name_en="Arabic",
+        name="Арабский",
+        native="العربية",
+        tr="ar",
+        pack=None,
+        about="Перевод через интернет; словарь можно загрузить вручную.",
+        about_en="Translated over the internet; the glossary can be loaded manually.",
+    ),
 ]
 
 BY_CODE = {x["code"]: x for x in LANGUAGES}
@@ -75,9 +183,18 @@ def code_of(code: str) -> str:
     for x in LANGUAGES:
         if x["code"].lower() == low or x["tr"].lower() == low:
             return x["code"]
-    aliases = {"pt": "pt-BR", "br": "pt-BR", "pt-br": "pt-BR", "mx": "es-MX",
-               "es-mx": "es-MX", "zh": "zh-CN", "cn": "zh-CN", "zh-cn": "zh-CN",
-               "jp": "ja", "kr": "ko"}
+    aliases = {
+        "pt": "pt-BR",
+        "br": "pt-BR",
+        "pt-br": "pt-BR",
+        "mx": "es-MX",
+        "es-mx": "es-MX",
+        "zh": "zh-CN",
+        "cn": "zh-CN",
+        "zh-cn": "zh-CN",
+        "jp": "ja",
+        "kr": "ko",
+    }
     return aliases.get(low, "it")
 
 
@@ -100,6 +217,7 @@ def _english():
     """True, если интерфейс переключён на английский."""
     try:
         from app import i18n
+
         return i18n.is_en()
     except Exception:
         return False

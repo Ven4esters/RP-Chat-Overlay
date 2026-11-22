@@ -5,6 +5,7 @@
 The key is grabbed only while the game has focus (or when the game is not
 found); everywhere else the combination stays free for other programs.
 """
+
 from __future__ import annotations
 
 import ctypes
@@ -18,8 +19,18 @@ from app.gamesend import user32
 
 WM_HOTKEY, MOD_NOREPEAT = 0x0312, 0x4000
 MODS = {"alt": 1, "ctrl": 2, "control": 2, "shift": 4, "win": 8}
-NAMED = {"insert": 0x2D, "delete": 0x2E, "home": 0x24, "end": 0x23, "pageup": 0x21,
-         "pagedown": 0x22, "pause": 0x13, "tab": 0x09, "space": 0x20, "`": 0xC0}
+NAMED = {
+    "insert": 0x2D,
+    "delete": 0x2E,
+    "home": 0x24,
+    "end": 0x23,
+    "pageup": 0x21,
+    "pagedown": 0x22,
+    "pause": 0x13,
+    "tab": 0x09,
+    "space": 0x20,
+    "`": 0xC0,
+}
 
 user32.RegisterHotKey.argtypes = [wt.HWND, ctypes.c_int, wt.UINT, wt.UINT]
 user32.RegisterHotKey.restype = wt.BOOL
@@ -92,10 +103,15 @@ class HotkeyThread(threading.Thread):
                     if want and not reg:
                         reg = bool(user32.RegisterHotKey(None, 1, mods | MOD_NOREPEAT, vk))
                         if not reg:
-                            log.error("RegisterHotKey(%s) не удалось, код %s",
-                                      self.spec, ctypes.get_last_error())
-                            self.on_fail(f"Сочетание {self.spec} занято другой программой. "
-                                         f"Измените «hotkey» в data\\config.json.")
+                            log.error(
+                                "RegisterHotKey(%s) не удалось, код %s",
+                                self.spec,
+                                ctypes.get_last_error(),
+                            )
+                            self.on_fail(
+                                f"Сочетание {self.spec} занято другой программой. "
+                                f"Измените «hotkey» в data\\config.json."
+                            )
                             return
                         log.info("Горячая клавиша %s включена", self.spec)
                     elif reg and not want:

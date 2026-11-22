@@ -131,6 +131,7 @@ DEFAULT_GLOSSARY = {
         "Ragazza": "рагацца | девушка; девчонка; девочка; подруга; красотка; девица; барышня",
     },
     # Диалектные замены после машинного перевода (слово -> слово)
+    # dialect substitutions applied after machine translation (word -> word)
     "it_replace": {
         "non": "nun",
         "più": "chiù",
@@ -139,6 +140,7 @@ DEFAULT_GLOSSARY = {
         "ragazzi": "guagliù",
     },
     # Слова, которые нужно писать по-своему (ключ без ударений)
+    # words that must be spelled a certain way (key without accents)
     "translit_exceptions": {
         "chiu": "кью",
         "avellino": "Авеллино",

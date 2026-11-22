@@ -62,10 +62,10 @@ RELEASE_API = "https://api.github.com/repos/OwO-Network/DLX/releases/latest"
 PORT_RANGE = (1188, 1210)
 HEALTH_PHRASE = "ciao come stai"
 HEALTH_TIMEOUT = 1.5
-TRIAL_TIMEOUT = 5.0             # пробный перевод через прокси / trial via a proxy
+TRIAL_TIMEOUT = 5.0  # пробный перевод через прокси / trial via a proxy
 START_TIMEOUT = 8.0
-RESTART_WINDOW = 600.0          # окно подсчёта падений / crash counting window
-RESTART_MAX = 3                 # столько перезапусков за окно / restarts per window
+RESTART_WINDOW = 600.0  # окно подсчёта падений / crash counting window
+RESTART_MAX = 3  # столько перезапусков за окно / restarts per window
 
 EventFn = Callable[[str, str], None]
 
@@ -84,8 +84,9 @@ class DlxError(Exception):
 _LOCAL_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
-def _http_post_json(url: str, payload: dict, headers: dict | None,
-                    timeout: float, local: bool = True) -> Any:
+def _http_post_json(
+    url: str, payload: dict, headers: dict | None, timeout: float, local: bool = True
+) -> Any:
     """POST с JSON-телом и разбором ответа / POST a JSON body and parse the reply.
 
     `local=True` — запрос к самому сервису на 127.0.0.1: без прокси.
@@ -128,6 +129,32 @@ def free_port(low: int = PORT_RANGE[0], high: int = PORT_RANGE[1]) -> int:
     raise DlxError("нет свободного порта для локального сервиса")
 
 
+def _mask_url(url: str) -> str:
+    """Адрес без логина и пароля — для журнала и интерфейса.
+
+    The address without its user and password, for the log and the interface.
+
+    Зачем: у прокси с авторизацией адрес выглядит как
+    `http://user:pass@host:port`, и он попадает в `app.log`, в `errors.log` и
+    в подпись состояния. Пароль от чужого прокси в журнале — это утечка.
+    Why: a proxy with authorisation looks like `http://user:pass@host:port`, and
+    that string reaches `app.log`, `errors.log` and the state line. Somebody
+    else's proxy password in a log is a leak.
+    """
+    text = (url or "").strip()
+    if not text:
+        return ""
+    try:
+        parts = urllib.parse.urlsplit(text if "://" in text else "http://" + text)
+    except ValueError:
+        return "***"
+    if not (parts.username or parts.password):
+        return text
+    host = parts.hostname or "?"
+    netloc = f"***:***@{host}" + (f":{parts.port}" if parts.port else "")
+    return urllib.parse.urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
+
+
 def normalize_proxy(value: str) -> str:
     """Приводит адрес прокси к виду, который понимает DLX; пустая строка — «нет».
 
@@ -140,13 +167,13 @@ def normalize_proxy(value: str) -> str:
     if not text:
         return ""
     if "://" not in text:
-        text = "http://" + text            # «127.0.0.1:8080» тоже годится
+        text = "http://" + text  # «127.0.0.1:8080» тоже годится
     parsed = urllib.parse.urlparse(text)
     if parsed.scheme not in ("http", "https", "socks5", "socks5h"):
-        log.warning("DLX: прокси %s не поддержан (нужен http, https или socks5)", text)
+        log.warning("DLX: прокси %s не поддержан (нужен http, https или socks5)", _mask_url(text))
         return ""
     if not parsed.hostname or not parsed.port:
-        log.warning("DLX: в адресе прокси %s нет хоста или порта — игнорирую", text)
+        log.warning("DLX: в адресе прокси %s нет хоста или порта — игнорирую", _mask_url(text))
         return ""
     return text
 
@@ -172,31 +199,36 @@ def check_proxy(value: str, timeout: float = 4.0) -> tuple[bool, str]:
         with socket.create_connection((host, port), timeout=timeout) as sock:
             sock.settimeout(timeout)
             if parsed.scheme.startswith("socks"):
-                sock.sendall(b"\x05\x01\x00")           # приветствие SOCKS5
+                sock.sendall(b"\x05\x01\x00")  # приветствие SOCKS5
                 reply = sock.recv(2)
                 if reply[:1] == b"\x05" and reply[1:2] != b"\xff":
                     return True, ""
-                return False, (f"{host}:{port} не отвечает как socks5 — "
-                               f"возможно, это HTTP-прокси: http://{host}:{port}")
+                return False, (
+                    f"{host}:{port} не отвечает как socks5 — "
+                    f"возможно, это HTTP-прокси: http://{host}:{port}"
+                )
             target = "oneshot-free.www.deepl.com:443"
-            sock.sendall(f"CONNECT {target} HTTP/1.1\r\nHost: {target}\r\n\r\n"
-                         .encode("ascii", "replace"))
+            sock.sendall(
+                f"CONNECT {target} HTTP/1.1\r\nHost: {target}\r\n\r\n".encode("ascii", "replace")
+            )
             head = sock.recv(64)
             if head.startswith(b"HTTP/") and b" 200" in head[:24]:
                 return True, ""
             if head[:1] == b"\x05":
-                return False, (f"{host}:{port} отвечает как socks5, а не как "
-                               f"HTTP-прокси — нужно socks5://{host}:{port}")
-            return False, (f"{host}:{port} не принял CONNECT — похоже, это не "
-                           f"прокси, а обычный сервер")
+                return False, (
+                    f"{host}:{port} отвечает как socks5, а не как "
+                    f"HTTP-прокси — нужно socks5://{host}:{port}"
+                )
+            return False, (
+                f"{host}:{port} не принял CONNECT — похоже, это не прокси, а обычный сервер"
+            )
     except socket.timeout:
         return False, f"прокси {host}:{port} не ответил за {timeout:.0f} с"
     except OSError as error:
-        return False, (f"прокси {host}:{port} недоступен: "
-                       f"{error.strerror or error}")
+        return False, (f"прокси {host}:{port} недоступен: {error.strerror or error}")
 
 
-GEO_URL = "https://ipinfo.io/json"     # откуда узнаём страну выхода / exit lookup
+GEO_URL = "https://ipinfo.io/json"  # откуда узнаём страну выхода / exit lookup
 
 
 def system_proxy() -> str:
@@ -214,9 +246,12 @@ def system_proxy() -> str:
         return ""
     try:
         import winreg
-        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
-                             r"Software\Microsoft\Windows\CurrentVersion"
-                             r"\Internet Settings")
+
+        key = winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"Software\Microsoft\Windows\CurrentVersion"
+            r"\Internet Settings",
+        )
         with key:
             enabled, _ = winreg.QueryValueEx(key, "ProxyEnable")
             server, _ = winreg.QueryValueEx(key, "ProxyServer")
@@ -224,10 +259,10 @@ def system_proxy() -> str:
         return ""
     if not enabled or not server:
         return ""
-    text = str(server).split(";")[0].strip()        # «http=host:port;https=…»
+    text = str(server).split(";")[0].strip()  # «http=host:port;https=…»
     if "=" in text:
         text = text.split("=", 1)[1]
-    return normalize_proxy(text)     # откуда узнаём страну выхода / exit lookup
+    return normalize_proxy(text)  # откуда узнаём страну выхода / exit lookup
 
 
 def _proxy_socket(proxy: str, host: str, port: int, timeout: float) -> socket.socket:
@@ -252,15 +287,20 @@ def _proxy_socket(proxy: str, host: str, port: int, timeout: float) -> socket.so
             if answer[1:2] == b"\x02":
                 if not user:
                     raise OSError("прокси требует логин и пароль")
-                sock.sendall(b"\x01" + bytes([len(user)]) + user.encode("utf-8")
-                             + bytes([len(password)]) + password.encode("utf-8"))
+                sock.sendall(
+                    b"\x01"
+                    + bytes([len(user)])
+                    + user.encode("utf-8")
+                    + bytes([len(password)])
+                    + password.encode("utf-8")
+                )
                 if sock.recv(2)[1:2] != b"\x00":
                     raise OSError("прокси не принял логин и пароль")
             elif answer[1:2] != b"\x00":
                 raise OSError("прокси не принял способ подключения")
             raw_host = host.encode("idna") if not host.replace(".", "").isdigit() else None
             if raw_host:
-                request = (b"\x05\x01\x00\x03" + bytes([len(raw_host)]) + raw_host)
+                request = b"\x05\x01\x00\x03" + bytes([len(raw_host)]) + raw_host
             else:
                 request = b"\x05\x01\x00\x01" + socket.inet_aton(host)
             sock.sendall(request + port.to_bytes(2, "big"))
@@ -280,8 +320,7 @@ def _proxy_socket(proxy: str, host: str, port: int, timeout: float) -> socket.so
         # HTTP-прокси: CONNECT и проверка ответа
         # an HTTP proxy: CONNECT and a reply check
         target = f"{host}:{port}"
-        sock.sendall(f"CONNECT {target} HTTP/1.1\r\nHost: {target}\r\n\r\n"
-                     .encode("ascii"))
+        sock.sendall(f"CONNECT {target} HTTP/1.1\r\nHost: {target}\r\n\r\n".encode("ascii"))
         head = b""
         while b"\r\n\r\n" not in head and len(head) < 2048:
             chunk = sock.recv(256)
@@ -307,7 +346,8 @@ def proxy_exit(proxy: str, timeout: float = 10.0) -> tuple[bool, str]:
     url = normalize_proxy(proxy)
     if not url:
         return False, "прокси не задан"
-    host, path = "ipinfo.io", "/json"
+    lookup = urllib.parse.urlsplit(GEO_URL)
+    host, path = lookup.hostname or "ipinfo.io", lookup.path or "/json"
     try:
         sock = _proxy_socket(url, host, 443, timeout)
     except socket.timeout:
@@ -317,9 +357,12 @@ def proxy_exit(proxy: str, timeout: float = 10.0) -> tuple[bool, str]:
     try:
         context = ssl.create_default_context()
         with context.wrap_socket(sock, server_hostname=host) as tls:
-            tls.sendall((f"GET {path} HTTP/1.1\r\nHost: {host}\r\n"
-                         "User-Agent: RP-Chat-Overlay\r\nConnection: close\r\n\r\n")
-                        .encode("ascii"))
+            tls.sendall(
+                (
+                    f"GET {path} HTTP/1.1\r\nHost: {host}\r\n"
+                    "User-Agent: RP-Chat-Overlay\r\nConnection: close\r\n\r\n"
+                ).encode("ascii")
+            )
             raw = b""
             while True:
                 chunk = tls.recv(4096)
@@ -393,18 +436,29 @@ def _port_owner(port: int) -> str:
     if sys.platform != "win32":
         return ""
     try:
-        out = subprocess.run(["netstat", "-ano", "-p", "tcp"], capture_output=True,
-                             timeout=6, creationflags=0x08000000)
+        out = subprocess.run(
+            ["netstat", "-ano", "-p", "tcp"],
+            capture_output=True,
+            timeout=6,
+            creationflags=0x08000000,
+        )
         for line in out.stdout.decode("cp866", "replace").splitlines():
             parts = line.split()
-            if len(parts) >= 5 and parts[1].endswith(f":{port}") \
-                    and parts[3].upper() == "LISTENING":
+            if (
+                len(parts) >= 5
+                and parts[1].endswith(f":{port}")
+                and parts[3].upper() == "LISTENING"
+            ):
                 pid = parts[4]
-                names = subprocess.run(["tasklist", "/FI", f"PID eq {pid}",
-                                        "/FO", "CSV", "/NH"], capture_output=True,
-                                       timeout=6, creationflags=0x08000000)
+                names = subprocess.run(
+                    ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
+                    capture_output=True,
+                    timeout=6,
+                    creationflags=0x08000000,
+                )
                 text = names.stdout.decode("cp866", "replace").strip().strip('"')
-                return f"{text.split('","')[0]} (pid {pid})"
+                owner = text.split('","')[0]
+                return f"{owner} (pid {pid})"
     except (OSError, subprocess.SubprocessError, IndexError):
         return ""
     return ""
@@ -415,17 +469,26 @@ def _kill_port_owner(port: int) -> None:
     if sys.platform != "win32":
         return
     try:
-        out = subprocess.run(["netstat", "-ano", "-p", "tcp"], capture_output=True,
-                             timeout=6, creationflags=0x08000000)
+        out = subprocess.run(
+            ["netstat", "-ano", "-p", "tcp"],
+            capture_output=True,
+            timeout=6,
+            creationflags=0x08000000,
+        )
         for line in out.stdout.decode("cp866", "replace").splitlines():
             parts = line.split()
-            if len(parts) >= 5 and parts[1].endswith(f":{port}") \
-                    and parts[3].upper() == "LISTENING":
-                subprocess.run(["taskkill", "/F", "/PID", parts[4]],
-                               capture_output=True, timeout=6,
-                               creationflags=0x08000000)
-                log.info("DLX: закрыл зависший процесс на порту %s (pid %s)",
-                         port, parts[4])
+            if (
+                len(parts) >= 5
+                and parts[1].endswith(f":{port}")
+                and parts[3].upper() == "LISTENING"
+            ):
+                subprocess.run(
+                    ["taskkill", "/F", "/PID", parts[4]],
+                    capture_output=True,
+                    timeout=6,
+                    creationflags=0x08000000,
+                )
+                log.info("DLX: закрыл зависший процесс на порту %s (pid %s)", port, parts[4])
                 return
     except (OSError, subprocess.SubprocessError):
         log.exception("DLX: не удалось освободить порт %s", port)
@@ -471,37 +534,47 @@ def _kill_orphans_with_job(handle: int) -> int | None:
             return None
 
         class BasicLimits(ctypes.Structure):
-            _fields_ = [("PerProcessUserTimeLimit", ctypes.c_int64),
-                        ("PerJobUserTimeLimit", ctypes.c_int64),
-                        ("LimitFlags", ctypes.c_uint32),
-                        ("MinimumWorkingSetSize", ctypes.c_size_t),
-                        ("MaximumWorkingSetSize", ctypes.c_size_t),
-                        ("ActiveProcessLimit", ctypes.c_uint32),
-                        ("Affinity", ctypes.c_size_t),
-                        ("PriorityClass", ctypes.c_uint32),
-                        ("SchedulingClass", ctypes.c_uint32)]
+            _fields_ = [
+                ("PerProcessUserTimeLimit", ctypes.c_int64),
+                ("PerJobUserTimeLimit", ctypes.c_int64),
+                ("LimitFlags", ctypes.c_uint32),
+                ("MinimumWorkingSetSize", ctypes.c_size_t),
+                ("MaximumWorkingSetSize", ctypes.c_size_t),
+                ("ActiveProcessLimit", ctypes.c_uint32),
+                ("Affinity", ctypes.c_size_t),
+                ("PriorityClass", ctypes.c_uint32),
+                ("SchedulingClass", ctypes.c_uint32),
+            ]
 
         class IoCounters(ctypes.Structure):
-            _fields_ = [(name, ctypes.c_uint64) for name in
-                        ("ReadOperationCount", "WriteOperationCount",
-                         "OtherOperationCount", "ReadTransferCount",
-                         "WriteTransferCount", "OtherTransferCount")]
+            _fields_ = [
+                (name, ctypes.c_uint64)
+                for name in (
+                    "ReadOperationCount",
+                    "WriteOperationCount",
+                    "OtherOperationCount",
+                    "ReadTransferCount",
+                    "WriteTransferCount",
+                    "OtherTransferCount",
+                )
+            ]
 
         class ExtendedLimits(ctypes.Structure):
-            _fields_ = [("BasicLimitInformation", BasicLimits),
-                        ("IoInfo", IoCounters),
-                        ("ProcessMemoryLimit", ctypes.c_size_t),
-                        ("JobMemoryLimit", ctypes.c_size_t),
-                        ("PeakProcessMemoryUsed", ctypes.c_size_t),
-                        ("PeakJobMemoryUsed", ctypes.c_size_t)]
+            _fields_ = [
+                ("BasicLimitInformation", BasicLimits),
+                ("IoInfo", IoCounters),
+                ("ProcessMemoryLimit", ctypes.c_size_t),
+                ("JobMemoryLimit", ctypes.c_size_t),
+                ("PeakProcessMemoryUsed", ctypes.c_size_t),
+                ("PeakJobMemoryUsed", ctypes.c_size_t),
+            ]
 
         info = ExtendedLimits()
-        info.BasicLimitInformation.LimitFlags = 0x2000   # KILL_ON_JOB_CLOSE
-        kernel32.SetInformationJobObject(job, 9, ctypes.byref(info),
-                                         ctypes.sizeof(info))
+        info.BasicLimitInformation.LimitFlags = 0x2000  # KILL_ON_JOB_CLOSE
+        kernel32.SetInformationJobObject(job, 9, ctypes.byref(info), ctypes.sizeof(info))
         kernel32.AssignProcessToJobObject(job, handle)
         return job
-    except Exception:                                    # job object — необязательный бонус
+    except Exception:  # job object — необязательный бонус
         log.exception("Не удалось создать job object для DLX")
         return None
 
@@ -516,10 +589,13 @@ class DlxService:
     on_event  callback(kind, text) для сообщений игроку; callback for messages
     """
 
-    def __init__(self, cfg: Mapping[str, Any] | None = None,
-                 command: list[str] | None = None,
-                 on_event: EventFn | None = None,
-                 directory: Path | None = None) -> None:
+    def __init__(
+        self,
+        cfg: Mapping[str, Any] | None = None,
+        command: list[str] | None = None,
+        on_event: EventFn | None = None,
+        directory: Path | None = None,
+    ) -> None:
         self.cfg: Mapping[str, Any] = cfg or {}
         self.dir = Path(directory or DLX_DIR)
         self.binary = self.dir / BINARY_NAME
@@ -530,20 +606,18 @@ class DlxService:
         self._port: int = 0
         self._token: str = ""
         # off | missing | starting | ready | upstream | error
-        self._state: str = "off"          # upstream = жив, но DeepL отказал
+        self._state: str = "off"  # upstream = жив, но DeepL отказал
         self._spawn: dict[str, str] = {}  # с какими параметрами запущен / launch args
-        self._proxy_error = ""            # почему прокси не годится / proxy verdict
-        self._note = ""                   # оговорка к состоянию / a state remark
-        self._probe_logged = False        # жалоба на молчание — один раз / log once
-        self._probe_error = ""            # чем именно ответил сервис / what it said
-        self._system_proxy = ""           # прокси из настроек Windows / from Windows
-        self._install_lock = threading.Lock()   # одна установка за раз / one at a time
+        self._proxy_error = ""  # почему прокси не годится / proxy verdict
+        self._note = ""  # оговорка к состоянию / a state remark
+        self._probe_logged = False  # жалоба на молчание — один раз / log once
+        self._probe_error = ""  # чем именно ответил сервис / what it said
+        self._install_lock = threading.Lock()  # одна установка за раз / one at a time
         self._reason: str = ""
         self._lock = threading.RLock()
         self._stop_watch = threading.Event()
         self._watch_thread: threading.Thread | None = None
         self._crashes: list[float] = []
-        self._last_start = 0.0
         self._last_attempt = 0.0
         atexit.register(self.shutdown)
 
@@ -571,8 +645,7 @@ class DlxService:
         instructions show it. The tail is dropped, the route is added by us.
         """
         url = self.external_url()
-        for tail in ("/api/translate", "/v1/translate", "/v2/translate",
-                     "/translate"):
+        for tail in ("/api/translate", "/v1/translate", "/v2/translate", "/translate"):
             if url.endswith(tail):
                 url = url[: -len(tail)]
                 break
@@ -602,10 +675,15 @@ class DlxService:
     def status(self) -> dict[str, Any]:
         """Состояние для интерфейса / the state for the interface."""
         with self._lock:
-            return {"state": self._state, "port": self._port,
-                    "version": self.version(), "reason": self._reason,
-                    "note": self._note,
-                    "installed": self.installed(), "running": self._alive()}
+            return {
+                "state": self._state,
+                "port": self._port,
+                "version": self.version(),
+                "reason": self._reason,
+                "note": self._note,
+                "installed": self.installed(),
+                "running": self._alive(),
+            }
 
     # ------------------------------------------------------------------ токен
     def _load_token(self) -> str:
@@ -671,8 +749,7 @@ class DlxService:
             token = str(self.cfg.get("dlx_url_token") or "").strip()
             clean = "".join(ch for ch in token if " " <= ch <= "~")
             if clean != token:
-                log.warning("DLX: в токене своего сервиса недопустимые символы — "
-                            "они отброшены")
+                log.warning("DLX: в токене своего сервиса недопустимые символы — они отброшены")
             return {"Authorization": f"Bearer {clean}"} if clean else {}
         return {"Authorization": f"Bearer {self._token}"}
 
@@ -696,11 +773,11 @@ class DlxService:
             if url:
                 ok, why = check_proxy(url)
                 if ok:
-                    log.info("DLX: использую системный прокси Windows %s", url)
-                    self._system_proxy = url
+                    log.info("DLX: использую системный прокси Windows %s", _mask_url(url))
                     return url
-                log.warning("DLX: системный прокси %s не отвечает (%s) — иду напрямую",
-                            url, why)
+                log.warning(
+                    "DLX: системный прокси %s не отвечает (%s) — иду напрямую", _mask_url(url), why
+                )
                 return ""
         if not url:
             return ""
@@ -712,7 +789,7 @@ class DlxService:
         alt = f"{alt_scheme}://{parsed.hostname}:{parsed.port}"
         ok_alt, why_alt = check_proxy(alt)
         if ok_alt:
-            log.info("DLX: прокси %s распознан как %s", url, alt)
+            log.info("DLX: прокси %s распознан как %s", _mask_url(url), _mask_url(alt))
             return alt
         self._proxy_error = why or why_alt
         log.warning("DLX: прокси не годится — %s", self._proxy_error)
@@ -731,8 +808,7 @@ class DlxService:
         if self.command:
             cmd = [str(part).format(port=port, token=token) for part in self.command]
         else:
-            cmd = [str(self.binary), "-ip", "127.0.0.1", "-port", str(port),
-                   "-token", token]
+            cmd = [str(self.binary), "-ip", "127.0.0.1", "-port", str(port), "-token", token]
         # необязательные параметры: прокси и токен DeepL Pro
         # optional parameters: an HTTP proxy and a DeepL Pro token
         pro = str(self.cfg.get("dlx_pro_token") or "").strip()
@@ -744,8 +820,11 @@ class DlxService:
         # схемы заставляла бы перезапускать сервис при каждом сохранении
         # the snapshot keeps the configured value, not the swapped one: otherwise
         # the scheme fallback would restart the service on every save
-        self._spawn = {"proxy": normalize_proxy(str(self.cfg.get("dlx_proxy") or "")),
-                       "pro": pro, "used": proxy}
+        self._spawn = {
+            "proxy": normalize_proxy(str(self.cfg.get("dlx_proxy") or "")),
+            "pro": pro,
+            "used": proxy,
+        }
         return cmd
 
     def needs_restart(self) -> bool:
@@ -755,8 +834,10 @@ class DlxService:
             # адрес поменяли — старый сервис больше не наш
             # the address changed, so the old service is not ours any more
             return bool(used) and used.get("url") != self.external_url()
-        now = {"proxy": normalize_proxy(str(self.cfg.get("dlx_proxy") or "")),
-               "pro": str(self.cfg.get("dlx_pro_token") or "").strip()}
+        now = {
+            "proxy": normalize_proxy(str(self.cfg.get("dlx_proxy") or "")),
+            "pro": str(self.cfg.get("dlx_pro_token") or "").strip(),
+        }
         return bool(used) and (used.get("proxy"), used.get("pro")) != (now["proxy"], now["pro"])
 
     def start(self) -> bool:
@@ -782,8 +863,10 @@ class DlxService:
             # failure must not start the service in a loop
             now = time.time()
             if self._state in ("error", "off") and now - self._last_attempt < 4.0:
-                log.info("DLX: повторный запуск отложен (%.1f с назад была попытка)",
-                         now - self._last_attempt)
+                log.info(
+                    "DLX: повторный запуск отложен (%.1f с назад была попытка)",
+                    now - self._last_attempt,
+                )
                 return False
             self._last_attempt = now
             if not self.installed():
@@ -823,12 +906,13 @@ class DlxService:
                 ok, reason = self._try_start(port, token, proxy)
                 if ok:
                     if index or port != (wanted or port):
-                        self._note = " · ".join(part for part in (
-                            self._note, f"порт {port}") if part)
+                        self._note = " · ".join(
+                            part for part in (self._note, f"порт {port}") if part
+                        )
                         log.info("DLX: работаю на запасном порту %s", port)
                     return True
                 if self._state == "upstream":
-                    return False          # порт тут не при чём / the port is fine
+                    return False  # порт тут не при чём / the port is fine
                 self.stop()
             self._set_state("error", reason or "сервис не ответил")
             return False
@@ -837,7 +921,9 @@ class DlxService:
         """Пояснение к состоянию: откуда взялся прокси / where the proxy came from."""
         configured = normalize_proxy(str(self.cfg.get("dlx_proxy") or ""))
         if proxy and not configured:
-            return f"через системный прокси {urllib.parse.urlparse(proxy).netloc}"
+            host = urllib.parse.urlparse(proxy).hostname or ""
+            port = urllib.parse.urlparse(proxy).port
+            return f"через системный прокси {host}" + (f":{port}" if port else "")
         if proxy and proxy != configured:
             return f"прокси распознан как {proxy.split('://')[0]}"
         return ""
@@ -854,23 +940,34 @@ class DlxService:
         """
         url = self.external_url()
         parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            # иначе в поле мог бы попасть file:// или ftp:// — и программа
+            # читала бы локальные файлы вместо перевода
+            # otherwise file:// or ftp:// could land in the field and the
+            # program would read local files instead of translating
+            self._set_state(
+                "error", "адрес своего сервиса должен начинаться с http:// или https://"
+            )
+            log.warning("DLX: отклонён адрес своего сервиса %s", _mask_url(url))
+            return False
         self._port = parsed.port or (443 if parsed.scheme == "https" else 80)
         self._spawn = {"url": url}
         state = self.probe()
         if state == "ready":
             self._note = f"свой сервис {parsed.netloc or url}"
             self._set_state("ready", "")
-            log.info("DLX: свой сервис %s отвечает", url)
+            log.info("DLX: свой сервис %s отвечает", _mask_url(url))
             return True
         if state == "upstream":
             self._note = f"свой сервис {parsed.netloc or url}"
-            self._set_state("upstream",
-                            "свой сервис работает, но DeepL отказал")
+            self._set_state("upstream", "свой сервис работает, но DeepL отказал")
             return False
         self._set_state(
-            "error", self._probe_error or
-            f"свой сервис {url} не отвечает — проверьте адрес и что он запущен")
-        log.warning("DLX: свой сервис %s не отвечает", url)
+            "error",
+            self._probe_error
+            or f"свой сервис {url} не отвечает — проверьте адрес и что он запущен",
+        )
+        log.warning("DLX: свой сервис %s не отвечает", _mask_url(url))
         return False
 
     def _try_start(self, port: int, token: str, proxy: str) -> tuple[bool, str]:
@@ -880,14 +977,19 @@ class DlxService:
         creation = 0
         startup = None
         if sys.platform == "win32":
-            creation = 0x08000000 | 0x00000200      # NO_WINDOW | NEW_PROCESS_GROUP
+            creation = 0x08000000 | 0x00000200  # NO_WINDOW | NEW_PROCESS_GROUP
             startup = subprocess.STARTUPINFO()
             startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         try:
             self._process = subprocess.Popen(
-                cmd, cwd=str(self.dir), env=env, creationflags=creation,
-                startupinfo=startup, stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL)
+                cmd,
+                cwd=str(self.dir),
+                env=env,
+                creationflags=creation,
+                startupinfo=startup,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
         except OSError as error:
             winerror = getattr(error, "winerror", None)
             log.exception("DLX: не удалось запустить %s", cmd)
@@ -900,7 +1002,6 @@ class DlxService:
         self._job = _kill_orphans_with_job(int(getattr(self._process, "_handle", 0) or 0))
         self._port = port
         self._token = token
-        self._last_start = time.time()
         self._probe_logged = False
         self._set_state("starting", "")
         started = time.time()
@@ -919,10 +1020,13 @@ class DlxService:
                 # процесс живёт, но DeepL отказал: перезапускать бессмысленно,
                 # а игроку нужно знать, что делать / the process is alive but DeepL
                 # refused, so a restart is pointless and the player needs the cure
-                self._set_state("upstream", "DeepL не отвечает (503) — "
-                                            "помогает прокси или токен DeepL Pro")
-                log.warning("DLX: сервис запущен, но DeepL отвечает 503 — "
-                            "проверьте прокси или токен DeepL Pro")
+                self._set_state(
+                    "upstream", "DeepL не отвечает (503) — помогает прокси или токен DeepL Pro"
+                )
+                log.warning(
+                    "DLX: сервис запущен, но DeepL отвечает 503 — "
+                    "проверьте прокси или токен DeepL Pro"
+                )
                 self._start_watch()
                 return False, "DeepL не отвечает (503)"
             time.sleep(0.5)
@@ -955,14 +1059,15 @@ class DlxService:
         if busy:
             owner = _port_owner(port)
             who = f" ({owner})" if owner else ""
-            return (f"порт {port} открыт{who}, но сервис не отвечает — похоже, "
-                    f"локальные запросы перехватывает системный прокси, VPN или "
-                    f"другая программа")
+            return (
+                f"порт {port} открыт{who}, но сервис не отвечает — похоже, "
+                f"локальные запросы перехватывает системный прокси, VPN или "
+                f"другая программа"
+            )
         owner = _port_owner(port)
         if owner:
             return f"порт {port} занят программой {owner} — беру другой"
-        return (f"сервис не занял порт {port} — возможно, порт закрыт правилами "
-                f"или не подходит")
+        return f"сервис не занял порт {port} — возможно, порт закрыт правилами или не подходит"
 
     def stop(self) -> None:
         """Остановить сервис / stop the service."""
@@ -1019,8 +1124,12 @@ class DlxService:
         not fill the log with identical lines.
         """
         if state != self._state:
-            log.info("DLX: состояние %s (порт %s)%s", state, self._port or 0,
-                     f" — {reason}" if reason else "")
+            log.info(
+                "DLX: состояние %s (порт %s)%s",
+                state,
+                self._port or 0,
+                f" — {reason}" if reason else "",
+            )
         self._state = state
         self._reason = reason
 
@@ -1042,10 +1151,12 @@ class DlxService:
                 self._process = None
                 self._set_state("error", "сервис остановлен")
                 if self.on_event is not None:
-                    self.on_event("stopped",
-                                  "Локальный сервис DeepL остановлен — перевожу "
-                                  "через стандартные сервисы. Вернуть: "
-                                  "Настройки → DeepL → Запустить.")
+                    self.on_event(
+                        "stopped",
+                        "Локальный сервис DeepL остановлен — перевожу "
+                        "через стандартные сервисы. Вернуть: "
+                        "Настройки → DeepL → Запустить.",
+                    )
                 now = time.time()
                 self._crashes = [t for t in self._crashes if now - t < RESTART_WINDOW]
                 if len(self._crashes) >= RESTART_MAX or not self.enabled():
@@ -1056,8 +1167,7 @@ class DlxService:
                 if self._process is None:
                     return
 
-        self._watch_thread = threading.Thread(target=watch, name="dlx-watch",
-                                              daemon=True)
+        self._watch_thread = threading.Thread(target=watch, name="dlx-watch", daemon=True)
         self._watch_thread.start()
 
     # ----------------------------------------------------------- проверка/перевод
@@ -1067,8 +1177,7 @@ class DlxService:
             return f"{self._external_base()}{path}"
         return f"http://127.0.0.1:{self._port or PORT_RANGE[0]}{path}"
 
-    def probe(self, timeout: float = HEALTH_TIMEOUT,
-              trial_timeout: float = TRIAL_TIMEOUT) -> str:
+    def probe(self, timeout: float = HEALTH_TIMEOUT, trial_timeout: float = TRIAL_TIMEOUT) -> str:
         """Что именно с сервисом: готов, жив без DeepL или молчит.
 
         What exactly is wrong: ready, alive without DeepL, or silent.
@@ -1093,15 +1202,17 @@ class DlxService:
         except (urllib.error.URLError, OSError, ValueError) as error:
             if not self._probe_logged:
                 self._probe_logged = True
-                log.info("DLX: %s не отвечает: %s", self._url("/"), str(error)[:90])
+                log.info("DLX: %s не отвечает: %s", _mask_url(self._url("/")), str(error)[:90])
             return "down"
         # 2. один пробный перевод: работает ли связка с DeepL
         #    one trial translation: does the DeepL link work
         try:
             answer = _http_post_json(
-                self._url(), {"text": HEALTH_PHRASE, "source_lang": "IT",
-                              "target_lang": "RU"},
-                self._auth(), trial_timeout)
+                self._url(),
+                {"text": HEALTH_PHRASE, "source_lang": "IT", "target_lang": "RU"},
+                self._auth(),
+                trial_timeout,
+            )
         except urllib.error.HTTPError as error:
             if error.code in (429, 503):
                 return "upstream"
@@ -1120,15 +1231,15 @@ class DlxService:
         """Готов ли сервис переводить / is the service ready to translate."""
         return self.probe(timeout) == "ready"
 
-    def translate(self, text: str, source: str = "auto", target: str = "IT",
-                  timeout: float = 8.0) -> str:
+    def translate(
+        self, text: str, source: str = "auto", target: str = "IT", timeout: float = 8.0
+    ) -> str:
         """Перевести текст через локальный сервис / translate via the service."""
         if not self._alive():
             raise DlxError("локальный сервис не запущен")
         payload = {"text": text, "source_lang": source, "target_lang": target}
         try:
-            answer = _http_post_json(self._url(), payload, self._auth(),
-                                     timeout)
+            answer = _http_post_json(self._url(), payload, self._auth(), timeout)
         except urllib.error.HTTPError as error:
             if error.code == 429:
                 log.warning("DLX: DeepL ограничил запросы (429) — уходим на откат")
@@ -1157,6 +1268,7 @@ class DlxService:
         return result
 
     # ------------------------------------------------------- установка и обновление
+    # install and update
     def install(self, progress: Callable[[str], None] | None = None) -> bool:
         """Скачать сервис с GitHub (нужно согласие пользователя).
 
@@ -1194,11 +1306,11 @@ class DlxService:
             progress(f"скачиваю {version or 'сервис'}…")
         # у каждого потока свой временный файл / every thread gets its own temp file
         temp = self.binary.with_name(
-            f"{self.binary.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+            f"{self.binary.name}.{os.getpid()}.{threading.get_ident()}.tmp"
+        )
         try:
             request = urllib.request.Request(url, headers={"User-Agent": "RP-Chat-Overlay"})
-            with urllib.request.urlopen(request, timeout=60) as answer, \
-                    temp.open("wb") as out:
+            with urllib.request.urlopen(request, timeout=60) as answer, temp.open("wb") as out:
                 while True:
                     chunk = answer.read(65536)
                     if not chunk:
@@ -1219,8 +1331,7 @@ class DlxService:
             self._set_state("error", f"не удалось записать файл: {error}")
             return False
         self._fetch_license()
-        write_json(self.dir / "version.json",
-                   {"version": version, "installed": int(time.time())})
+        write_json(self.dir / "version.json", {"version": version, "installed": int(time.time())})
         log.info("DLX установлен: %s", version or "версия неизвестна")
         return True
 
@@ -1228,12 +1339,11 @@ class DlxService:
         """Положить рядом лицензию MIT / keep the MIT license next to the binary."""
         target = self.dir / "LICENSE-DLX.txt"
         try:
-            request = urllib.request.Request(LICENSE_URL,
-                                             headers={"User-Agent": "RP-Chat-Overlay"})
+            request = urllib.request.Request(LICENSE_URL, headers={"User-Agent": "RP-Chat-Overlay"})
             with urllib.request.urlopen(request, timeout=15) as answer:
                 text = answer.read().decode("utf-8", "replace")
         except Exception:
-            text = ("DLX — MIT License. Full text: " + LICENSE_URL + "\n")
+            text = "DLX — MIT License. Full text: " + LICENSE_URL + "\n"
         try:
             target.write_text(text, encoding="utf-8")
         except OSError:
@@ -1254,8 +1364,7 @@ class DlxService:
     def uninstall(self) -> None:
         """Удалить сервис с диска / remove the service from disk."""
         self.stop()
-        for path in (self.binary, self.dir / "version.json",
-                     self.dir / "LICENSE-DLX.txt"):
+        for path in (self.binary, self.dir / "version.json", self.dir / "LICENSE-DLX.txt"):
             try:
                 Path(path).unlink(missing_ok=True)
             except OSError:
