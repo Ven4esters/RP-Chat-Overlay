@@ -1,21 +1,18 @@
 #!/usr/bin/env python3
-"""Generate bilingual README heading images matching the compact reference pill.
+"""Generate English and Russian README headers in their respective reference styles.
 
-Размер и оформление соответствуют эталонной плашке: 720×48, скруглённый
-тёмный фон, тонкая синевато-зелёная полоса слева и жирный текст по центру.
+English headers use the large rectangular reference (1000×150).
+Russian headers use the compact rounded reference (720×48).
 """
 import pathlib
 from PIL import Image, ImageDraw, ImageFont
 
 OUT = pathlib.Path(__file__).parent
-W, H = 720, 48
-PANEL = (0x1C, 0x20, 0x2A)
+PANEL = (0x19, 0x1D, 0x26)
 BORDER = (0x2B, 0x31, 0x40)
 TXT = (0xF2, 0xF4, 0xF8)
 BLUE = (0x3D, 0x6F, 0xD8)
 GREEN = (0x57, 0xC9, 0x8A)
-BAR_W = 4
-BAR_H = 20
 FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
 
@@ -27,41 +24,58 @@ def fit_size(text, max_w, size):
     return font
 
 
-def make_accent_bar():
-    """Create a rounded vertical blue-to-green gradient accent."""
-    bar = Image.new("RGB", (BAR_W, BAR_H), BLUE)
+def gradient_bar(width, height, rounded=False):
+    """Create a vertical blue-to-green accent bar."""
+    bar = Image.new("RGB", (width, height), BLUE)
     pixels = bar.load()
-    for y in range(BAR_H):
-        t = y / (BAR_H - 1)
+    for y in range(height):
+        t = y / (height - 1) if height > 1 else 0
         color = tuple(round(a + (b - a) * t) for a, b in zip(BLUE, GREEN))
-        for x in range(BAR_W):
+        for x in range(width):
             pixels[x, y] = color
+    if not rounded:
+        return bar, None
 
-    mask = Image.new("L", (BAR_W, BAR_H), 0)
+    mask = Image.new("L", (width, height), 0)
     ImageDraw.Draw(mask).rounded_rectangle(
-        (0, 0, BAR_W - 1, BAR_H - 1), radius=BAR_W // 2, fill=255
+        (0, 0, width - 1, height - 1), radius=width // 2, fill=255
     )
     return bar, mask
 
 
-def head(name, text):
-    img = Image.new("RGB", (W, H), PANEL)
+def head_ru(name, text):
+    """Render compact rounded 720×48 Russian heading like the RU reference."""
+    width, height = 720, 48
+    img = Image.new("RGB", (width, height), (0x1C, 0x20, 0x2A))
     draw = ImageDraw.Draw(img)
     draw.rounded_rectangle(
-        (0, 0, W - 1, H - 1), radius=10, fill=PANEL, outline=BORDER, width=1
+        (0, 0, width - 1, height - 1), radius=10,
+        fill=(0x1C, 0x20, 0x2A), outline=BORDER, width=1
     )
 
-    bar, mask = make_accent_bar()
-    bar_y = (H - BAR_H) // 2
-    img.paste(bar, (14, bar_y), mask)
+    bar, mask = gradient_bar(4, 20, rounded=True)
+    img.paste(bar, (14, (height - 20) // 2), mask)
+    text_x = 38
+    font = fit_size(text, width - text_x - 20, 17)
+    draw.text((text_x, height / 2), text, font=font, fill=TXT, anchor="lm")
+    img.save(OUT / f"{name}.png")
+    print(f"  {name}.png: 720×48")
 
-    text_x = 14 + BAR_W + 20
-    font = fit_size(text, W - text_x - 20, 17)
-    draw.text((text_x, H / 2), text, font=font, fill=TXT, anchor="lm")
 
-    out = OUT / f"{name}.png"
-    img.save(out)
-    print(f"  {out.name}: {W}×{H}")
+def head_en(name, text):
+    """Render large rectangular 1000×150 English heading like the EN reference."""
+    width, height = 1000, 150
+    img = Image.new("RGB", (width, height), PANEL)
+    draw = ImageDraw.Draw(img)
+    draw.rectangle((0, 0, width - 1, height - 1), outline=BORDER, width=2)
+
+    bar, _ = gradient_bar(8, 80)
+    img.paste(bar, (20, (height - 80) // 2))
+    text_x = 50
+    font = fit_size(text, width - text_x - 24, 36)
+    draw.text((text_x, height / 2), text, font=font, fill=TXT, anchor="lm")
+    img.save(OUT / f"{name}.png")
+    print(f"  {name}.png: 1000×150")
 
 
 if __name__ == "__main__":
@@ -93,7 +107,7 @@ if __name__ == "__main__":
     ]
     print("Generating Russian headings:")
     for name, text in RU:
-        head(name, text)
+        head_ru(name, text)
     print("Generating English headings:")
     for name, text in EN:
-        head(name, text)
+        head_en(name, text)
