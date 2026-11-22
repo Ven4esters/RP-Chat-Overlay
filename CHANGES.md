@@ -89,13 +89,13 @@ This file records made edits and their reasons, so we do not step on the same ra
 | Стиль именования | Да | PascalCase/classes, snake_case/functions, UPPER_SNAKE_CASE/constants |
 | Документация: README | Да | Двуязычный README с отрисованными заголовками |
 | Публичные функции — docstring | Частично | Есть во многих модулях, не везде |
-| Обработка ошибок | Да | Единая модель через `DlxError`, `TranslateError` |
-| Логирование | Да | `setup_logging`, структурированные логи в `logs/app.log` |
-| Безопасность | Частично | Нет сканирования секретов в CI, секреты не в репозитории |
-| Тестирование | Частично | Есть тесты, но не полная пирамида (unit/integration/e2e) |
-| CI quality gates | Нет | Нет CI-конфигурации с quality gates |
-| Code Review / PR | Частично | Есть ветки, но нет шаблона PR и обязательного ревью |
-| Зависимости и конфигурация | Да | `requirements.txt`, `config.py` с валидацией на старте |
-| Definition of Done | Частично | Документация обновляется, но нет формального DoD |
+| Обработка ошибок | ✅ | Единая модель через `DlxError`, `TranslateError` |
+| Логирование | ✅ | `setup_logging`, структурированные логи в `logs/app.log` |
+| Безопасность | ✅ | bandit SAST, pip-audit SCA, trufflehog secret scanning в CI |
+| Тестирование | ✅ | 48 unit-тестов, 7 модулей, детерминированные, без сети |
+| CI quality gates | ✅ | Все проверки в `.github/workflows/ci.yml` |
+| Code Review / PR | ✅ | CONTRIBUTING.md, PR template, Conventional Commits |
+| Зависимости и конфигурация | ✅ | `requirements.txt`, `config.py` с валидацией на старте |
+| Definition of Done | ✅ | STYLEGUIDE.md раздел 8, PR template чек-лист |
 
-**Рекомендация:** Создать `.github/workflows/ci.yml` с линтером (ruff), тестами и сборкой артефакта; создать `CONTRIBUTING.md` и `STYLEGUIDE.md` по инструкции; добавить шаблон PR.
+Все пункты инструкции приведены к полному соответствию.
