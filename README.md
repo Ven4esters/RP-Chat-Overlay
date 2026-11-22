@@ -232,8 +232,8 @@ takes priority over network translation.
 <img src="source/images/forum/hdr_deeplx_en.png" width="1000" alt="DeepLX in Russia">
 
 Since June 2025, DeepL is blocked for Russian IP addresses. The local DLX
-service starts, but DeepL returns error `503` — state
-**«Работает, но DeepL не отвечает (503)»**.
+service starts, but DeepL returns error `503` — the status is
+**“Running, but DeepL answers 503”**.
 
 Workaround: use an **HTTP proxy** (v2rayN, Clash, SOCKS5) or deploy your own
 DLX server abroad ([detailed instructions](docs/DEEPLX-RUSSIA.md)).
