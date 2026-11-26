@@ -1013,7 +1013,7 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
     try:
         from app import errorlog
 
-        errorlog.watch_main_thread(20.0, parent=app)
+        errorlog.watch_main_thread(10.0, parent=app)
     except Exception:
         log.exception("Не удалось включить сторож главного потока")
 

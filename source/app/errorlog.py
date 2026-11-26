@@ -168,7 +168,7 @@ def _beat_tick() -> None:
     _beat["time"] = _time.monotonic()
 
 
-def watch_main_thread(timeout: float = 20.0, parent=None):
+def watch_main_thread(timeout: float = 10.0, parent=None):
     """Следит, что главный поток отвечает; при зависании пишет стеки всех потоков.
 
     Watches that the main thread is responsive. When it stalls, every thread stack
