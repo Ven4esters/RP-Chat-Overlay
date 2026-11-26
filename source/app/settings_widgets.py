@@ -6,11 +6,16 @@ from PySide6.QtWidgets import (
     QAbstractButton,
     QAbstractItemView,
     QFrame,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QTableWidget,
+    QToolButton,
     QVBoxLayout,
+    QWidget,
 )
+
+from app import i18n
 
 
 class KeyCapture(QLineEdit):
@@ -83,6 +88,68 @@ def _hint(text):
     lab.setObjectName("hint")
     lab.setWordWrap(True)
     return lab
+
+
+def _small_spin(spin, lo, hi, suffix="", width=170, step=None, prefix=None):
+    """Компактный счётчик: не растягивается на всю карточку.
+
+    A compact counter: it does not stretch across the whole card.
+    """
+    spin.setRange(lo, hi)
+    if suffix:
+        spin.setSuffix(suffix)
+    if prefix:
+        spin.setPrefix(prefix)
+    if step:
+        spin.setSingleStep(step)
+    spin.setMaximumWidth(width)
+    spin.setMinimumWidth(min(width, 62))
+    return spin
+
+
+def _num_row(spin, width=None):
+    """Счётчик с крупными кнопками «−» и «+» / counter with big − and + buttons.
+
+    Штатные стрелки Qt на тёмной теме почти не видны, а попасть в них мышью
+    трудно. Поэтому рядом стоят две обычные кнопки: размер задаётся стилем и
+    растёт вместе с масштабом интерфейса, нажатие повторяется при удержании.
+    Qt's own spin arrows are tiny and almost invisible on a dark theme, so two
+    real buttons sit next to the field. Their size follows the interface scale
+    and a held button repeats its step.
+    """
+    box = QWidget()
+    row = QHBoxLayout(box)
+    row.setContentsMargins(0, 0, 0, 0)
+    row.setSpacing(6)
+    # штатные стрелки убираются стилем (QSpinBox::up-button, width: 0), а не
+    # NoButtons: при NoButtons Qt отдаёт полю ввода 1 px и текст исчезает
+    # the built-in arrows are removed by the style sheet (zero width), not by
+    # NoButtons: with NoButtons Qt shrinks the line edit to 1 px and the text
+    # disappears
+    minus = QToolButton()
+    minus.setText("−")
+    minus.setToolTip(i18n.t("Уменьшить значение"))
+    minus.clicked.connect(spin.stepDown)
+    plus = QToolButton()
+    plus.setText("+")
+    plus.setToolTip(i18n.t("Увеличить значение"))
+    plus.clicked.connect(spin.stepUp)
+    for b in (minus, plus):
+        b.setObjectName("step")
+        b.setAutoRepeat(True)
+        b.setAutoRepeatDelay(400)
+        b.setAutoRepeatInterval(70)
+        b.setCursor(Qt.CursorShape.PointingHandCursor)
+        b.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        b.setAccessibleName(b.text())
+        b.setAccessibleDescription(b.toolTip())
+    row.addWidget(minus)
+    row.addWidget(spin, 1)
+    row.addWidget(plus)
+    row.addStretch(1)
+    if width:
+        spin.setMaximumWidth(width)
+    return box
 
 
 def _pretty_hotkey(spec):
