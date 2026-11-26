@@ -17,7 +17,7 @@ except (ImportError, OSError) as error:
 
 from app import animations as anims
 from app.config import DEFAULT_CONFIG
-from app.settings_ui import SettingsWindow, ToggleSwitch
+from app.settings_ui import SettingsWindow, ToggleSwitch, open_settings
 
 
 @pytest.fixture(scope="module")
@@ -93,8 +93,8 @@ def test_keyword_cell_opens_multiline_editor_and_is_not_inline_editable(qapp, mo
 
 
 def test_default_key_fields_show_requested_keys(qapp):
-    """The settings form starts with T for game chat and F6 for the overlay."""
-    window = SettingsWindow(dict(DEFAULT_CONFIG))
+    """The public settings opener loads T for game chat and F6 for the overlay."""
+    window = open_settings(dict(DEFAULT_CONFIG))
     try:
         assert window.ed_chatkey.text() == "t"
         assert window.ed_hotkey.text() == "F6"

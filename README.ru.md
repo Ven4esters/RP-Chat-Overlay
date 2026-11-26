@@ -256,7 +256,6 @@ python source/tools/check_readme.py
 прочитайте [`CONTRIBUTING.md`](CONTRIBUTING.md) и [`STYLEGUIDE.md`](STYLEGUIDE.md);
 добавляйте регрессионные тесты и обновляйте документацию при изменении поведения.
 
-
 Для отправки файлов в существующий GitHub-репозиторий и создания GitHub Release есть BAT-скрипты [`tools/upload_to_existing_github_repo.bat`](tools/upload_to_existing_github_repo.bat) и [`tools/create_github_release.bat`](tools/create_github_release.bat); инструкция — в [`docs/GITHUB_SCRIPTS_RU.md`](docs/GITHUB_SCRIPTS_RU.md).
 
 ## Лицензия
