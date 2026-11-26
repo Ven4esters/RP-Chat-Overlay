@@ -3,8 +3,7 @@
 Usage from the project root or source directory::
     python source/tools/write_release_info.py dist/FiveMChatOverlay.exe
 
-The script calculates sidecar checksums but never contacts VirusTotal. Its
-README text deliberately labels VirusTotal as not scanned.
+The script calculates sidecar checksums but never contacts VirusTotal or reads a scan verdict. Its README includes the hash-specific report page and explains possible heuristic alerts without asserting a result.
 """
 
 from __future__ import annotations
@@ -79,22 +78,32 @@ Issues: {REPOSITORY_URL}/issues
 Changelog: {REPOSITORY_URL}/blob/main/CHANGELOG.md
 License: MIT
 
-VIRUSTOTAL
-Scan status: NOT SCANNED by this build script. Do not claim that VirusTotal has scanned or cleared this file until a real report is completed.
-Hash lookup page (upload this exact EXE if there is no report yet):
-https://www.virustotal.com/gui/file/{sha256}
+VIRUSTOTAL: REPORT AND POSSIBLE HEURISTIC ALERTS
+Report / hash lookup page: https://www.virustotal.com/gui/file/{sha256}?nocache=1
+The build script does not upload the EXE or retrieve a VirusTotal verdict. Check the current page for the actual scan date, engine names, detection count, and behavior results. A hash page alone is not proof that the file was scanned or found clean.
+
+Why an engine may flag this build (possible causes, not a confirmed explanation for any specific verdict):
+- PyInstaller one-file packaging embeds Python and dependencies in a self-extracting executable that unpacks files at runtime; generic packer or machine-learning heuristics can treat this pattern as suspicious.
+- The app registers a configurable global hotkey and uses the Windows SendInput API to enter text in the game. These legitimate automation behaviors can resemble input-monitoring or injection patterns to generic heuristics.
+- The build is not Authenticode-signed, so it has no publisher reputation established by a signing certificate.
+- The optional DLX feature can, after user consent, download and launch a separate translation-service binary; download-and-launch behavior can contribute to heuristic alerts.
+
+These are plausible characteristics to review against the report, not proof of a false positive. A detection count by itself also does not prove malware. Review the exact engine labels and sandbox behavior; submit the file to the detecting vendor for review if appropriate. Do not call the build safe or a false positive until the evidence supports that conclusion.
 
 RELEASE CHECKLIST
 1. Confirm the version, file size, and both checksum sidecars match this EXE.
-2. Upload this exact EXE to VirusTotal and wait for the analysis to finish.
-3. Record the real VirusTotal report URL and result in the release README.
-4. If the EXE changes, rebuild the checksums and repeat the scan.
+2. Open the hash page and verify its SHA-256 matches the sidecar; upload the exact EXE if no analysis exists.
+3. Record the actual scan date, detection count, engine names, report URL, and outcome in the release notes.
+4. If the EXE changes, rebuild the checksums and repeat the review.
 """
     readme_path.write_text(readme, encoding="utf-8", newline="\n")
     print(f"README:    {readme_path}")
     print(f"MD5:       {md5_path}")
     print(f"SHA-256:   {sha256_path}")
-    print(f"VirusTotal (not scanned): https://www.virustotal.com/gui/file/{sha256}")
+    print(
+        "VirusTotal report/lookup page (verify result manually): "
+        f"https://www.virustotal.com/gui/file/{sha256}?nocache=1"
+    )
     return readme_path, md5_path, sha256_path
 
 

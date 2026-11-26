@@ -31,8 +31,10 @@ def test_writes_readme_and_checksums_next_to_exe(tmp_path):
     assert "Size: " in contents
     assert f"MD5: {md5}" in contents
     assert f"SHA-256: {sha256}" in contents
-    assert "NOT SCANNED" in contents
-    assert f"https://www.virustotal.com/gui/file/{sha256}" in contents
+    assert "does not upload the EXE" in contents
+    assert "PyInstaller one-file packaging" in contents
+    assert "not a confirmed explanation" in contents
+    assert f"https://www.virustotal.com/gui/file/{sha256}?nocache=1" in contents
     assert "https://github.com/Ven4esters/FiveM-Chat-Overlay" in contents
 
 
