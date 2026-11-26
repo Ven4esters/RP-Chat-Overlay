@@ -79,7 +79,7 @@ def _title(text, size=None):
     if size == "h1":
         lab.setStyleSheet("font-size:18px;font-weight:600;")
     elif size == "sec":
-        lab.setStyleSheet("font-size:14px;font-weight:600;color:#dfe3ff;")
+        lab.setStyleSheet("font-size:14px;font-weight:600;color:#dae6f7;")
     return lab
 
 
@@ -205,11 +205,11 @@ class ToggleSwitch(QAbstractButton):
     KNOB = 18  # диаметр бегунка / the knob diameter
     ON_COLOR = QColor("#2e7d55")  # зелёная дорожка: включено / on
     ON_EDGE = QColor("#3d9a6b")
-    OFF_COLOR = QColor("#2b2b36")  # серая дорожка: выключено / off
-    OFF_EDGE = QColor("#3c3c4a")
+    OFF_COLOR = QColor("#22334a")  # серая дорожка: выключено / off
+    OFF_EDGE = QColor("#30445c")
     KNOB_COLOR = QColor("#eef6f1")
-    KNOB_DIM = QColor("#9a9aa6")
-    DISABLED_COLOR = QColor("#20202a")
+    KNOB_DIM = QColor("#8496b0")
+    DISABLED_COLOR = QColor("#1a293e")
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -292,7 +292,7 @@ class ToggleSwitch(QAbstractButton):
             # рамка фокуса — снаружи дорожки, чтобы бегунок её не перекрывал
             # the focus ring sits outside the track so the knob cannot hide it
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.setPen(QColor("#7ea6ff"))
+            painter.setPen(QColor("#7ab2ff"))
             painter.drawRoundedRect(
                 QRectF(-2.5, -2.5, self.WIDTH + 4, self.HEIGHT + 4), radius + 2, radius + 2
             )
@@ -338,7 +338,7 @@ class DragTable(QTableWidget):
 
     # цвета линии вставки и «призрака» перетаскиваемой строки
     # the drop line and the dragged row colours
-    LINE_COLOR = QColor("#5b8cff")
+    LINE_COLOR = QColor("#4e8bff")
     DRAG_BG = QColor(91, 140, 255, 46)  # подсветка исходной строки / dragged row
     TARGET_BG = QColor(91, 140, 255, 22)  # цель перетаскивания / the drop target
     LINE_WIDTH = 3
@@ -407,7 +407,7 @@ class DragTable(QTableWidget):
         painter.setOpacity(0.85)
         # рисуем область таблицы как есть, но только одну строку
         # the table area is drawn as is, one row only
-        painter.fillRect(pixmap.rect(), QColor("#1c1c24"))
+        painter.fillRect(pixmap.rect(), QColor("#162337"))
         painter.end()
         self.viewport().render(
             pixmap, QPoint(0, 0), QRect(0, top, self.viewport().width(), pixmap.height())

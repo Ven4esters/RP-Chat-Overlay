@@ -92,15 +92,18 @@ class HotkeyThread(threading.Thread):
             self.on_fail(f"Неверное значение hotkey «{self.spec}»: {e}.")
             return
         reg, last, msg = False, 0.0, wt.MSG()
+        suppress_until_inactive = False
         try:
             while not self.stop_ev.is_set():
-                if time.time() - last > 0.3:
+                if time.time() - last > 0.02:
                     last = time.time()
                     try:
                         want = bool(self.active_fn())
                     except Exception:
                         want = True
-                    if want and not reg:
+                    if not want:
+                        suppress_until_inactive = False
+                    if want and not reg and not suppress_until_inactive:
                         reg = bool(user32.RegisterHotKey(None, 1, mods | MOD_NOREPEAT, vk))
                         if not reg:
                             log.error(
@@ -119,6 +122,13 @@ class HotkeyThread(threading.Thread):
                         reg = False
                 while user32.PeekMessageW(ctypes.byref(msg), None, 0, 0, 1):
                     if msg.message == WM_HOTKEY:
+                        # A bare letter is consumed by RegisterHotKey. Release it
+                        # immediately and keep it disarmed until the overlay closes,
+                        # so typing that same letter reaches the input field.
+                        if reg:
+                            user32.UnregisterHotKey(None, 1)
+                            reg = False
+                        suppress_until_inactive = True
                         self.callback()
                 time.sleep(0.02)
         finally:

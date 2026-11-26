@@ -21,6 +21,17 @@ English version below: [Changelog (English)](#-changelog-english).
 - README дополнены актуальным стеком, проверками CI и командами для локального
   запуска основных проверок; ссылки, якоря, alt-тексты и число бейджей проверяются
   автоматически, Markdown проходит линтер.
+- Возвращена тёмно-синяя тема настроек, оверлея и выбора анимации. Подсказки
+  настроек показывают назначенные клавиши; по умолчанию T открывает игровой чат,
+  F6 — оверлей, обе клавиши переназначаются.
+- Ячейка ключевых слов анимации открывает отдельный многострочный редактор.
+  Ненужные генерируемые иллюстрации и старый скриншот исключены из исходников;
+  документационные изображения, используемые BBCode и README, сохранены.
+- Название приложения обновлено на **FiveM Chat Overlay** в интерфейсе,
+  метаданных, инструкциях и сборке; исходный проект переименован в
+  `FiveMChatOverlay.exe`. Новая оригинальная иконка используется в PNG, Windows
+  ICO и в баннерах форума. Старые настройки в `%LOCALAPPDATA%\\RPChatOverlay`
+  остаются доступными; ссылки GitHub сохраняют прежний адрес до переезда репозитория.
 
 ## 1.18.0 — 15.11.2026
 
@@ -613,8 +624,9 @@ English version below: [Changelog (English)](#-changelog-english).
   (или «Отправка в игру») — и подсветка меняется на предупреждающую.
 - **Журнал пишет, что модуль выключен** — один раз, а не на каждое сообщение.
 - **Пауза на «отдых» чата (300 мс) между командами.** Каждая команда — это заново
-  фокус в игру, клавиша чата (T), вставка и Enter. Сразу после Enter чат игры ещё
-  не принимает новое T, и команда пропадает: теперь перед T выдерживается пауза.
+  фокус в игру, клавиша чата (по умолчанию T; её можно переназначить), вставка и Enter.
+  Сразу после Enter игра ещё не принимает новое нажатие клавиши чата, и команда пропадает:
+  теперь перед ним выдерживается пауза.
   Это не пауза между анимациями (та привязана к длительности анимации), а время
   на саму игру.
 - **Повтор отправки.** Если команда не ушла (игра не отдала фокус), она
@@ -1161,6 +1173,17 @@ English version below: [Changelog (English)](#-changelog-english).
   and high-severity SAST findings. Added UI-layout and log-privacy regressions.
 - Updated both READMEs with the current stack, a live release badge, FAQ and local
   checks. CI validates local links, anchors, image alt text, badge count, and Markdown lint.
+- Restored the dark navy-blue theme across Settings, the overlay, and the animation
+  chooser. Settings hints now follow the configured keys; defaults remain T for the
+  game chat and F6 for the overlay, and both can be reassigned.
+- The animation keywords cell now opens a multiline editor. Unneeded generated artwork
+  and an obsolete screenshot are excluded from source checkouts; README and forum-doc
+  images remain available.
+- Renamed the product **FiveM Chat Overlay** across the UI, metadata, docs, and build;
+  the executable is now `FiveMChatOverlay.exe`. A new original icon is used for the
+  PNG, Windows ICO, and forum banners. Existing settings under
+  `%LOCALAPPDATA%\\RPChatOverlay` remain accessible, while GitHub links keep their
+  current destination until the repository move.
 
 ## 1.18.0 — 15 Nov 2026
 
@@ -1763,9 +1786,9 @@ loses commands.**
   and turns the warning colour.
 - **The log says the module is off** — once, not on every message.
 - **A chat rest (300 ms) between commands.** Every command means focusing the
-  game, pressing the chat key (T), pasting and Enter again. Right after Enter the
-  game chat does not take a new T yet and the command is lost: the T press now
-  waits. This is not the pause between animations (that one follows the animation
+  game, pressing the chat key (T by default; configurable), pasting and Enter again.
+  Right after Enter the game chat may not accept another key press and the command is
+  lost: the chat-key press now waits. This is not the pause between animations (that one follows the animation
   length), it is time for the game itself.
 - **A send retry.** When a command does not go out (the game did not give the
   focus), it is sent once more 400 ms later — one lost command used to cost the

@@ -29,7 +29,7 @@ incident as open instead of presenting a guess as a fix.
 Настольное приложение пишет рабочие сообщения в `logs/app.log`, а предупреждения,
 ошибки, необработанные исключения и аварийные стеки — в `logs/errors.log`. Если
 папка программы недоступна для записи, корень данных переключается на
-`%LOCALAPPDATA%\RPChatOverlay` (либо `%APPDATA%\RPChatOverlay`, если
+`%LOCALAPPDATA%\FiveMChatOverlay` (либо `%APPDATA%\FiveMChatOverlay`, если
 `LOCALAPPDATA` не задан). В обоих случаях журналы находятся в подпапке `logs`.
 Отдельный Node.js DLX-сервис пишет JSON-события в консоль; текст перевода,
 токены и исходное тело ответа внешнего сервиса не записываются.
@@ -37,7 +37,7 @@ incident as open instead of presenting a guess as a fix.
 The desktop application writes routine messages to `logs/app.log`; warnings,
 errors, unhandled exceptions, and crash traces go to `logs/errors.log`. If the
 program folder is not writable, its data root falls back to
-`%LOCALAPPDATA%\RPChatOverlay` (or `%APPDATA%\RPChatOverlay` when
+`%LOCALAPPDATA%\FiveMChatOverlay` (or `%APPDATA%\FiveMChatOverlay` when
 `LOCALAPPDATA` is unset). In either location, logs are in the `logs` subfolder.
 The standalone Node.js DLX service writes JSON events to its terminal output;
 translation text, tokens, and raw upstream response bodies are not included.

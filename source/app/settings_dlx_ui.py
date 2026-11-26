@@ -221,7 +221,7 @@ class DlxSettingsMixin:
             "При заданном адресе файл dlx.exe не нужен."
         )
         self.lb_dlx_url_note.setWordWrap(True)
-        self.lb_dlx_url_note.setStyleSheet("color:#8a8fa3;font-size:11px;")
+        self.lb_dlx_url_note.setStyleSheet("color:#91a4bd;font-size:11px;")
         cl.addWidget(self.lb_dlx_url_note)
         row = QHBoxLayout()
         self.b_dlx_token = QPushButton("Выпустить новый токен")
@@ -280,7 +280,7 @@ class DlxSettingsMixin:
         self.lb_dlx_proxy_note = QLabel("")
         self.lb_dlx_proxy_note.setWordWrap(True)
         self.lb_dlx_proxy_note.setProperty("no_i18n", True)
-        self.lb_dlx_proxy_note.setStyleSheet("color:#8a8fa3;font-size:11px;")
+        self.lb_dlx_proxy_note.setStyleSheet("color:#91a4bd;font-size:11px;")
         cl.addWidget(self.lb_dlx_proxy_note)
         self.ed_dlx_proxy.textChanged.connect(self._dlx_proxy_note)
         lay.addWidget(card)
@@ -495,7 +495,7 @@ class DlxSettingsMixin:
                 i18n.t("Адрес не подходит: нужен http://, https:// или socks5:// с портом.")
             )
             return
-        self.lb_dlx_proxy_note.setStyleSheet("color:#8a8fa3;font-size:11px;")
+        self.lb_dlx_proxy_note.setStyleSheet("color:#91a4bd;font-size:11px;")
         parsed = urllib.parse.urlparse(normalized)
         if parsed.scheme == "http" and parsed.port in (1080, 1081, 9050):
             self.lb_dlx_proxy_note.setText(

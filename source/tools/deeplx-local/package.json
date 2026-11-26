@@ -2,7 +2,7 @@
   "name": "rpco-deeplx-local",
   "version": "1.1.0",
   "private": true,
-  "description": "DeepLX-compatible local service for RP Chat Overhaul (modern DeepL oneshot protocol)",
+  "description": "DeepLX-compatible local service for FiveM Chat Overlay (modern DeepL oneshot protocol)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

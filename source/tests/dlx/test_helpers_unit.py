@@ -92,7 +92,7 @@ def test_http_get_json_sets_github_headers_and_timeout(monkeypatch):
     request, timeout = requests[0]
     assert request.get_method() == "GET"
     assert request.get_header("Accept") == "application/vnd.github+json"
-    assert request.get_header("User-agent") == "RP-Chat-Overlay"
+    assert request.get_header("User-agent") == "FiveM-Chat-Overlay"
     assert timeout == 2
 
 

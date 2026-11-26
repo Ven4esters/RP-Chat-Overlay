@@ -2,10 +2,10 @@
 
 Порядок работы / the order of events
 ------------------------------------
-    горячая клавиша -> СНАЧАЛА открывается чат игры (T), чтобы окружающие
-    видели, что вы печатаете -> только потом оверлей -> Enter вставляет текст
+    горячая клавиша -> СНАЧАЛА открывается чат игры настроенной клавишей,
+    чтобы окружающие видели, что вы печатаете -> только потом оверлей -> Enter вставляет текст
     в уже открытый чат и отправляет -> Esc закрывает и оверлей, и чат игры.
-    hotkey -> the game chat opens FIRST (T), so other players see that you are
+    hotkey -> the game chat opens FIRST with its configured key, so other players see that you are
     typing -> only then the overlay appears -> Enter pastes the text into the
     already open chat and sends it -> Esc closes both the overlay and the chat.
 
@@ -65,24 +65,28 @@ from app.settings_ui import ask_dlx_consent, open_settings
 from app.translator import Translator, cache_cleanup_due, cache_cleanup_timestamp
 
 STYLE = """
-#box { background: rgba(18,18,22,235); border: 1px solid #3a3a46; border-radius: 8px; }
-QLineEdit { background: #0e0e12; color: #f2f2f2; border: 1px solid #4a4a58; border-radius: 5px;
-            padding: 6px 8px; font-size: 15px; selection-background-color: #3d6fd8; }
-QLineEdit:focus { border: 1px solid #5b8cff; }
+#box { background: rgba(12,20,34,245); border: 1px solid #2d415a; border-radius: 8px; }
+QLineEdit { background: #0f1928; color: #f2f6fc; border: 1px solid #3c526d; border-radius: 5px;
+            padding: 6px 8px; font-size: 15px; selection-background-color: #2864e8; }
+QLineEdit:focus { border: 1px solid #4e8bff; }
 #out { color: #ffffff; font-size: 14px; }
-#it { color: #9bb0ff; font-size: 12px; }
-#stat { color: #8a8a96; font-size: 11px; }
+#it { color: #a9caff; font-size: 12px; }
+#stat { color: #91a4bd; font-size: 11px; }
 
 /* панель подсказок ключевых слов / the keyword suggestion strip */
-#hints { background: rgba(26,26,34,240); border: 1px solid #3a3a46; border-radius: 6px; }
+#hints { background: rgba(20,31,47,245); border: 1px solid #2d415a; border-radius: 6px; }
 QLabel#hintItem {
-    background: #1e1e28; border: 1px solid #33333f; border-radius: 5px;
-    padding: 3px 7px; color: #dfe3ff; font-size: 12px;
+    background: #1a2940; border: 1px solid #2a3d57; border-radius: 5px;
+    padding: 3px 7px; color: #dae6f7; font-size: 12px;
 }
 QLabel#hintItem[active="true"] {
-    background: #2a3a5c; border: 1px solid #5b8cff; color: #ffffff;
+    background: #213a61; border: 1px solid #4e8bff; color: #ffffff;
 }
-QLabel#hintKey { color: #9bb0ff; font-size: 11px; padding: 3px 2px; }
+QLabel#hintKey { color: #a9caff; font-size: 11px; padding: 3px 2px; }
+QMenu { background: #162337; color: #f2f6fc; border: 1px solid #30445d; padding: 4px; }
+QMenu::item { padding: 5px 22px; }
+QMenu::item:selected { background: #1d3049; color: #ffffff; }
+QMenu::separator { height: 1px; background: #2a3d57; margin: 4px 8px; }
 """
 
 
@@ -179,7 +183,7 @@ def set_app_id() -> None:
     try:
         import ctypes
 
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("RPChatOverlay.Overlay.1")
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("FiveMChatOverlay.Overlay.1")
     except Exception:
         log.exception("Не удалось задать AppUserModelID для панели задач")
 
@@ -199,7 +203,7 @@ class Overlay(QWidget):
         self.game_hwnd = None
         self.prev_hwnd = None
         self.shown_at = 0.0
-        self.game_chat_open = False  # чат игры уже открыт клавишей T
+        self.game_chat_open = False  # чат игры уже открыт
         self.anims = None  # очередь анимаций, создаётся при запуске
         # the animation queue, created on startup
         self._anim_text = ""  # текст, ждущий проверки правилами анимаций
@@ -297,8 +301,14 @@ class Overlay(QWidget):
         )
 
     # ----- показ / скрытие -----
+    def open_overlay_from_hotkey(self, *_args) -> None:
+        """Open on hotkey presses, but never toggle a visible typing window closed."""
+        if self.isVisible() or self.opening or self.sending:
+            return
+        self.open_overlay()
+
     def open_overlay(self, *_args) -> None:
-        """Сначала открыть чат игры (T), только потом показать оверлей.
+        """Сначала открыть чат игры назначенной клавишей, затем показать оверлей.
 
         Так окружающие в игре видят, что вы пишете, а не стоите без действия.
         Пока чат открывается (пауза game_open_delay_ms), оверлей не виден.
@@ -1090,10 +1100,10 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
         """Отправка команды анимации в чат игры / send an animation command.
 
         Вызывается из потока модуля: чат игры открывается заново — фокус в игру,
-        клавиша чата (T), вставка, Enter, — потому что к этому моменту чат и
+        клавиша чата, вставка, Enter, — потому что к этому моменту чат и
         фокус уже не там, где были при отправке сообщения.
         Called from the module thread: the game chat is opened again — focus, the
-        chat key (T), paste, Enter — because by then the chat and the focus are no
+        configured chat key, paste, Enter — because by then the chat and the focus are no
         longer where they were when the message was sent.
         """
         if not modules.is_enabled(cfg, "anims") or not modules.is_enabled(cfg, "game_send"):
@@ -1389,8 +1399,12 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
 
     # ---------- горячая клавиша ----------
     def active():
+        # A bare-letter hotkey must be released while the overlay is shown,
+        # otherwise Windows consumes letters before the input field can receive them.
+        if win.isVisible() or win.opening or win.sending:
+            return False
         g = tracker.get()
-        return (not g) or gs.user32.GetForegroundWindow() in (g, win.hwnd)
+        return (not g) or gs.user32.GetForegroundWindow() == g
 
     def start_hotkey():
         """Запускает поток горячей клавиши, если модуль включён.
@@ -1512,7 +1526,7 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
     )
     tray.show()
 
-    bridge.hotkey.connect(win.open_overlay, Qt.ConnectionType.QueuedConnection)
+    bridge.hotkey.connect(win.open_overlay_from_hotkey, Qt.ConnectionType.QueuedConnection)
     bridge.fail.connect(lambda m: win.notify(m, True), Qt.ConnectionType.QueuedConnection)
     start_hotkey()
     app.aboutToQuit.connect(lambda: state["hk"] and state["hk"].stop())

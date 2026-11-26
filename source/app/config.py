@@ -28,14 +28,22 @@ from app import APP_NAME, modules
 
 
 # --------------------------------------------------------------------------- пути
+def _local_fallback_root(appdata: Path) -> Path:
+    """Choose the legacy data folder when present, or the new folder on a fresh install."""
+    legacy = appdata / "RPChatOverlay"
+    return legacy if legacy.is_dir() else appdata / "FiveMChatOverlay"
+
+
 def _root() -> Path:
     """Папка программы: рядом с .exe (сборка) или с исходниками.
 
     Program folder: next to the .exe in a build, or the source folder otherwise.
     Если писать в неё нельзя (например, Program Files), данные переезжают
-    в %LOCALAPPDATA%\\RPChatOverlay — программа работает и оттуда.
+    в %LOCALAPPDATA%\\FiveMChatOverlay — программа работает и оттуда. Папка
+    %LOCALAPPDATA%\\RPChatOverlay остаётся совместимой с предыдущим названием.
     If the folder is not writable (Program Files, for example), data moves to
-    %LOCALAPPDATA%\\RPChatOverlay and the program keeps working from there.
+    %LOCALAPPDATA%\\FiveMChatOverlay. Existing %LOCALAPPDATA%\\RPChatOverlay
+    data remains supported for users upgrading from the previous app name.
     """
     base = (
         Path(sys.executable).resolve().parent
@@ -49,10 +57,10 @@ def _root() -> Path:
         probe.unlink()
         return base
     except OSError:
-        fallback = (
-            Path(os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or Path.home())
-            / "RPChatOverlay"
-        )
+        appdata = Path(os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or Path.home())
+        # Keep reading and writing the old location if it already contains a
+        # user's settings/logs. Fresh installs use the new branded directory.
+        fallback = _local_fallback_root(appdata)
         try:
             fallback.mkdir(parents=True, exist_ok=True)
         except OSError:

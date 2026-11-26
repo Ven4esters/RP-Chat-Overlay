@@ -92,7 +92,7 @@ def test_removed_package_is_absent_from_install_and_bundle_files():
     for path in (
         source / "requirements.txt",
         source / "start.bat",
-        source / "RPChatOverlay.spec",
+        source / "FiveMChatOverlay.spec",
         source / "app" / "translator.py",
     ):
         contents = path.read_text(encoding="utf-8").lower()

@@ -15,6 +15,7 @@ except (ImportError, OSError) as error:
         raise
     pytest.skip(f"Qt runtime is unavailable: {error}", allow_module_level=True)
 
+from app import animations as anims
 from app.config import DEFAULT_CONFIG
 from app.settings_ui import SettingsWindow, ToggleSwitch
 
@@ -71,6 +72,48 @@ def test_external_switch_state_updates_do_not_emit_user_action(qapp):
     switch.set_on(False)
     assert not switch.isChecked()
     assert changed == []
+
+
+def test_keyword_cell_opens_multiline_editor_and_is_not_inline_editable(qapp, monkeypatch):
+    """Selecting keywords opens the dedicated editor instead of editing a narrow cell."""
+    window = SettingsWindow(dict(DEFAULT_CONFIG))
+    opened = []
+    try:
+        row = window._add_anim_row(anims.Rule(keywords="wave, привет", name="wave"))
+        item = window.tbl_anims.item(row, 1)
+        assert not (item.flags() & Qt.ItemFlag.ItemIsEditable)
+
+        monkeypatch.setattr(window, "_edit_anim_keywords", lambda selected: opened.append(selected))
+        window.tbl_anims.cellClicked.emit(row, 1)
+
+        assert opened == [item]
+    finally:
+        window.close()
+        qapp.processEvents()
+
+
+def test_default_key_fields_show_requested_keys(qapp):
+    """The settings form starts with T for game chat and F6 for the overlay."""
+    window = SettingsWindow(dict(DEFAULT_CONFIG))
+    try:
+        assert window.ed_chatkey.text() == "t"
+        assert window.ed_hotkey.text() == "F6"
+        assert (
+            window.chk_chat_first.text() == "Сначала открывать чат игры (клавиша T), потом оверлей"
+        )
+        assert "F6" in window.lb_hotkey_hint.text()
+        assert "T" in window.lb_hotkey_hint.text()
+
+        window.ed_chatkey.setText("F8")
+        assert "F8" in window.chk_chat_first.text()
+        assert "F8" in window.lb_hotkey_hint.text()
+        window.ed_hotkey.setText("Ctrl+Alt+Q")
+        window._hotkey_changed()
+        assert "Ctrl+Alt+Q" in window.lb_hotkey_hint.text()
+        assert "Ctrl+Alt+Q" in window.header_sub.text()
+    finally:
+        window.close()
+        qapp.processEvents()
 
 
 def test_animation_page_reactivates_immediately_when_module_is_enabled(qapp):

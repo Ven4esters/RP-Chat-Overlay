@@ -5,6 +5,17 @@ source/build/
 source/.venv/
 source/.build-venv/
 source/runtime/
+# generated, test-only or stale illustrations not used by the app/current docs
+source/images/flow.png
+source/images/langs.png
+source/images/langs.svg
+source/images/settings_test.png
+source/images/settings.png
+# Keep forum graphics embedded by FORUM_BBCODE; other generated previews are optional.
+source/images/forum/*.png
+!source/images/forum/post_*.png
+!source/images/forum/sm_header.png
+!source/images/forum/sm_header_en.png
 source/__pycache__/
 source/**/__pycache__/
 alt
@@ -22,4 +33,4 @@ dist/logs/
 #   * или выкладывайте его в Releases (лимит 2 ГБ) — самый простой путь;
 #   * или раскомментируйте строку ниже и коммитьте через Git LFS
 #     (см. .gitattributes) — тогда exe будет храниться прямо в dist/.
-# dist/RPChatOverlay.exe
+# dist/FiveMChatOverlay.exe

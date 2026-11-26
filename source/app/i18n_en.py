@@ -7,7 +7,7 @@ be reviewed and extended independently.
 STRINGS = {
     # ---------- окно настроек: каркас ----------
     # settings window: the frame
-    "Настройки — RP Chat Overlay": "Settings — RP Chat Overlay",
+    "Настройки — FiveM Chat Overlay": "Settings — FiveM Chat Overlay",
     "Настройки": "Settings",
     "Основные": "General",
     "Автоперевод": "Auto-translation",
@@ -17,11 +17,16 @@ STRINGS = {
     "Проверка": "Test",
     "Сохранить": "Save",
     "Отмена": "Cancel",
+    "Ключевые слова анимации": "Animation keywords",
+    "Введите слова и фразы через запятую, точку с запятой или с новой строки:": "Enter words and phrases separated by commas, semicolons or new lines:",
+    "например: привет, поздороваться; сказать привет": "for example: hello, say hello; say hi",
+    "Ключевые слова не заданы": "No keywords set",
+    "Щёлкните ячейку, чтобы посмотреть и изменить список.": "Click the cell to view and edit the list.",
     "Сбросить всё": "Reset all",
     "Вернуть заводские настройки (словари не затрагиваются)": "Restore factory settings (glossaries are kept)",
     "Изменения применятся после «Сохранить».": "Changes apply after you press Save.",
     "Настройки сброшены — нажмите «Сохранить», чтобы применить.": "Settings reset — press Save to apply.",
-    "Добро пожаловать в RP Chat Overlay": "Welcome to RP Chat Overlay",
+    "Добро пожаловать в FiveM Chat Overlay": "Welcome to FiveM Chat Overlay",
     "Язык: %s · горячая клавиша: %s · частота автоперевода: каждое %d-е": "Language: %s · hotkey: %s · auto-translation: every %d-th message",
     "Диагностика приложения": "Application diagnostics",
     "Собирать отчёт производительности": "Collect a performance report",
@@ -140,11 +145,14 @@ STRINGS = {
     # ---------- Чат игры ----------
     "Отправка в игру": "Sending to the game",
     "Вставлять текст в чат игры": "Paste the text into the game chat",
-    "Сначала открывать чат игры (клавиша T), потом оверлей": "Open the game chat first (key T), then the overlay",
-    "Сначала открыть чат игры (T), только потом показать оверлей.\n\n"
+    "Сначала открывать чат игры (клавиша %s), потом оверлей": "Open the game chat first (key %s), then the overlay",
+    "Клавиша «%s» открывает оверлей; чат игры перед этим открывается "
+    "клавишей «%s». При открытом оверлее нажатие не закрывает окно.": "Press %s to open the overlay; the game chat opens first with %s. "
+    "Pressing the hotkey again while the overlay is open will not close it.",
+    "Сначала открыть чат игры назначенной клавишей, затем показать оверлей.\n\n"
     "        Так окружающие в игре видят, что вы пишете, а не стоите без действия.\n"
     "        Пока чат открывается (пауза game_open_delay_ms), оверлей не виден.\n"
-    "        ": "Open the game chat first (T), show the overlay only after that.\n\n"
+    "        ": "Open the game chat with its configured key, then show the overlay.\n\n"
     "        That way other players see you are typing, not standing idle.\n"
     "        While the chat is opening (game_open_delay_ms) the overlay stays hidden.\n"
     "        ",
@@ -566,9 +574,9 @@ STRINGS = {
     "Сброс настроек": "Reset settings",
     "Сбросить словарь": "Reset glossary",
     "Сбросить сокращения": "Reset abbreviations",
-    "Вернуть все настройки к заводским?\nСловари и горячая клавиша тоже станут "
-    "стандартными (F6, итальянский).": "Restore all settings to factory values?\nGlossaries and the hotkey also "
-    "become standard (F6, Italian).",
+    "Вернуть все настройки к заводским?\nСловари и горячие клавиши тоже станут "
+    "стандартными (F6 для оверлея, T для чата, итальянский).": "Restore all settings to factory values?\nGlossaries and hotkeys "
+    "also become standard (F6 for the overlay, T for game chat, Italian).",
     "Не удалось записать config.json:\n": "Could not write config.json:\n",
     "Не удалось записать файл:\n": "Could not write the file:\n",
     "Не удалось прочитать файл:\n": "Could not read the file:\n",

@@ -11,12 +11,14 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
+    QDialogButtonBox,
     QFileDialog,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QLineEdit,
     QMenu,
+    QPlainTextEdit,
     QMessageBox,
     QPushButton,
     QSpinBox,
@@ -395,6 +397,7 @@ class AnimationsSettingsMixin:
         self._anim_row_height()
         self.tbl_anims.itemChanged.connect(self._anims_edited)
         self.tbl_anims.itemSelectionChanged.connect(self._update_anims_ui)
+        self.tbl_anims.cellClicked.connect(self._anim_keyword_cell_clicked)
         # двойной щелчок по шапке разворачивает таблицу: привычный жест, и
         # кнопка говорит о нём же
         # a double click on the header expands the table: a familiar gesture, and
@@ -753,7 +756,7 @@ class AnimationsSettingsMixin:
             return
         api["stop"]()
         self._anim_say(i18n.t("Остановил: отправлен /sa."))
-        self.lb_anim_live.setStyleSheet("color:#8a8a96;")
+        self.lb_anim_live.setStyleSheet("color:#91a4bd;")
 
     # заполнение и сбор таблицы анимаций
     def _fill_anims(self, rules=None):
@@ -1014,9 +1017,11 @@ class AnimationsSettingsMixin:
         # be found again after the table is rebuilt
         item_on.setData(Qt.ItemDataRole.UserRole, rule.id)
         item_loop = checkable(rule.loop)
+        keywords_item = QTableWidgetItem(rule.keywords)
+        keywords_item.setFlags(keywords_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
         cells = [
             item_on,
-            QTableWidgetItem(rule.keywords),
+            keywords_item,
             QTableWidgetItem(self._anim_name_cell(rule)),
             None,  # режим — выпадающий список,
             None,  # формы — тоже список,
@@ -1028,6 +1033,7 @@ class AnimationsSettingsMixin:
                 continue
             item.setToolTip(item.text())
             self.tbl_anims.setItem(row, column, item)
+        keywords_item.setToolTip(self._anim_keywords_tooltip(rule.keywords))
         # варианты хранятся в ячейке имени: таблица — единственный источник правил,
         # пока окно открыто, и пересборка не должна их терять
         # the variants live in the name cell: the table is the only source of
@@ -1305,8 +1311,53 @@ class AnimationsSettingsMixin:
             + " "
             + i18n.t("Клавишу остановки получает и игра, поэтому подойдёт обычная игровая клавиша.")
         )
-        self.lb_anim_stop.setStyleSheet("color:#8a8a96;")
+        self.lb_anim_stop.setStyleSheet("color:#91a4bd;")
         return True
+
+    @staticmethod
+    def _anim_keywords_tooltip(text):
+        """Explain that the keywords cell opens the multiline editor."""
+        content = text or i18n.t("Ключевые слова не заданы")
+        instruction = i18n.t("Щёлкните ячейку, чтобы посмотреть и изменить список.")
+        return f"{content}\n\n{instruction}"
+
+    def _anim_keyword_cell_clicked(self, row, column):
+        """Open the full keyword editor when its table cell is selected."""
+        if column == 1:
+            item = self.tbl_anims.item(row, column)
+            if item is not None:
+                self._edit_anim_keywords(item)
+
+    def _edit_anim_keywords(self, item):
+        """Edit a rule's complete keyword list in a roomy multiline dialog."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle(i18n.t("Ключевые слова анимации"))
+        dialog.setMinimumSize(480, 320)
+        layout = QVBoxLayout(dialog)
+        layout.addWidget(
+            QLabel(
+                i18n.t("Введите слова и фразы через запятую, точку с запятой или с новой строки:")
+            )
+        )
+        editor = QPlainTextEdit(dialog)
+        editor.setPlainText(item.text())
+        editor.setPlaceholderText(i18n.t("например: привет, поздороваться; сказать привет"))
+        layout.addWidget(editor, 1)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel,
+            parent=dialog,
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Save).setText(i18n.t("Сохранить"))
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(i18n.t("Отмена"))
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        _fit_dialog(dialog)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            item.setText(editor.toPlainText().strip())
+            item.setToolTip(self._anim_keywords_tooltip(item.text()))
+            return True
+        return False
 
     def _add_anim(self):
         """Новое правило с разумными значениями по умолчанию.
@@ -1323,7 +1374,7 @@ class AnimationsSettingsMixin:
         item = self.tbl_anims.item(row, 1)
         if item is not None:
             self.tbl_anims.setCurrentCell(row, 1)
-            self.tbl_anims.editItem(item)
+            self._edit_anim_keywords(item)
         self._anims_changed()
 
     def _del_anim(self):
@@ -1428,7 +1479,7 @@ class AnimationsSettingsMixin:
         text = self.ed_anims_test.text()
         if not text.strip():
             self.lb_anims_test.setText(i18n.t("Напишите фразу для проверки."))
-            self.lb_anims_test.setStyleSheet("color:#8a8a96;")
+            self.lb_anims_test.setStyleSheet("color:#91a4bd;")
             return
         # тот же порядок, что и в работе: по месту слова в сообщении, каждое
         # ключевое слово правила — своим выходом, слова-синонимы — по ключу

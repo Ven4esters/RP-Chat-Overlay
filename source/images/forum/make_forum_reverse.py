@@ -111,7 +111,7 @@ def flow():
 # --------------------------------------- две кнопки скачивания (480 px)
 def btn_exe():
     w, h = 480, 80
-    t1, t2 = "Скачать программу", "RPChatOverlay.exe · 37,4 МБ · Windows 10/11"
+    t1, t2 = "Скачать программу", "FiveMChatOverlay.exe · 37,4 МБ · Windows 10/11"
     s1 = fit(t1, 340, 20, bold=True, spacing=0.4)
     s2 = fit(t2, 336, 11.5)
     b = [

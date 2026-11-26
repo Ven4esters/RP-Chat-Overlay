@@ -1,6 +1,6 @@
-"""Пакет приложения RP Chat Overlay — переводчик чата для GTA V и FiveM.
+"""Пакет приложения FiveM Chat Overlay — переводчик чата для GTA V и FiveM.
 
-RP Chat Overlay application package: a chat translator for GTA V and FiveM.
+FiveM Chat Overlay application package: a chat translator for GTA V and FiveM.
 
 Структура пакета / package layout:
     config.py       пути, журнал, конфигурация / paths, logging, configuration
@@ -36,12 +36,14 @@ Package modules use absolute imports so PyInstaller bundles them reliably.
 
 from __future__ import annotations
 
-APP_NAME = "RP Chat Overlay"
-APP_NAME_FULL = "RP Chat Overlay"
+APP_NAME = "FiveM Chat Overlay"
+APP_NAME_FULL = "FiveM Chat Overlay"
 VERSION = "1.18.0"
 VERSION_TUPLE = (1, 18, 0, 0)
 
 # Имя мьютекса одиночного запуска / single-instance mutex name.
+# Keep the internal mutex identifier stable across the rename so the old and
+# new builds still share the same single-instance lock during upgrades.
 MUTEX_NAME = "Local\\RPChatOverlayMutex"
 
 # Заголовок главного окна и трея / main window and tray title.

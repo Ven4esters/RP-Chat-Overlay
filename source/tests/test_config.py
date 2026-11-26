@@ -5,7 +5,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.config import DEFAULT_CONFIG, _root, resource_path, load_config  # noqa: E402
+import app.config as config_module  # noqa: E402
+from app.config import DEFAULT_CONFIG, _local_fallback_root, _root, resource_path, load_config  # noqa: E402
 
 
 def test_default_config_has_required_keys():
@@ -30,6 +31,29 @@ def test_default_config_values():
     assert DEFAULT_CONFIG["glossary_enabled"] is True
     assert DEFAULT_CONFIG["dlx_enabled"] is False
     assert DEFAULT_CONFIG["anims_enabled"] is False
+
+
+def test_load_config_preserves_configured_chat_and_overlay_keys(monkeypatch):
+    """Existing key choices remain intact when a config is loaded."""
+    saved = {"game_chat_key": "t", "hotkey": "F6"}
+    monkeypatch.setattr(config_module, "read_json", lambda *_args: saved)
+    monkeypatch.setattr(config_module, "save_config", lambda _cfg: None)
+
+    loaded = load_config()
+    assert loaded["game_chat_key"] == "t"
+    assert loaded["hotkey"] == "F6"
+
+
+def test_local_fallback_root_keeps_existing_legacy_user_data(tmp_path):
+    """Renaming the app must not strand existing settings and logs."""
+    legacy = tmp_path / "RPChatOverlay"
+    legacy.mkdir()
+    assert _local_fallback_root(tmp_path) == legacy
+
+
+def test_local_fallback_root_uses_new_name_for_fresh_install(tmp_path):
+    """Fresh installs use the new branded data directory."""
+    assert _local_fallback_root(tmp_path) == tmp_path / "FiveMChatOverlay"
 
 
 def test_root_returns_path():

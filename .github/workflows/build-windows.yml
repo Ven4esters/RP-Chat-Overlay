@@ -1,11 +1,11 @@
 name: Build Windows exe
 
-# Собирает source/ -> dist/RPChatOverlay.exe прямо в облаке GitHub.
+# Собирает source/ -> dist/FiveMChatOverlay.exe прямо в облаке GitHub.
 #
 # Как получить exe бесплатно и без установки Python:
 #   1) залейте репозиторий (папки dist и source);
 #   2) вкладка Actions -> «Build Windows exe» -> Run workflow;
-#   3) через 3-5 минут скачайте RPChatOverlay.exe в разделе Artifacts
+#   3) через 3-5 минут скачайте FiveMChatOverlay.exe в разделе Artifacts
 #      (или запустите `git tag v1.0 && git push --tags` — exe сам прикрепится к Releases).
 
 on:
@@ -38,28 +38,41 @@ jobs:
           pip install pyinstaller
 
       - name: Build exe into dist/
-        run: python -m PyInstaller --noconfirm --clean --distpath ../dist RPChatOverlay.spec
+        run: python -m PyInstaller --noconfirm --clean --distpath ../dist FiveMChatOverlay.spec
+
+      - name: Write README and checksum sidecars
+        run: python tools/write_release_info.py ../dist/FiveMChatOverlay.exe
 
       - name: Show result
         working-directory: .
         run: |
           dir dist
-          python -c "import os;print('RPChatOverlay.exe:', round(os.path.getsize('dist/RPChatOverlay.exe')/1048576, 1), 'MB')"
+          python -c "import os;print('FiveMChatOverlay.exe:', round(os.path.getsize('dist/FiveMChatOverlay.exe')/1048576, 1), 'MB')"
 
       - name: Upload artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: RPChatOverlay-exe
-          path: dist/RPChatOverlay.exe
+          name: FiveMChatOverlay-release-files
+          path: |
+            dist/FiveMChatOverlay.exe
+            dist/FiveMChatOverlay-README.txt
+            dist/FiveMChatOverlay.exe.md5
+            dist/FiveMChatOverlay.exe.sha256
           if-no-files-found: error
 
       - name: Attach to Release (on tag)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
-          files: dist/RPChatOverlay.exe
-          name: RP Chat Overlay ${{ github.ref_name }}
+          files: |
+            dist/FiveMChatOverlay.exe
+            dist/FiveMChatOverlay-README.txt
+            dist/FiveMChatOverlay.exe.md5
+            dist/FiveMChatOverlay.exe.sha256
+          name: FiveM Chat Overlay ${{ github.ref_name }}
           body: |
-            Готовый файл: **RPChatOverlay.exe** — скачать и запустить, ничего устанавливать не нужно.
+            Готовый файл: **FiveMChatOverlay.exe** — скачать и запустить, ничего устанавливать не нужно.
+            Рядом опубликованы `FiveMChatOverlay-README.txt` и контрольные суммы MD5/SHA-256.
+            VirusTotal не запускается автоматически: отчёт нужно получить отдельно для этой сборки.
             Исходники и инструкции — в папке `source/` репозитория.
           draft: false

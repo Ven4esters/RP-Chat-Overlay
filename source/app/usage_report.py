@@ -93,7 +93,7 @@ class UsageReporter:
         elapsed = max(0, int(time.monotonic() - self._started))
         updated = datetime.now(timezone.utc).isoformat(timespec="seconds")
         lines = [
-            "# RP Chat Overlay — local usage and performance report",
+            "# FiveM Chat Overlay — local usage and performance report",
             "",
             f"- Started (UTC): {self.started_at.isoformat(timespec='seconds')}",
             f"- Updated (UTC): {updated}",

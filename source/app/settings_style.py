@@ -4,16 +4,16 @@ from PySide6.QtGui import QGuiApplication
 
 
 STYLE = """
-QDialog, QWidget#page { background: #14141a; color: #f2f2f2; }
-QWidget { color: #f2f2f2; font-size: 13px; }
+QDialog, QWidget#page { background: #0b1422; color: #f2f6fc; }
+QWidget { color: #f2f6fc; font-size: 13px; }
 QLabel#h1 { font-size: 19px; font-weight: 600; }
-QLabel#sub { color: #8a8a96; font-size: 12px; }
-QLabel#hint { color: #8a8a96; font-size: 11px; }
+QLabel#sub { color: #91a4bd; font-size: 12px; }
+QLabel#hint { color: #91a4bd; font-size: 11px; }
 QLabel#warn { color: #ffb45b; font-size: 11px; }
 QLabel#err { color: #ff6b6b; font-size: 12px; }
 QLabel#ok { color: #66d18b; font-size: 12px; }
-QFrame#card { background: #1c1c24; border: 1px solid #2e2e3a; border-radius: 10px; }
-QFrame#sep { background: #2a2a36; max-height: 1px; border: none; }
+QFrame#card { background: #162337; border: 1px solid #2a3d57; border-radius: 10px; }
+QFrame#sep { background: #22334a; max-height: 1px; border: none; }
 /* Плашка состояния сервиса DeepL. Цвет говорит то же, что и слово: зелёный —
    работает, янтарный — работает, но DeepL отказывает, серый — выключен,
    красный — ошибка. Перед словом стоит точка, чтобы состояние читалось и без
@@ -26,7 +26,7 @@ QLabel#dlxState { font-weight: 600; padding: 2px 0; }
 QLabel#dlxState[state="ready"] { color: #7ff0b0; }
 QLabel#dlxState[state="upstream"] { color: #ffd06b; }
 QLabel#dlxState[state="starting"] { color: #a9c4ff; }
-QLabel#dlxState[state="off"], QLabel#dlxState[state="missing"] { color: #9a9aa6; }
+QLabel#dlxState[state="off"], QLabel#dlxState[state="missing"] { color: #8496b0; }
 QLabel#dlxState[state="error"] { color: #ff9c9c; }
 /* Надпись у тумблера: называет то же состояние, что и бегунок, и красится
    вместе с ним. Плоская кнопка — чтобы её можно было нажать, но она не
@@ -39,108 +39,112 @@ QPushButton#dlxSwitch[state="ready"] { color: #7ff0b0; }
 QPushButton#dlxSwitch[state="upstream"] { color: #ffd06b; }
 QPushButton#dlxSwitch[state="starting"] { color: #a9c4ff; }
 QPushButton#dlxSwitch[state="off"], QPushButton#dlxSwitch[state="missing"] {
-    color: #9a9aa6; }
+    color: #8496b0; }
 QPushButton#dlxSwitch[state="error"] { color: #ff9c9c; }
 QPushButton#dlxSwitch:hover { color: #ffffff; }
-QPushButton#dlxSwitch:disabled { color: #6b6b79; }
+QPushButton#dlxSwitch:disabled { color: #8193ad; }
 /* погашенный раздел: плашка, тумблер и надпись теряют цвет вместе с остальным
    a dimmed section: badge, switch and caption lose their colour with the rest */
 QWidget#page[moduleOff="true"] QLabel#dlxState,
 QWidget#page[moduleOff="true"] QPushButton#dlxSwitch {
-    background: transparent; border: none; color: #6b6b79; }
+    background: transparent; border: none; color: #8193ad; }
 /* вертикальная черта между тумблером и служебными кнопками
    the vertical line between the switch and the service buttons */
-QFrame#vsep { background: #2e2e3a; max-width: 1px; border: none; }
-QListWidget#nav { background: #17171e; border: none; border-right: 1px solid #26262f;
+QFrame#vsep { background: #2a3d57; max-width: 1px; border: none; }
+QListWidget#nav { background: #121d2d; border: none; border-right: 1px solid #24344b;
                   padding: 8px 6px; outline: 0; }
-QListWidget#nav::item { padding: 10px 12px; border-radius: 8px; margin: 2px 4px; color: #c8c8d2; }
-QListWidget#nav::item:selected { background: #26263a; color: #ffffff; }
-QListWidget#nav::item:hover { background: #20202b; }
-QLineEdit, QSpinBox, QComboBox { background: #0e0e12; border: 1px solid #3a3a48;
+QListWidget#nav::item { padding: 10px 12px; border-radius: 8px; margin: 2px 4px; color: #bdcbe0; }
+QListWidget#nav::item:selected { background: #1d3049; color: #ffffff; }
+QListWidget#nav::item:hover { background: #1a293e; }
+QLineEdit, QSpinBox, QComboBox { background: #0f1928; border: 1px solid #30445d;
                                  border-radius: 6px; padding: 6px 8px; min-height: 18px; }
-QLineEdit:focus, QSpinBox:focus, QComboBox:focus { border: 1px solid #5b8cff; }
-QLineEdit:read-only { color: #b9c4ff; }
+QLineEdit:focus, QSpinBox:focus, QComboBox:focus { border: 1px solid #4e8bff; }
+QLineEdit:read-only { color: #b5d0ff; }
 /* у счётчиков свои кнопки «−» и «+», штатные стрелки убираем совсем, иначе
    они отнимают у поля почти всю ширину. Spin boxes draw their − and + as real
    buttons, so the built-in arrows are given zero width instead of a hidden one. */
 QSpinBox::up-button, QSpinBox::down-button { width: 0px; height: 0px;
                                             border: none; background: transparent; }
-QComboBox QAbstractItemView { background: #1c1c24; selection-background-color: #2e3f6b;
-                              border: 1px solid #3a3a48; }
+QComboBox QAbstractItemView { background: #162337; selection-background-color: #263e63;
+                              border: 1px solid #30445d; }
+QMenu { background: #162337; color: #eaf1fa; border: 1px solid #30445d; padding: 4px; }
+QMenu::item { padding: 5px 22px; }
+QMenu::item:selected { background: #1d3049; color: #ffffff; }
+QMenu::separator { height: 1px; background: #2a3d57; margin: 4px 8px; }
 /* Кнопки: заметная рамка, отдельные состояния и видимый фокус для клавиатуры.
    Buttons carry a visible outline, distinct hover/pressed states and a focus ring
    for keyboard users. */
-QPushButton { background: #22222c; border: 1px solid #3c3c4a; border-radius: 8px;
-              padding: 8px 16px; color: #e9e9f2; min-height: 20px; }
-QPushButton:hover { background: #2c2c39; border: 1px solid #4d4d60; }
-QPushButton:pressed { background: #1c1c25; border: 1px solid #5b8cff; }
-QPushButton:focus { border: 1px solid #4d4d60; }
-QPushButton:disabled { background: #1a1a21; border: 1px solid #2b2b36; color: #6b6b78; }
+QPushButton { background: #1b2b42; border: 1px solid #30445c; border-radius: 8px;
+              padding: 8px 16px; color: #eaf1fa; min-height: 20px; }
+QPushButton:hover { background: #253750; border: 1px solid #445c7a; }
+QPushButton:pressed { background: #142136; border: 1px solid #4e8bff; }
+QPushButton:focus { border: 1px solid #445c7a; }
+QPushButton:disabled { background: #152236; border: 1px solid #22334a; color: #8193ad; }
 /* главная кнопка: ровная заливка без светлой рамки — рамка того же цвета,
    что и фон, поэтому кнопка не выглядит постоянно нажатой / the main button is
    a flat fill: its border matches the fill, so it never looks stuck in focus */
-QPushButton#primary { background: #3d6fd8; border: 1px solid #3d6fd8; color: #ffffff;
+QPushButton#primary { background: #2864e8; border: 1px solid #2864e8; color: #ffffff;
                       font-weight: 600; }
-QPushButton#primary:hover { background: #4a7ce8; border: 1px solid #4a7ce8; }
-QPushButton#primary:pressed { background: #345fbd; border: 1px solid #345fbd; }
-QPushButton#primary:focus { background: #4174e2; border: 1px solid #4174e2; }
-QPushButton#primary:disabled { background: #2b3a5c; border: 1px solid #35486e; color: #9aa6bd; }
+QPushButton#primary:hover { background: #3978fa; border: 1px solid #3978fa; }
+QPushButton#primary:pressed { background: #1f54c7; border: 1px solid #1f54c7; }
+QPushButton#primary:focus { background: #3878fa; border: 1px solid #3878fa; }
+QPushButton#primary:disabled { background: #213a61; border: 1px solid #365179; color: #a6b8d1; }
 QPushButton#danger { color: #ff9c9c; border: 1px solid #4a3238; }
 QPushButton#danger:hover { background: #2a1e22; border: 1px solid #7a4a52; color: #ffbcbc; }
-QPushButton#soft { color: #ffcf9c; border: 1px solid #33333f; background: transparent; }
+QPushButton#soft { color: #ffcf9c; border: 1px solid #2a3d57; background: transparent; }
 QPushButton#soft:hover { background: #2a2418; border: 1px solid #7a6444; color: #ffd9ae; }
-QToolButton#step { background: #22222c; border: 1px solid #3c3c4a; border-radius: 8px;
-                   color: #e9e9f2; font-weight: 600; }
-QToolButton#step:hover { background: #2f2f3d; border: 1px solid #5b8cff; }
-QToolButton#step:pressed { background: #1c1c25; border: 1px solid #5b8cff; }
-QToolButton#step:disabled { color: #6b6b78; border: 1px solid #2b2b36; background: #1a1a21; }
+QToolButton#step { background: #1b2b42; border: 1px solid #30445c; border-radius: 8px;
+                   color: #eaf1fa; font-weight: 600; }
+QToolButton#step:hover { background: #2c405a; border: 1px solid #4e8bff; }
+QToolButton#step:pressed { background: #142136; border: 1px solid #4e8bff; }
+QToolButton#step:disabled { color: #8193ad; border: 1px solid #22334a; background: #152236; }
 QCheckBox { spacing: 8px; }
 QCheckBox::indicator { width: 16px; height: 16px; border-radius: 4px;
-                       border: 1px solid #4a4a58; background: #0e0e12; }
-QCheckBox::indicator:checked { background: #3d6fd8; border: 1px solid #4f7ee6; }
-QTableWidget { background: #0e0e12; border: 1px solid #3a3a48; border-radius: 8px;
-               gridline-color: #26262f; selection-background-color: #2e3f6b; }
-QHeaderView::section { background: #1c1c24; color: #b9b9c6; border: none;
-                       border-bottom: 1px solid #3a3a48; padding: 6px; }
+                       border: 1px solid #3c526d; background: #0f1928; }
+QCheckBox::indicator:checked { background: #2864e8; border: 1px solid #4f7ee6; }
+QTableWidget { background: #0f1928; border: 1px solid #30445d; border-radius: 8px;
+               gridline-color: #24344b; selection-background-color: #263e63; }
+QHeaderView::section { background: #162337; color: #bdcbe0; border: none;
+                       border-bottom: 1px solid #30445d; padding: 6px; }
 QTableWidget::item { padding: 4px; }
 /* галочки в таблице словаря: свой индикатор, иначе Qt рисует тонкую «птичку»
    без рамки, которую на тёмном фоне почти не видно. Table check indicators are
    drawn explicitly: the default is a thin tick with no box, nearly invisible here. */
 QTableWidget::indicator, QTableView::indicator { width: 18px; height: 18px; }
 QTableWidget::indicator:unchecked, QTableView::indicator:unchecked {
-    border: 1px solid #5a5a6a; border-radius: 4px; background: #16161d; }
+    border: 1px solid #556b88; border-radius: 4px; background: #122034; }
 QTableWidget::indicator:unchecked:hover, QTableView::indicator:unchecked:hover {
-    border: 1px solid #7ea6ff; }
+    border: 1px solid #7ab2ff; }
 QTableWidget::indicator:checked, QTableView::indicator:checked {
-    border: 1px solid #7ea6ff; border-radius: 4px; background: #3d6fd8; }
-QScrollBar:vertical { background: #14141a; width: 10px; margin: 0; }
-QScrollBar::handle:vertical { background: #33333f; border-radius: 5px; min-height: 30px; }
+    border: 1px solid #7ab2ff; border-radius: 4px; background: #2864e8; }
+QScrollBar:vertical { background: #0b1422; width: 10px; margin: 0; }
+QScrollBar::handle:vertical { background: #2a3d57; border-radius: 5px; min-height: 30px; }
 QScrollBar::add-line, QScrollBar::sub-line { height: 0; }
-QToolTip { background: #23232e; color: #f2f2f2; border: 1px solid #3a3a48; padding: 4px; }
+QToolTip { background: #1b2a40; color: #f2f6fc; border: 1px solid #30445d; padding: 4px; }
 /* Раздел с выключенным модулем: содержимое уходит в серый, карточки и рамки
    гаснут, а подсказка сверху (QLabel#moduleOff) остаётся своего цвета — её и
    надо прочитать. A section with its module off goes grey: fields, cards and
    frames fade, while the hint on top (QLabel#moduleOff) keeps its own colour,
    because that is the line to read. */
 QWidget#page[moduleOff="true"] QLabel,
-QWidget#page[moduleOff="true"] QCheckBox { color: #6b6b79; }
-QWidget#page[moduleOff="true"] QCheckBox#moduleToggle { color: #e9e9f2; }
-QWidget#page[moduleOff="true"] QFrame#card { background: #17171d; border: 1px solid #24242d; }
+QWidget#page[moduleOff="true"] QCheckBox { color: #8193ad; }
+QWidget#page[moduleOff="true"] QCheckBox#moduleToggle { color: #eaf1fa; }
+QWidget#page[moduleOff="true"] QFrame#card { background: #121d2d; border: 1px solid #1a293e; }
 QWidget#page[moduleOff="true"] QLineEdit,
 QWidget#page[moduleOff="true"] QSpinBox,
-QWidget#page[moduleOff="true"] QComboBox { background: #101014; border: 1px solid #2b2b36;
-                                           color: #6b6b79; }
-QWidget#page[moduleOff="true"] QTableWidget { background: #101014; border: 1px solid #2b2b36;
-                                              gridline-color: #202028; color: #6b6b79; }
-QWidget#page[moduleOff="true"] QHeaderView::section { background: #17171d; color: #6b6b79; }
-QWidget#page[moduleOff="true"] QPushButton { background: #191920; border: 1px solid #2b2b36;
-                                             color: #6b6b79; }
-QWidget#page[moduleOff="true"] QPushButton#primary { background: #262f42; border: 1px solid #2c3548;
-                                                     color: #7c8496; }
+QWidget#page[moduleOff="true"] QComboBox { background: #0f1928; border: 1px solid #22334a;
+                                           color: #8193ad; }
+QWidget#page[moduleOff="true"] QTableWidget { background: #0f1928; border: 1px solid #22334a;
+                                              gridline-color: #17263a; color: #8193ad; }
+QWidget#page[moduleOff="true"] QHeaderView::section { background: #121d2d; color: #8193ad; }
+QWidget#page[moduleOff="true"] QPushButton { background: #17253a; border: 1px solid #22334a;
+                                             color: #8193ad; }
+QWidget#page[moduleOff="true"] QPushButton#primary { background: #1b304c; border: 1px solid #253a56;
+                                                     color: #8fa3be; }
 QScrollArea#scroll { background: transparent; border: none; }
-QScrollArea#scroll > QWidget > QWidget { background: #14141a; }
-QScrollBar:horizontal { background: #14141a; height: 10px; margin: 0; }
-QScrollBar::handle:horizontal { background: #33333f; border-radius: 5px; min-width: 30px; }
+QScrollArea#scroll > QWidget > QWidget { background: #0b1422; }
+QScrollBar:horizontal { background: #0b1422; height: 10px; margin: 0; }
+QScrollBar::handle:horizontal { background: #2a3d57; border-radius: 5px; min-width: 30px; }
 """
 
 

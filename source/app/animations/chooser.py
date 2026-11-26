@@ -80,43 +80,43 @@ SHOW_TIMEOUT_S = 5.0
 SETTLE_S = 0.6
 
 STYLE = """
-#choiceBox { background: rgba(16,16,22,250); border: 1px solid #3a3a4a;
+#choiceBox { background: rgba(12,20,34,250); border: 1px solid #2d415a;
              border-radius: 12px; }
 #choiceTitle { color: #ffffff; font-size: 17px; font-weight: 600; }
-#choiceKeys { color: #8a8a96; font-size: 11px; }
-#choiceEmpty { color: #8a8a96; font-size: 12px; }
+#choiceKeys { color: #91a4bd; font-size: 11px; }
+#choiceEmpty { color: #91a4bd; font-size: 12px; }
 
 /* карточка варианта: рамка, номер, название, описание, команда
    a variant card: frame, number, title, description, command */
 QFrame#choiceCard {
-    background: #1e1e28; border: 1px solid #33333f; border-radius: 9px;
+    background: #1a2940; border: 1px solid #2a3d57; border-radius: 9px;
 }
-QFrame#choiceCard:hover { background: #262636; border-color: #5b8cff; }
-QFrame#choiceCard:focus { background: #2a2a3c; border: 2px solid #5b8cff; }
+QFrame#choiceCard:hover { background: #243653; border-color: #4e8bff; }
+QFrame#choiceCard:focus { background: #263b57; border: 2px solid #4e8bff; }
 QFrame#choiceCard[chosen="true"] { background: #1b2b1f; border: 2px solid #4ad07a; }
 QLabel#choiceMark { color: #4ad07a; font-size: 11px; font-weight: 700; }
 QLabel#choiceNum {
-    color: #c9d4ff; background: #2a3350; border: 1px solid #3f4d78;
+    color: #c1d8ff; background: #213856; border: 1px solid #345075;
     border-radius: 6px; font-size: 13px; font-weight: 700;
 }
 QLabel#choiceLabel { color: #ffffff; font-size: 15px; font-weight: 600; }
-QLabel#choiceDesc { color: #b9b9c8; font-size: 12px; }
-QLabel#choiceNoDesc { color: #6a6a78; font-size: 12px; font-style: italic; }
-QLabel#choiceName { color: #7b88b8; font-size: 11px; }
+QLabel#choiceDesc { color: #bdcbe0; font-size: 12px; }
+QLabel#choiceNoDesc { color: #8193ad; font-size: 12px; font-style: italic; }
+QLabel#choiceName { color: #9bb3d5; font-size: 11px; }
 
 /* заголовок группы вариантов и черта между группами
    a variants group title and the rule between groups */
 QLabel#choiceGroup {
-    color: #9fb0ff; font-size: 11px; font-weight: 700; padding-top: 4px;
+    color: #a9caff; font-size: 11px; font-weight: 700; padding-top: 4px;
 }
-QFrame#choiceSep { background: #3a3a4c; border: none;
+QFrame#choiceSep { background: #2b405c; border: none;
                    min-height: 1px; max-height: 1px; }
 
 QPushButton#choiceCancel {
-    background: #24242e; border: 1px solid #3a3a46; border-radius: 6px;
-    padding: 7px 16px; color: #c8c8d2; font-size: 12px;
+    background: #1c2c43; border: 1px solid #2d415a; border-radius: 6px;
+    padding: 7px 16px; color: #bdcbe0; font-size: 12px;
 }
-QPushButton#choiceCancel:hover { background: #2e2e3a; border-color: #5b8cff; }
+QPushButton#choiceCancel:hover { background: #2a3d57; border-color: #4e8bff; }
 
 /* список внутри окна: без этой строки QScrollArea рисует свой белый фон и
    окно выглядит как белая дыра в тёмной рамке
@@ -124,9 +124,9 @@ QPushButton#choiceCancel:hover { background: #2e2e3a; border-color: #5b8cff; }
    background and the window looks like a white hole in a dark frame */
 QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; }
 QScrollBar:vertical { background: transparent; width: 8px; margin: 0; }
-QScrollBar::handle:vertical { background: #3a3a4a; border-radius: 4px;
+QScrollBar::handle:vertical { background: #2d415a; border-radius: 4px;
                               min-height: 24px; }
-QScrollBar::handle:vertical:hover { background: #5b8cff; }
+QScrollBar::handle:vertical:hover { background: #4e8bff; }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
     background: transparent; }

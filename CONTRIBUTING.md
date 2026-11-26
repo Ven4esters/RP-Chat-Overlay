@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve RP Chat Overlay. Changes should stay focused, preserve
+Thanks for helping improve FiveM Chat Overlay. Changes should stay focused, preserve
 Russian and English UI behavior, and include a regression test when they change
 or fix behavior.
 

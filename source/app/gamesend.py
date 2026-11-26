@@ -1,10 +1,10 @@
 """Окно игры: поиск, фокус, ввод в чат (Windows, ctypes) / game window input.
 
 Модуль отвечает за всё, что происходит за пределами оверлея: находит окно
-GTA V или FiveM, выводит его вперёд, открывает чат клавишей T, вставляет текст
-и отправляет его. Работает только на Windows: используется Win32 API.
+GTA V или FiveM, выводит его вперёд, открывает чат заданной клавишей, вставляет
+текст и отправляет его. Работает только на Windows: используется Win32 API.
 This module owns everything outside the overlay: it finds the GTA V or FiveM
-window, brings it to the front, opens the chat with the T key, pastes the text
+window, brings it to the front, opens the chat with the configured key, pastes the text
 and submits it. Windows only, it talks to the Win32 API.
 
 Правила / rules
@@ -27,6 +27,7 @@ from collections import namedtuple
 from functools import wraps
 
 from app.config import log
+from app.keycodes import chat_key_vk
 from app.usage_report import measure_call
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)
@@ -393,22 +394,13 @@ def _ms(cfg, key, default):
     time.sleep(max(0, int(cfg.get(key, default))) / 1000)
 
 
-def chat_key_vk(cfg):
-    """Виртуальный код клавиши чата (по умолчанию T).
-
-    The virtual key code of the chat key (T by default).
-    """
-    key = (str(cfg.get("game_chat_key", "t")).strip().upper() or "T")[0]
-    return ord(key)
-
-
 @_serialized_input
 def open_chat(cfg, hwnd) -> bool:
-    """Открыть чат игры клавишей T / open the in-game chat with the chat key.
+    """Открыть чат игры заданной клавишей / open the in-game chat.
 
-    Сначала открыть чат игры (T), чтобы окружающие видели, что вы пишете:
-    игра в фокус → T → пауза. Чат остаётся открытым, пока пользователь печатает
-    в оверлее. Возвращает True, если чат, скорее всего, открыт.
+    По умолчанию это T; клавишу можно изменить в настройках. Чат открывается до
+    оверлея, чтобы окружающие видели, что вы пишете. Чат остаётся открытым,
+    пока пользователь печатает в оверлее. Возвращает True, если чат открыт.
     Opens the game chat with the chat key, so other players see that you are
     typing: focus the game, press the key and wait a little. Returns True when
     the chat is most likely open.
@@ -420,7 +412,9 @@ def open_chat(cfg, hwnd) -> bool:
         return False
     _ms(cfg, "game_focus_delay_ms", 150)
     vk = chat_key_vk(cfg)
-    log.info("Открываю чат игры клавишей %s", chr(vk))
+    log.info(
+        "Открываю чат игры клавишей %s", str(cfg.get("game_chat_key", "t")).strip().upper() or "T"
+    )
     tap(vk)
     _ms(cfg, "game_open_delay_ms", 300)
     return is_fg(hwnd)
@@ -443,7 +437,7 @@ def close_chat(cfg, hwnd):
 def send_to_open_chat(cfg, hwnd, text, clipboard_text=None):
     """Вставить текст в УЖЕ открытый чат игры и отправить (Enter).
 
-    Клавиша чата (T) НЕ нажимается — чат был открыт заранее при открытии
+    Клавиша чата повторно НЕ нажимается — чат был открыт заранее при открытии
     оверлея, поэтому он не мигает и не закрывается повторно.
     """
     lost = (False, "Игра потеряла фокус во время ввода.")

@@ -41,7 +41,7 @@ server.js           локальный запуск, на Vercel не испол
 **Private** (любой), **Create repository**. Затем на своём компьютере:
 
 ```bash
-cd "RP Chat Overhaul/source/tools/deeplx-local"
+cd "FiveM Chat Overlay/source/tools/deeplx-local"
 git init
 git add .
 git commit -m "DeepLX for Vercel"
@@ -152,7 +152,7 @@ Variables**, добавьте `TOKEN` для Production, сохраните, з�
 
 ```bash
 npm install -g vercel
-cd "RP Chat Overhaul/source/tools/deeplx-local"
+cd "FiveM Chat Overlay/source/tools/deeplx-local"
 vercel login          # откроется браузер, войдите тем же аккаунтом
 vercel                # первый запуск: вопросы про проект, отвечайте Enter
 vercel --prod         # боевой адрес
@@ -229,7 +229,7 @@ https://имя-проекта.vercel.app
 ## Короткая версия (для тех, кто уже всё знает)
 
 ```bash
-cd "RP Chat Overhaul/source/tools/deeplx-local"
+cd "FiveM Chat Overlay/source/tools/deeplx-local"
 git init && git add . && git commit -m "DeepLX for Vercel"
 git remote add origin https://github.com/ЛОГИН/deeplx.git && git push -u origin main
 # vercel.com → Add New → Project → Import → Framework: Other → Deploy

@@ -112,7 +112,7 @@ def hero(name: str, locale: str) -> None:
     )
 
     badge = "GTA V  •  FIVEM" if locale == "en" else "GTA V  •  FIVEM"
-    title = "RP Chat Overlay"
+    title = "FiveM Chat Overlay"
     subtitle = (
         "Chat translation and animation automation for roleplay"
         if locale == "en"

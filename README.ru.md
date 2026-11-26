@@ -1,13 +1,13 @@
 <p align="center">
-  <img src="source/icon.png" alt="Значок приложения RP Chat Overlay" width="96">
+  <img src="source/icon.png" alt="Значок приложения FiveM Chat Overlay" width="96">
 </p>
 
-<h1 align="center">RP Chat Overlay</h1>
+<h1 align="center">FiveM Chat Overlay</h1>
 
 <p align="center">Переводите ролевой чат в GTA V прямо во время набора и запускайте анимации персонажа по ключевым словам.</p>
 
-[![CI](https://github.com/Ven4esters/RP-Chat-Overlay/actions/workflows/ci.yml/badge.svg)](https://github.com/Ven4esters/RP-Chat-Overlay/actions/workflows/ci.yml)
-[![Последний релиз](https://img.shields.io/github/v/release/Ven4esters/RP-Chat-Overlay?display_name=tag)](https://github.com/Ven4esters/RP-Chat-Overlay/releases)
+[![CI](https://github.com/Ven4esters/FiveM-Chat-Overlay/actions/workflows/ci.yml/badge.svg)](https://github.com/Ven4esters/FiveM-Chat-Overlay/actions/workflows/ci.yml)
+[![Последний релиз](https://img.shields.io/github/v/release/Ven4esters/FiveM-Chat-Overlay?display_name=tag)](https://github.com/Ven4esters/FiveM-Chat-Overlay/releases)
 [![Лицензия: MIT](https://img.shields.io/badge/лицензия-MIT-green)](LICENSE)
 [![Windows 10 / 11](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&logoColor=white)](https://www.microsoft.com/windows)
 
@@ -32,7 +32,7 @@
 
 ## О проекте
 
-RP Chat Overlay — настольный оверлей для ролевого чата в GTA V и FiveM под
+FiveM Chat Overlay — настольный оверлей для ролевого чата в GTA V и FiveM под
 Windows. Он подготавливает сообщения на другом языке и при желании отправляет
 их в игру. Дополнительные правила запускают анимации персонажа по ключевым
 словам. Интерфейс доступен на русском и английском языках.
@@ -52,20 +52,25 @@ Windows. Он подготавливает сообщения на другом 
 На скриншоте настроек показан настоящий экран приложения с русским интерфейсом,
 а не макет.
 
-<img src="source/images/settings.png" alt="Окно настроек: язык перевода, режим, сленг и горячая клавиша; подписи на русском языке" width="800">
-
-*Окно настроек, русский интерфейс.*
+В окне настроек используется тёмно-синяя тема с голубыми акцентами; интерфейс доступен на русском и английском.
 
 На схеме показан порядок действий: горячая клавиша, открытие игрового чата,
-ввод в оверлее и отправка подготовленного сообщения.
+ввод в оверлее и отправка подготовленного сообщения. По умолчанию оверлей
+открывает **F6**, а игровой чат — **T**; обе клавиши можно изменить в настройках.
 
-<img src="source/images/flow.svg" alt="Пять шагов: клавиша F6, игровой чат, оверлей, Enter и отправленное сообщение; подписи на русском" width="800">
+<img src="source/images/flow.svg" alt="Пять шагов: клавиша оверлея F6 по умолчанию, игровой чат, оверлей, Enter и отправленное сообщение; подписи на русском" width="800">
+
+## Windows-сборка и материалы темы
+
+`source/build_exe.bat` создаёт `dist/FiveMChatOverlay.exe` и рядом с ним `FiveMChatOverlay-README.txt`, `FiveMChatOverlay.exe.md5` и `FiveMChatOverlay.exe.sha256`. Эти же файлы формирует задание GitHub Actions **Build Windows exe**. В TXT статус VirusTotal отмечен как непроверенный; загрузите итоговый EXE и сверяйте отчёт по его SHA-256, прежде чем заявлять о проверке. Подробности: [`docs/RELEASE_PACKAGE_RU.md`](docs/RELEASE_PACKAGE_RU.md).
+
+Новая тема и оригинальные материалы — в [`docs/forum-topic/`](docs/forum-topic/): BBCode, баннер 1200×500, девять плашек 1200×62 и скрипт их пересборки. Прежняя форумная графика удалена. Загрузите PNG на хостинг с прямыми ссылками и замените шаблоны перед публикацией.
 
 ## Быстрый старт
 
-1. Скачайте `RPChatOverlay.exe` с официальной страницы [GitHub Releases](https://github.com/Ven4esters/RP-Chat-Overlay/releases).
+1. Скачайте `FiveMChatOverlay.exe` с официальной страницы [GitHub Releases](https://github.com/Ven4esters/FiveM-Chat-Overlay/releases).
 2. Запустите файл. Для готовой сборки отдельно устанавливать Python не нужно.
-3. В GTA V или FiveM нажмите **F6**, чтобы открыть оверлей и игровой чат. Другие игроки видят, что вы печатаете; **Esc** отменяет ввод.
+3. По умолчанию нажмите **F6**, чтобы открыть оверлей; игровой чат откроется клавишей **T**. Обе клавиши можно переназначить в настройках. Другие игроки видят, что вы печатаете; **Esc** отменяет ввод.
 4. Введите сообщение и нажмите **Enter**. Целевой язык и режим перевода задаются в **Настройках**.
 
 ### Запуск из исходников
@@ -75,8 +80,8 @@ Windows. Он подготавливает сообщения на другом 
 приложения и запустит его.
 
 ```powershell
-git clone https://github.com/Ven4esters/RP-Chat-Overlay.git
-cd RP-Chat-Overlay
+git clone https://github.com/Ven4esters/FiveM-Chat-Overlay.git
+cd FiveM-Chat-Overlay
 source\start.bat
 ```
 
@@ -119,9 +124,8 @@ source\start.bat
 
 Изменяйте параметры в окне **Настройки**. Если папка приложения доступна для
 записи, данные сохраняются рядом с программой в `data/`. Иначе используется
-`%LOCALAPPDATA%\RPChatOverlay` (или `%APPDATA%\RPChatOverlay`, если
-`LOCALAPPDATA` не задан). Журналы находятся в подпапке `logs` выбранной папки
-данных.
+`%LOCALAPPDATA%\FiveMChatOverlay` (или `%APPDATA%\FiveMChatOverlay`, если
+`LOCALAPPDATA` не задан). Если уже существует каталог старой версии `%LOCALAPPDATA%\RPChatOverlay`, приложение продолжит использовать его, сохраняя доступ к прежним настройкам. Журналы находятся в подпапке `logs` выбранной папки данных.
 
 | Настройка | По умолчанию | Назначение |
 |---|---|---|
@@ -133,7 +137,8 @@ source\start.bat
 | Отправка в игру | Включена | Отправлять подготовленный текст; при отключении — копировать его |
 | Локальный DLX/DeepL | Выключен | Сначала попробовать локальный или собственный DLX-сервис |
 | Правила анимаций | Выключены | Искать ключевые слова и отправлять команды анимаций |
-| Горячая клавиша оверлея | F6 | Открывать оверлей из игры |
+| Горячая клавиша оверлея | F6 (по умолчанию; настраивается) | Открывать оверлей из игры |
+| Клавиша игрового чата | T (по умолчанию; настраивается) | Открывать чат игры перед показом оверлея |
 
 Для настольного приложения переменные окружения не обязательны. Параметры
 `HOST`, `PORT` и `TOKEN` локального DLX описаны в его
@@ -221,7 +226,7 @@ python source/tools/check_readme.py
 
 Приложение пишет в `logs/app.log` и `logs/errors.log` внутри доступной для записи
 папки данных. Если папка программы недоступна, проверьте
-`%LOCALAPPDATA%\RPChatOverlay\logs`. Перед отправкой удалите из журнала ненужные
+`%LOCALAPPDATA%\FiveMChatOverlay\logs`. Перед отправкой удалите из журнала ненужные
 личные данные.
 
 </details>
@@ -254,4 +259,4 @@ python source/tools/check_readme.py
 ## Контакты
 
 - Автор: [Ven4esters](https://github.com/Ven4esters)
-- Вопросы и сообщения об ошибках: [GitHub Issues](https://github.com/Ven4esters/RP-Chat-Overlay/issues)
+- Вопросы и сообщения об ошибках: [GitHub Issues](https://github.com/Ven4esters/FiveM-Chat-Overlay/issues)

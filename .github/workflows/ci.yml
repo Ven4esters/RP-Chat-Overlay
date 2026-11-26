@@ -128,10 +128,14 @@ jobs:
 
       - name: Smoke-build Windows executable
         working-directory: source
-        run: python -m PyInstaller --noconfirm --clean --distpath ../dist RPChatOverlay.spec
+        run: python -m PyInstaller --noconfirm --clean --distpath ../dist FiveMChatOverlay.spec
 
-      - name: Verify packaged executable
-        run: python -c "from pathlib import Path; assert Path('dist/RPChatOverlay.exe').is_file()"
+      - name: Generate packaged release information
+        working-directory: source
+        run: python tools/write_release_info.py ../dist/FiveMChatOverlay.exe
+
+      - name: Verify packaged executable and release files
+        run: python -c "from pathlib import Path; files=['FiveMChatOverlay.exe','FiveMChatOverlay.exe.md5','FiveMChatOverlay.exe.sha256','FiveMChatOverlay-README.txt']; assert all((Path('dist')/name).is_file() for name in files)"
 
   local-dlx-tests:
     name: Local DLX protocol tests

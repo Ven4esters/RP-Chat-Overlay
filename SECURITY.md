@@ -11,7 +11,7 @@ Until the private advisory form is available, do not publish exploit details,
 tokens, personal data, or reproduction steps in a public issue. A public issue
 may ask for a private contact route, but must not include vulnerability details.
 Once enabled, use the repository's
-[private vulnerability reporting form](https://github.com/Ven4esters/RP-Chat-Overlay/security/advisories/new).
+[private vulnerability reporting form](https://github.com/Ven4esters/FiveM-Chat-Overlay/security/advisories/new).
 
 Include the affected version or commit, operating system, impact, and a minimal
 reproduction when it is safe to share. Never attach real chat logs or credentials.

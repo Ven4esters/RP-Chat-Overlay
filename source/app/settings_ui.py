@@ -258,8 +258,8 @@ def check_hotkey(spec):
 # и в правилах таблицы стилей. Один список, чтобы «серый» был одним и тем же.
 # Colours that turn grey inside a dimmed section, both in a widget stylesheet and
 # in the shared rules. One list, so that "grey" stays the same grey.
-_DIM_COLOR = "#6b6b79"
-_DIM_SOURCES = ("#dfe3ff", "#9aa0b4", "#8a8fa3", "#8a8a96", "#b9c4ff", "#f2f2f2", "#e9e9f2")
+_DIM_COLOR = "#8193ad"
+_DIM_SOURCES = ("#dae6f7", "#a0b2ca", "#91a4bd", "#91a4bd", "#b5d0ff", "#f2f6fc", "#eaf1fa")
 
 
 def _dimmed_css(css):
@@ -370,7 +370,7 @@ class SettingsWindow(DlxSettingsMixin, AnimationsSettingsMixin, QDialog):
         self._hist_field = {}  # поле -> последнее значение / field metadata
         self._disk_cache = {"cfg": {}, "docs": {}}  # диск на момент снимка / disk view
 
-        self.setWindowTitle("Настройки — RP Chat Overlay")
+        self.setWindowTitle("Настройки — FiveM Chat Overlay")
         self.setStyleSheet(style_sheet(self._ui_scale()))
         if parent is None:
             self.setWindowFlags(Qt.WindowType.Window)
@@ -425,7 +425,7 @@ class SettingsWindow(DlxSettingsMixin, AnimationsSettingsMixin, QDialog):
         root.addWidget(self._build_footer())
 
         self._load_language(self.glang, reload_table=True)
-        self.setWindowTitle(i18n.t("Настройки — RP Chat Overlay"))
+        self.setWindowTitle(i18n.t("Настройки — FiveM Chat Overlay"))
         i18n.retranslate(self)
         self._slang_pending = False
         self._fill_slang()
@@ -458,12 +458,12 @@ class SettingsWindow(DlxSettingsMixin, AnimationsSettingsMixin, QDialog):
     def _build_header(self):
         w = QWidget()
         w.setObjectName("header")
-        w.setStyleSheet("QWidget#header { background:#17171e; }")
+        w.setStyleSheet("QWidget#header { background:#121d2d; }")
         lay = QVBoxLayout(w)
         lay.setContentsMargins(20, 14, 20, 12)
         lay.setSpacing(2)
         self.header_title = _title(
-            "Настройки" if not self.first_run else "Добро пожаловать в RP Chat Overlay", "h1"
+            "Настройки" if not self.first_run else "Добро пожаловать в FiveM Chat Overlay", "h1"
         )
         lay.addWidget(self.header_title)
         self.header_sub = QLabel()
@@ -475,7 +475,7 @@ class SettingsWindow(DlxSettingsMixin, AnimationsSettingsMixin, QDialog):
     def _build_footer(self):
         w = QWidget()
         w.setObjectName("footer")
-        w.setStyleSheet("QWidget#footer { background:#17171e;border-top:1px solid #26262f; }")
+        w.setStyleSheet("QWidget#footer { background:#121d2d;border-top:1px solid #24344b; }")
         lay = QHBoxLayout(w)
         lay.setContentsMargins(20, 12, 20, 12)
         lay.setSpacing(10)
@@ -726,7 +726,9 @@ class SettingsWindow(DlxSettingsMixin, AnimationsSettingsMixin, QDialog):
         # горячая клавиша
         card, cl = _card()
         cl.addWidget(_title("Горячая клавиша", "sec"))
-        cl.addWidget(_hint("Клавиша ловит открытие оверлея. Работает только когда активна игра."))
+        self.lb_hotkey_hint = _hint("")
+        self.lb_hotkey_hint.setProperty("no_i18n", True)
+        cl.addWidget(self.lb_hotkey_hint)
         row = QHBoxLayout()
         self.ed_hotkey = KeyCapture()
         self.ed_hotkey.setFixedWidth(240)
@@ -1030,10 +1032,30 @@ class SettingsWindow(DlxSettingsMixin, AnimationsSettingsMixin, QDialog):
             self._do_preview()
 
     def _hotkey_changed(self, text=None):
+        hotkey = _pretty_hotkey(self.ed_hotkey.text().strip() or "F6")
+        chat_key = (self.ed_chatkey.text().strip() or "T").upper()
+        self.lb_hotkey_hint.setText(
+            i18n.tf(
+                "Клавиша «%s» открывает оверлей; чат игры перед этим открывается "
+                "клавишей «%s». При открытом оверлее нажатие не закрывает окно.",
+                hotkey,
+                chat_key,
+            )
+        )
         ok, warn = check_hotkey(self.ed_hotkey.text())
         self.lb_hotkey.setText("" if ok else warn)
         self.lb_hotkey.setObjectName("warn")
+        if hasattr(self, "header_sub"):
+            self._update_header()
         return ok
+
+    def _chatkey_changed(self, *_args):
+        key = (self.ed_chatkey.text().strip() or "T").upper()
+        self.chk_chat_first.setText(
+            i18n.tf("Сначала открывать чат игры (клавиша %s), потом оверлей", key)
+        )
+        if hasattr(self, "lb_hotkey_hint"):
+            self._hotkey_changed()
 
     def _lang_changed_ui(self, *_):
         code = self.cb_lang.currentData()
@@ -1179,7 +1201,8 @@ class SettingsWindow(DlxSettingsMixin, AnimationsSettingsMixin, QDialog):
         self.chk_send.setObjectName("moduleToggle")
         self.chk_send.toggled.connect(lambda on: self._mirror_own_flag("game_send", on))
         cl.addWidget(self.chk_send)
-        self.chk_chat_first = QCheckBox("Сначала открывать чат игры (клавиша T), потом оверлей")
+        self.chk_chat_first = QCheckBox()
+        self.chk_chat_first.setProperty("no_i18n", True)
         self.chk_chat_first.setToolTip(
             "Окружающие видят, что вы печатаете, а не стоите без действия"
         )
@@ -1206,8 +1229,11 @@ class SettingsWindow(DlxSettingsMixin, AnimationsSettingsMixin, QDialog):
         form.setHorizontalSpacing(18)
         form.setVerticalSpacing(10)
         self.ed_chatkey = QLineEdit()
-        self.ed_chatkey.setMaxLength(1)
-        self.ed_chatkey.setFixedWidth(56)
+        self.ed_chatkey.setMaxLength(3)
+        self.ed_chatkey.setFixedWidth(72)
+        self.ed_chatkey.setPlaceholderText("T")
+        self.ed_chatkey.setToolTip("Одна буква/цифра или функциональная клавиша F1–F24.")
+        self.ed_chatkey.textChanged.connect(self._chatkey_changed)
         form.addRow("Клавиша чата", self.ed_chatkey)
         self.sp_focus = _small_spin(QSpinBox(), 0, 2000, " мс", 170, step=10)
         form.addRow("После переключения в игру", _num_row(self.sp_focus))
@@ -1231,7 +1257,7 @@ class SettingsWindow(DlxSettingsMixin, AnimationsSettingsMixin, QDialog):
         head = QHBoxLayout()
         self.lb_glang = QLabel("Язык: —")
         self.lb_glang.setProperty("no_i18n", True)
-        self.lb_glang.setStyleSheet("font-size:14px;font-weight:600;color:#dfe3ff;")
+        self.lb_glang.setStyleSheet("font-size:14px;font-weight:600;color:#dae6f7;")
         head.addWidget(self.lb_glang)
         head.addStretch(1)
         self.ed_search = QLineEdit()
@@ -2126,7 +2152,7 @@ class SettingsWindow(DlxSettingsMixin, AnimationsSettingsMixin, QDialog):
             desc = QLabel(module.desc_en if i18n.is_en() else module.desc_ru)
             desc.setWordWrap(True)
             desc.setProperty("no_i18n", True)
-            desc.setStyleSheet("color:#9aa0b4;font-size:12px;")
+            desc.setStyleSheet("color:#a0b2ca;font-size:12px;")
             rl.addWidget(desc)
             self._module_rows.append((box, desc, module))
             if module.requires:
@@ -2139,7 +2165,7 @@ class SettingsWindow(DlxSettingsMixin, AnimationsSettingsMixin, QDialog):
                 dep_label.setProperty("no_i18n", True)
                 self._module_deps.append((dep_label, module))
                 dep_label.setWordWrap(True)
-                dep_label.setStyleSheet("color:#8a8fa3;font-size:11px;")
+                dep_label.setStyleSheet("color:#91a4bd;font-size:11px;")
                 rl.addWidget(dep_label)
             cl.addWidget(row)
             line = _sep()
@@ -2824,7 +2850,7 @@ class SettingsWindow(DlxSettingsMixin, AnimationsSettingsMixin, QDialog):
         if bool(item.data(Qt.ItemDataRole.UserRole + 1)) == bool(off):
             return
         item.setData(Qt.ItemDataRole.UserRole + 1, bool(off))
-        item.setForeground(QColor("#757583") if off else QColor("#c8c8d2"))
+        item.setForeground(QColor("#8799b2") if off else QColor("#bdcbe0"))
 
     def _view_of(self, page):
         """Обёртка с прокруткой для страницы / the scroll wrapper of a page."""
@@ -3167,7 +3193,7 @@ class SettingsWindow(DlxSettingsMixin, AnimationsSettingsMixin, QDialog):
         cfg["game_send"] = bool(self.chk_send.isChecked())
         cfg["game_open_chat_first"] = bool(self.chk_chat_first.isChecked())
         cfg["game_submit"] = bool(self.chk_submit.isChecked())
-        cfg["game_chat_key"] = (self.ed_chatkey.text().strip() or "t")[:1]
+        cfg["game_chat_key"] = (self.ed_chatkey.text().strip() or "T").upper()
         cfg["game_focus_delay_ms"] = int(self.sp_focus.value())
         cfg["game_open_delay_ms"] = int(self.sp_opendelay.value())
         cfg["game_paste_delay_ms"] = int(self.sp_paste.value())
@@ -3266,7 +3292,8 @@ class SettingsWindow(DlxSettingsMixin, AnimationsSettingsMixin, QDialog):
         self.chk_send.setChecked(bool(cfg.get("game_send", True)))
         self.chk_chat_first.setChecked(bool(cfg.get("game_open_chat_first", True)))
         self.chk_submit.setChecked(bool(cfg.get("game_submit", True)))
-        self.ed_chatkey.setText(str(cfg.get("game_chat_key", "t"))[:1])
+        self.ed_chatkey.setText(str(cfg.get("game_chat_key", "t"))[:3])
+        self._chatkey_changed()
         self.sp_focus.setValue(int(cfg.get("game_focus_delay_ms", 150)))
         self.sp_opendelay.setValue(int(cfg.get("game_open_delay_ms", 300)))
         self.sp_paste.setValue(int(cfg.get("game_paste_delay_ms", 150)))
@@ -3346,14 +3373,14 @@ class SettingsWindow(DlxSettingsMixin, AnimationsSettingsMixin, QDialog):
             self,
             i18n.t("Сброс настроек"),
             i18n.t(
-                "Вернуть все настройки к заводским?\nСловари и горячая клавиша тоже "
-                "станут стандартными (F6, итальянский)."
+                "Вернуть все настройки к заводским?\nСловари и горячие клавиши тоже станут "
+                "стандартными (F6 для оверлея, T для чата, итальянский)."
             ),
         )
         if ans != QMessageBox.StandardButton.Yes:
             return
         self.cfg = dict(DEFAULT_CONFIG)
-        self.cfg.update({"hotkey": "F6", "target_lang": "it"})
+        self.cfg.update({"hotkey": "F6", "game_chat_key": "t", "target_lang": "it"})
         self._load_widgets()
         self._load_language("it", reload_table=True)
         self.footer_hint.setText(
@@ -3517,7 +3544,7 @@ class SettingsWindow(DlxSettingsMixin, AnimationsSettingsMixin, QDialog):
             # the first run is over, yet the window stays open: the player decides
             # when to finish and the program never hides into the tray by itself
             self.first_run = False
-            self.setWindowTitle(i18n.t("Настройки — RP Chat Overlay"))
+            self.setWindowTitle(i18n.t("Настройки — FiveM Chat Overlay"))
             self.header_title.setText(i18n.t("Настройки"))
             log.info("Первичная настройка завершена, окно остаётся открытым")
         self._flash_hint()

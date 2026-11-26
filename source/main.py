@@ -12,7 +12,7 @@ Application startup and command line service modes.
 
 Примеры / examples:
     python main.py --selftest
-    RPChatOverlay.exe --find-game
+    FiveMChatOverlay.exe --find-game
 """
 
 from __future__ import annotations

@@ -1,7 +1,7 @@
 # Локальный сервис DeepL / Local DeepL service
 
 **RU.** Сервер на Node.js, совместимый с DLX. Он предоставляет локальной
-сборке RP Chat Overlay интерфейс DLX, если `dlx.exe` недоступен.
+сборке FiveM Chat Overlay интерфейс DLX, если `dlx.exe` недоступен.
 
 **EN.** A Node.js server compatible with DLX. It provides the local RP Chat
 Overlay build with the DLX interface when `dlx.exe` is unavailable.
@@ -40,7 +40,7 @@ npm ci
 npm start
 ```
 
-Сервер слушает порт `1188`. В RP Chat Overlay откройте **Настройки → DeepL**,
+Сервер слушает порт `1188`. В FiveM Chat Overlay откройте **Настройки → DeepL**,
 включите использование своего DLX-сервиса и укажите
 `http://127.0.0.1:1188`.
 
@@ -88,7 +88,7 @@ npm ci
 npm start
 ```
 
-The server listens on port `1188`. In RP Chat Overlay, open **Settings → DeepL**,
+The server listens on port `1188`. In FiveM Chat Overlay, open **Settings → DeepL**,
 enable your own DLX service, and enter `http://127.0.0.1:1188`.
 
 Environment variables:

@@ -1,0 +1,14 @@
+# Manifest of new forum PNGs
+
+| File | Dimensions | Bytes | SHA-256 |
+|---|---:|---:|---|
+| `banner-fivem-chat-overlay.png` | 1200×500 | 129197 | `81806a40b4047d201161efe5c7030ed6215043f51ccbe629f09f9ebb45944d46` |
+| `section-01.png` | 1200×62 | 6524 | `5b1ffc05b0006374f598993a00f79ecf94d38290cc88747b2f16f75ca39f2f48` |
+| `section-02.png` | 1200×62 | 7785 | `3bef0648b202bf09291f7edb03b4792841dcfa1822165527a3e1c08f4422e8d6` |
+| `section-03.png` | 1200×62 | 10208 | `ab651f42fb627d8a038a7c9b5791ba5251838e4b509ac93c8716b850e7af3d05` |
+| `section-04.png` | 1200×62 | 8137 | `ba41231f3e184d02cccc99b1b359a862349f8b498be6a2cce700ec06fbdf0881` |
+| `section-05.png` | 1200×62 | 12266 | `46b06870166c9bd5fbbaecfb6288c2ac78837ac03c5b852b98e5187b428249b4` |
+| `section-06.png` | 1200×62 | 11653 | `587a8bc3a43c93362259459298e53bad775cd86a8dc44115e1deea8a0b78834a` |
+| `section-07.png` | 1200×62 | 10009 | `ccf116df514f801de0c1e287382f0dc3a6867796d2b9b6e59587c525afafeb4c` |
+| `section-08.png` | 1200×62 | 9211 | `d6f2867c9802ff3d07dfd3d70aefca7ab00a1a7e6dcbd9e1607714c6c7976e4f` |
+| `section-09.png` | 1200×62 | 13469 | `c1b8c3960f833fd38af3e3797826fd5561d1f5936d19ef235292dde01983da5c` |
