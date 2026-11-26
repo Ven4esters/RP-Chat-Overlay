@@ -61,7 +61,7 @@ from app.engine import (
 from app.hotkey import HotkeyThread, parse_hotkey
 from app import dlx as dlx_mod
 from app.settings_ui import ask_dlx_consent, open_settings
-from app.translator import Translator
+from app.translator import Translator, cache_cleanup_due, cache_cleanup_timestamp
 
 STYLE = """
 #box { background: rgba(18,18,22,235); border: 1px solid #3a3a46; border-radius: 8px; }
@@ -997,6 +997,31 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
 
     lang = langs.code_of(cfg.get("target_lang", "it"))
     translator = Translator(lang)
+
+    def clear_translation_cache():
+        """Clear memory and disk cache and restart the configured period."""
+        translator.clear_cache()
+        cfg["cache_last_cleaned"] = cache_cleanup_timestamp()
+        save_config(cfg)
+
+    def auto_clear_translation_cache():
+        """Run due scheduled cleanup; harmless when the feature is disabled."""
+        if not cache_cleanup_due(
+            cfg.get("cache_cleanup_interval", "off"), cfg.get("cache_last_cleaned")
+        ):
+            return
+        try:
+            clear_translation_cache()
+            log.info("Кэш переводов очищен по расписанию")
+        except OSError:
+            log.exception("Не удалось очистить кэш переводов по расписанию")
+
+    cache_cleanup_timer = QTimer(app)
+    cache_cleanup_timer.setInterval(6 * 60 * 60 * 1000)
+    cache_cleanup_timer.timeout.connect(auto_clear_translation_cache)
+    cache_cleanup_timer.start()
+    QTimer.singleShot(0, auto_clear_translation_cache)
+
     # язык таблицы сокращений — до первого перевода
     # the abbreviation table language, before the first translation
     slang.use_for(cfg)
@@ -1229,8 +1254,13 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
 
         Rebuilds the engine, the hotkey and the menu after the settings were saved.
         """
+        last_cache_cleanup = cfg.get("cache_last_cleaned", "")
         cfg.clear()
         cfg.update(newcfg)
+        # Runtime cleanup may happen while Settings is open; its snapshot must
+        # not roll back the timestamp because that setting is not user-editable.
+        if last_cache_cleanup:
+            cfg["cache_last_cleaned"] = last_cache_cleanup
         code = langs.code_of(cfg.get("target_lang", "it"))
         translator.set_target(code)
         translator.set_direction(cfg.get("direction", "out"))
@@ -1328,7 +1358,14 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
             state["dlg"].raise_()
             state["dlg"].activateWindow()
             return
-        dlg = open_settings(cfg, parent=None, first_run=first_run, dlx=dlx, anims_api=anims_api)
+        dlg = open_settings(
+            cfg,
+            parent=None,
+            first_run=first_run,
+            dlx=dlx,
+            anims_api=anims_api,
+            clear_cache=clear_translation_cache,
+        )
         dlg.saved.connect(apply_settings)
         dlg.finished.connect(lambda *_: state.update(dlg=None))
         state["dlg"] = dlg

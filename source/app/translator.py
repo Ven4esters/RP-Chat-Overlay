@@ -28,6 +28,8 @@ the "in" direction, where the two Google endpoints and Lingva do the work.
 from __future__ import annotations
 
 from contextlib import contextmanager
+import calendar
+from datetime import datetime, timedelta, timezone
 import html
 import json
 import socket
@@ -322,6 +324,47 @@ def _short(errors: list[str]) -> str:
     return "сервисы не ответили"
 
 
+def cache_cleanup_due(interval: str, last_cleaned: str | None, now: datetime | None = None) -> bool:
+    """Return whether a configured cache-cleanup period has elapsed.
+
+    Timestamps are stored in UTC ISO format. Invalid or missing timestamps are
+    treated as due, so enabling the feature cleans a stale cache promptly.
+    """
+    selected = str(interval or "").lower()
+    periods = {"daily": timedelta(days=1), "weekly": timedelta(days=7)}
+    period = periods.get(selected)
+    if selected not in (*periods, "monthly"):
+        return False
+    try:
+        previous = datetime.fromisoformat(str(last_cleaned))
+        if previous.tzinfo is None:
+            previous = previous.replace(tzinfo=timezone.utc)
+        else:
+            previous = previous.astimezone(timezone.utc)
+    except (TypeError, ValueError):
+        return True
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    current = current.astimezone(timezone.utc)
+    if selected == "monthly":
+        month_index = previous.month  # add exactly one calendar month
+        year = previous.year + (month_index // 12)
+        month = month_index % 12 + 1
+        day = min(previous.day, calendar.monthrange(year, month)[1])
+        due_at = previous.replace(year=year, month=month, day=day)
+        return current >= due_at
+    return current - previous >= period
+
+
+def cache_cleanup_timestamp(now: datetime | None = None) -> str:
+    """Return a stable UTC timestamp for the last cache-cleanup setting."""
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    return current.astimezone(timezone.utc).isoformat(timespec="seconds")
+
+
 class Translator:
     """Перевод в выбранном направлении; результат кладётся в кэш на диске.
 
@@ -497,6 +540,16 @@ class Translator:
             should_save = time.monotonic() - self._saved_at >= CACHE_SAVE_EVERY
         if should_save:
             self.flush_cache()
+
+    def clear_cache(self) -> None:
+        """Remove all cached translations both from memory and persistent storage."""
+        with self._cache_lock:
+            # Persist the empty cache before mutating memory: if the disk is
+            # read-only, the caller gets an error and the current cache survives.
+            write_json(CACHE_PATH, {}, compact=True)
+            self.cache.clear()
+            self._dirty = False
+            self._saved_at = time.monotonic()
 
     def flush_cache(self) -> None:
         """Дописать кэш на диск, если есть что / persist the cache when needed."""

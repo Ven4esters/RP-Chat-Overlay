@@ -226,9 +226,9 @@ Review and redact logs before sharing them.
 
 Messages submitted for translation are sent to the selected external service.
 DLX runs locally but forwards text to DeepL. Up to 2,000 translation pairs are
-also kept in the local, unencrypted `data/cache.json`; delete that file to clear
-the cache. Routine logs record message metadata, not chat contents; review logs
-before sharing. Download releases only from the
+also kept in the local, unencrypted `data/cache.json`. Clear it from Settings,
+or enable daily, weekly or monthly automatic cleanup. Routine logs record message
+metadata, not chat contents; review logs before sharing. Download releases only from
 official Releases page. Private vulnerability reporting is currently disabled
 in the repository settings. Until maintainers enable the private advisory form,
 do not post vulnerability details publicly; see [`SECURITY.md`](SECURITY.md) for

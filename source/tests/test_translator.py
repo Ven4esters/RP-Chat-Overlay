@@ -187,3 +187,56 @@ def test_expired_chain_deadline_skips_http_request(monkeypatch):
             raise AssertionError("expired deadline should raise TimeoutError")
 
     assert not called
+
+
+def test_clear_cache_removes_memory_and_persistent_entries(tmp_path, monkeypatch):
+    """Clearing the cache removes both pending and saved translations."""
+    import json
+    import threading
+    import app.translator as translator_module
+
+    cache_file = tmp_path / "cache.json"
+    cache_file.write_text('{"old":"translation"}', encoding="utf-8")
+    monkeypatch.setattr(translator_module, "CACHE_PATH", cache_file)
+    translator = Translator.__new__(Translator)
+    translator.cache = {"old": "translation", "new": "unsaved"}
+    translator._cache_lock = threading.RLock()
+    translator._dirty = True
+    translator._saved_at = 0.0
+
+    translator.clear_cache()
+
+    assert translator.cache == {}
+    assert translator._dirty is False
+    assert json.loads(cache_file.read_text(encoding="utf-8")) == {}
+
+
+def test_cache_cleanup_periods_and_disabled_setting():
+    """Daily and weekly schedules use elapsed days; off never triggers."""
+    from datetime import datetime, timezone
+    from app.translator import cache_cleanup_due
+
+    last = "2026-01-01T12:00:00+00:00"
+    assert not cache_cleanup_due("off", last, datetime(2027, 1, 1, tzinfo=timezone.utc))
+    assert not cache_cleanup_due("daily", last, datetime(2026, 1, 2, 11, 59, tzinfo=timezone.utc))
+    assert cache_cleanup_due("daily", last, datetime(2026, 1, 2, 12, 0, tzinfo=timezone.utc))
+    assert not cache_cleanup_due("weekly", last, datetime(2026, 1, 8, 11, 59, tzinfo=timezone.utc))
+    assert cache_cleanup_due("weekly", last, datetime(2026, 1, 8, 12, 0, tzinfo=timezone.utc))
+
+
+def test_monthly_cache_cleanup_uses_calendar_month_and_clamps_end_of_month():
+    """Monthly cleanup follows calendar months rather than a fixed 30 days."""
+    from datetime import datetime, timezone
+    from app.translator import cache_cleanup_due
+
+    last = "2026-01-31T09:00:00+00:00"
+    assert not cache_cleanup_due("monthly", last, datetime(2026, 2, 27, 9, 0, tzinfo=timezone.utc))
+    assert cache_cleanup_due("monthly", last, datetime(2026, 2, 28, 9, 0, tzinfo=timezone.utc))
+
+
+def test_invalid_cache_cleanup_timestamp_is_due():
+    """A missing or malformed baseline causes the first enabled cleanup."""
+    from app.translator import cache_cleanup_due
+
+    assert cache_cleanup_due("daily", "not-a-date")
+    assert not cache_cleanup_due("off", "not-a-date")

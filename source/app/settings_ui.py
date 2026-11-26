@@ -1092,7 +1092,9 @@ class SettingsWindow(QDialog):
     anim_test_done = Signal(bool, str)  # ручная отправка /anim: успех и ответ игры
     # manual /anim send: success and reply
 
-    def __init__(self, cfg, parent=None, first_run=False, dlx=None, anims_api=None):
+    def __init__(
+        self, cfg, parent=None, first_run=False, dlx=None, anims_api=None, clear_cache=None
+    ):
         """Окно настроек; dlx — сервис DeepL, если он уже создан программой.
 
         The settings window; dlx is the DeepL service when the program created one.
@@ -1105,6 +1107,7 @@ class SettingsWindow(QDialog):
         super().__init__(parent)
         self.dlx = dlx
         self.anims_api = anims_api
+        self.clear_cache_callback = clear_cache
         self.cfg = dict(cfg)
         self.docs = {}  # код языка -> данные словаря
         self.dirty = set()  # языки с несохранёнными правками словаря
@@ -1573,8 +1576,80 @@ class SettingsWindow(QDialog):
             _hint("Внутри таких скобок текст переводится принудительно: «+привет+» → «Ciao».")
         )
         lay.addWidget(card)
+
+        # Кэш переводов: локальные результаты не отправляются никуда.
+        card, cl = _card()
+        cl.addWidget(_title("Кэш переводов", "sec"))
+        cl.addWidget(
+            _hint(
+                "Сохранённые переводы ускоряют повторные сообщения и доступны "
+                "только на этом компьютере."
+            )
+        )
+        self.cb_cache_cleanup = QComboBox()
+        for value, label in (
+            ("off", "Выключена"),
+            ("daily", "Раз в день"),
+            ("weekly", "Раз в неделю"),
+            ("monthly", "Раз в месяц"),
+        ):
+            self.cb_cache_cleanup.addItem(label, value)
+        self.cb_cache_cleanup.setToolTip(
+            "Автоматически удалять сохранённые переводы с выбранным интервалом."
+        )
+        self.lb_cache_cleanup_hint = _hint(
+            "Период отсчитывается от последней очистки. Ручная очистка начинает отсчёт заново."
+        )
+        cache_row = QHBoxLayout()
+        cache_row.addWidget(QLabel("Автоочистка:"))
+        cache_row.addWidget(self.cb_cache_cleanup)
+        cache_row.addStretch(1)
+        cl.addLayout(cache_row)
+        cl.addWidget(self.lb_cache_cleanup_hint)
+        self.btn_clear_cache = QPushButton("Очистить кэш переводов")
+        self.btn_clear_cache.setToolTip(
+            "Удалить все сохранённые переводы с этого компьютера. Новые переводы "
+            "будут кэшироваться снова."
+        )
+        self.btn_clear_cache.clicked.connect(self._clear_translation_cache)
+        cl.addWidget(self.btn_clear_cache, alignment=Qt.AlignmentFlag.AlignLeft)
+        cl.addWidget(
+            _hint(
+                "Очистка не затрагивает словари и настройки. Автоочистка сохранится "
+                "после нажатия «Сохранить»."
+            )
+        )
+        lay.addWidget(card)
         lay.addStretch(1)
         return page
+
+    def _clear_translation_cache(self):
+        if self.clear_cache_callback is None:
+            QMessageBox.information(
+                self,
+                i18n.t("Кэш переводов"),
+                i18n.t("Очистка кэша доступна после запуска приложения."),
+            )
+            return
+        answer = QMessageBox.question(
+            self,
+            i18n.t("Очистить кэш переводов?"),
+            i18n.t("Все сохранённые переводы будут удалены. Продолжить?"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            self.clear_cache_callback()
+        except OSError as error:
+            QMessageBox.warning(
+                self,
+                i18n.t("Кэш переводов"),
+                i18n.t("Не удалось очистить файл кэша:\n") + str(error),
+            )
+            return
+        QMessageBox.information(self, i18n.t("Кэш переводов"), i18n.t("Кэш переводов очищен."))
 
     def _ui_lang_changed(self, *_):
         """Переключение языка интерфейса прямо в окне настроек.
@@ -5986,6 +6061,8 @@ class SettingsWindow(QDialog):
             cfg["ui_lang_chosen"] = True
         cfg["hotkey"] = self.ed_hotkey.text().strip().lower() or "f6"
         cfg["show_settings_on_start"] = bool(self.chk_show_settings.isChecked())
+        if hasattr(self, "cb_cache_cleanup"):
+            cfg["cache_cleanup_interval"] = self.cb_cache_cleanup.currentData() or "off"
         if hasattr(self, "chk_dlx"):
             cfg["dlx_enabled"] = bool(self.chk_dlx.isChecked())
             # «уже спрашивали» — только когда игрок сам включил DeepL галочкой:
@@ -6061,6 +6138,10 @@ class SettingsWindow(QDialog):
         self.cb_lang.setCurrentIndex(max(0, idx))
         self.ed_hotkey.setText(_pretty_hotkey(cfg.get("hotkey", "F6")))
         self.chk_show_settings.setChecked(bool(cfg.get("show_settings_on_start", True)))
+        if hasattr(self, "cb_cache_cleanup"):
+            self.cb_cache_cleanup.setCurrentIndex(
+                max(0, self.cb_cache_cleanup.findData(cfg.get("cache_cleanup_interval", "off")))
+            )
         if hasattr(self, "sp_ui_scale"):
             self.sp_ui_scale.blockSignals(True)
             self.sp_ui_scale.setValue(int(round(self._ui_scale() * 100)))
@@ -6763,9 +6844,16 @@ def ask_dlx_consent(cfg, parent=None):
     return accepted, (accepted and dialog.wants_download())
 
 
-def open_settings(cfg, parent=None, first_run=False, dlx=None, anims_api=None):
+def open_settings(cfg, parent=None, first_run=False, dlx=None, anims_api=None, clear_cache=None):
     """Создаёт окно, загружает значения и возвращает его (без exec)."""
-    win = SettingsWindow(cfg, parent=parent, first_run=first_run, dlx=dlx, anims_api=anims_api)
+    win = SettingsWindow(
+        cfg,
+        parent=parent,
+        first_run=first_run,
+        dlx=dlx,
+        anims_api=anims_api,
+        clear_cache=clear_cache,
+    )
     win._load_widgets()
     win._load_language(langs.code_of(cfg.get("target_lang", "it")), reload_table=True)
     return win
