@@ -1,8 +1,122 @@
-"""Reusable Qt widgets used by Settings pages."""
+"""Reusable Qt widgets and small builders used by Settings pages."""
 
-from PySide6.QtCore import QEasingCurve, QPoint, QRect, QRectF, QSize, Qt, QVariantAnimation
+from PySide6.QtCore import QEasingCurve, QPoint, QRect, QRectF, QSize, Qt, QVariantAnimation, Signal
 from PySide6.QtGui import QColor, QDrag, QPainter, QPixmap, QPolygon
-from PySide6.QtWidgets import QAbstractButton, QAbstractItemView, QTableWidget
+from PySide6.QtWidgets import (
+    QAbstractButton,
+    QAbstractItemView,
+    QFrame,
+    QLabel,
+    QLineEdit,
+    QTableWidget,
+    QVBoxLayout,
+)
+
+
+class KeyCapture(QLineEdit):
+    """Поле горячей клавиши: нажмите сочетание — оно запишется.
+
+    The hotkey field: press a combination and it is recorded.
+    """
+
+    changed = Signal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setReadOnly(True)
+        self.setPlaceholderText("нажмите сочетание клавиш…")
+        self.setToolTip("Кликните по полю и нажмите нужное сочетание, например F6 или Ctrl+Alt+T")
+
+    def keyPressEvent(self, e):
+        if e.key() in MODIFIER_KEYS:
+            return
+        mods = e.modifiers()
+        parts = []
+        if mods & Qt.KeyboardModifier.ControlModifier:
+            parts.append("ctrl")
+        if mods & Qt.KeyboardModifier.AltModifier:
+            parts.append("alt")
+        if mods & Qt.KeyboardModifier.ShiftModifier:
+            parts.append("shift")
+        if mods & Qt.KeyboardModifier.MetaModifier:
+            parts.append("win")
+        name = self._key_name(e.key())
+        if not name:
+            return
+        self.setText("+".join(parts + [name]))
+        self.changed.emit(self.text())
+
+    @staticmethod
+    def _key_name(key):
+        if Qt.Key.Key_F1 <= key <= Qt.Key.Key_F24:
+            return "f%d" % (key - Qt.Key.Key_F1 + 1)
+        if key in NAMED_KEYS:
+            return NAMED_KEYS[key]
+        if Qt.Key.Key_A <= key <= Qt.Key.Key_Z:
+            return chr(key).lower()
+        if Qt.Key.Key_0 <= key <= Qt.Key.Key_9:
+            return chr(key)
+        return ""
+
+
+def _card():
+    f = QFrame()
+    f.setObjectName("card")
+    lay = QVBoxLayout(f)
+    lay.setContentsMargins(16, 14, 16, 14)
+    lay.setSpacing(10)
+    return f, lay
+
+
+def _title(text, size=None):
+    lab = QLabel(text)
+    lab.setObjectName("h1" if size == "h1" else "")
+    if size == "h1":
+        lab.setStyleSheet("font-size:18px;font-weight:600;")
+    elif size == "sec":
+        lab.setStyleSheet("font-size:14px;font-weight:600;color:#dfe3ff;")
+    return lab
+
+
+def _hint(text):
+    lab = QLabel(text)
+    lab.setObjectName("hint")
+    lab.setWordWrap(True)
+    return lab
+
+
+def _pretty_hotkey(spec):
+    """«f6» -> «F6», «ctrl+alt+t» -> «Ctrl+Alt+T»."""
+    out = []
+    for p in str(spec or "F6").split("+"):
+        p = p.strip()
+        if not p:
+            continue
+        out.append(p.upper() if len(p) == 1 or p.lower().startswith("f") else p.capitalize())
+    return "+".join(out) or "F6"
+
+
+MODIFIER_KEYS = {
+    Qt.Key.Key_Control,
+    Qt.Key.Key_Alt,
+    Qt.Key.Key_Shift,
+    Qt.Key.Key_Meta,
+    Qt.Key.Key_AltGr,
+}
+
+
+NAMED_KEYS = {
+    Qt.Key.Key_Insert: "insert",
+    Qt.Key.Key_Delete: "delete",
+    Qt.Key.Key_Home: "home",
+    Qt.Key.Key_End: "end",
+    Qt.Key.Key_PageUp: "pageup",
+    Qt.Key.Key_PageDown: "pagedown",
+    Qt.Key.Key_Pause: "pause",
+    Qt.Key.Key_Tab: "tab",
+    Qt.Key.Key_Space: "space",
+    Qt.Key.Key_QuoteLeft: "`",
+}
 
 
 class ToggleSwitch(QAbstractButton):

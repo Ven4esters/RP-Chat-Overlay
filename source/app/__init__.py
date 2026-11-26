@@ -15,7 +15,9 @@ RP Chat Overlay application package: a chat translator for GTA V and FiveM.
     i18n.py         функции языка интерфейса / interface language functions
     i18n_en.py      английский каталог / English string catalog
     settings_anim_props.py диалог свойств анимации / animation properties dialog
-    settings_widgets.py  общие Qt-виджеты настроек / reusable settings widgets
+    settings_anims_ui.py страница анимаций / animation settings page
+    settings_style.py   общие стили настроек / shared settings styles
+    settings_widgets.py общие Qt-виджеты настроек / reusable settings widgets
     usage_report.py локальный отчёт производительности (opt-in) / local performance report
     autoplan.py     счётчик автоперевода / auto-translation counter
     anims.py        анимации по ключевому слову / keyword-driven animations
