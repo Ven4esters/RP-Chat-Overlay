@@ -210,6 +210,23 @@ class _Card(QFrame):
 
         row.addLayout(text, 1)
 
+    def resizeEvent(self, event):  # noqa: N802 — имя из Qt / a Qt name
+        """Не обрезать текст, перенесённый на несколько строк.
+
+        Keep wrapped card contents above their layout's minimum height.
+        """
+        super().resizeEvent(event)
+        layout = self.layout()
+        if layout is None:
+            return
+        needed = layout.sizeHint().height()
+        if needed > self.minimumHeight():
+            # На тесном экране Qt может сжать карточку ниже высоты текста;
+            # пусть прокручивается список, а не обрезается описание.
+            # On a short screen Qt may shrink a card below its text. Let the list
+            # scroll instead of clipping the description.
+            self.setMinimumHeight(needed)
+
     def set_mark(self, playing: bool) -> None:
         """Поставить или снять метку «играет» / set or clear the "playing" mark."""
         if self.mark is None:
