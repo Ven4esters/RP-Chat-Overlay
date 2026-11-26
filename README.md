@@ -159,7 +159,7 @@ flowchart LR
     Online --> Result
     Result --> Game[Game chat or clipboard]
     Engine --> Rules[Animation rules]
-    Rules --> Commands[/anim and /sa]
+    Rules --> Commands["Game commands: /anim and /sa"]
     Commands --> Game
 ```
 
