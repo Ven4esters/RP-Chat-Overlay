@@ -181,12 +181,15 @@ https://имя-проекта.vercel.app
 
 **«Токен своего сервиса»** — та же строка, что вы записали в `TOKEN`.
 
-Дальше — **Сохранить**. Окно не закроется, а состояние сервиса сменится на
-«свой сервис имя-проекта.vercel.app». Файл `dlx.exe` при этом не нужен: если он
-у вас уже скачан, его можно удалить вместе с папкой `data\dlx`, программа
-больше к нему не обращается.
+Дальше — **Сохранить**. На этой же странице включите **«Переводить через DeepL
+в первую очередь»**; на странице **Основные** выберите нужный язык из списка.
+Для каждого такого языка приложение отправит запрос на ваш сервер с нужными
+`source_lang` и `target_lang`, а при ошибке вернётся к обычным переводчикам.
 
-Проверить, что адрес принят: на странице DeepL нажмите **«Проверить»**.
+Состояние сервиса должно смениться на «свой сервис имя-проекта.vercel.app».
+Проверить адрес можно кнопкой **«Проверить»** на странице DeepL. Файл `dlx.exe`
+при этом не нужен: если он уже скачан, его можно удалить вместе с папкой
+`data\dlx` — программа больше к нему не обращается.
 
 ---
 
@@ -254,9 +257,11 @@ curl -X POST https://имя-проекта.vercel.app/api/translate \
 4. If the project is already deployed without `TOKEN`, add it in **Settings →
    Environment Variables** and immediately **Redeploy**. Until that finishes,
    translation requests are public.
-5. In the program: **Settings → DeepL → "Your own service address"** =
-   `https://your-project.vercel.app`, **"Your own service token"** = the same
-   `TOKEN`. Save. No `dlx.exe` needed any more.
+5. In the program, set **Settings → DeepL → "Your own service address"** to
+   `https://your-project.vercel.app` and **"Your own service token"** to the same
+   `TOKEN`. Save, enable **"Use DeepL first"** on that page, and select a target
+   language on **General**. The custom service receives that language pair first;
+   the regular translators remain the fallback. No `dlx.exe` is needed.
 
 Hobby plan: 30 s function limit (set in `vercel.json`), 100 GB bandwidth a month,
 personal projects only. Pick the Frankfurt region for a shorter path to DeepL.

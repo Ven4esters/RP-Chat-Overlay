@@ -434,10 +434,12 @@ STRINGS = {
     "Скачиваю…": "Downloading…",
     "Проверяю…": "Checking…",
     "Проверить выход": "Check the exit",
-    "Свой адрес нужен, когда dlx.exe не скачивается или не запускается: сервер из source/tools/deeplx-local (npm start) слушает 1188 и говорит на том же языке, что и DLX. Адрес можно вставить целиком, вместе с /translate — лишний хвост программа отрежет сама.": "Your own address is for the case when dlx.exe will not download or "
-    "start: the server in source/tools/deeplx-local (npm start) listens on "
-    "1188 and speaks the same language as DLX. The address can be pasted "
-    "whole, /translate included — the extra tail is trimmed.",
+    "Укажите совместимый с DLX HTTP-сервис, например свой сервер Vercel из source/tools/deeplx-local, и его токен. Включите «Переводить через DeepL в первую очередь»: приложение отправит текст и выбранный язык сюда первым, а при ошибке вернётся к обычным переводчикам. Язык выбирается на странице «Основные» из списка поддерживаемых приложением. Можно вставить базовый адрес или полный /api/translate — маршрут программа подставит сама. При заданном адресе файл dlx.exe не нужен.": "Enter a DLX-compatible HTTP service, such as your Vercel deployment of "
+    "source/tools/deeplx-local, and its token. Enable ‘Use DeepL first’: the app "
+    "sends text and the selected target language here before trying the regular "
+    "translators on failure. Choose a supported target language on the General "
+    "page. Enter the base URL or the full /api/translate URL; the app builds the "
+    "route itself. With a custom URL, dlx.exe is not needed.",
     "не назначена": "not set",
     "см. logs/errors.log": "see logs/errors.log",
     "DeepL рядом": "DeepL alongside",

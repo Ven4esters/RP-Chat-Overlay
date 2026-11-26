@@ -14,6 +14,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import app.dlx as dlx_module  # noqa: E402
 import app.translator as translator_module  # noqa: E402
 from app.translator import TranslateError, Translator  # noqa: E402
 
@@ -259,6 +260,40 @@ def test_local_deepl_service_is_first_and_maps_language_codes():
     assert translator._chain()[0][0] == translator_module.LOCAL_NAME
     assert translator._via_local("hello", "es", "ru") == "translated"
     assert seen == [("hello", "ru", "ES")]
+
+
+def test_configured_vercel_service_uses_token_for_each_selected_target(tmp_path, monkeypatch):
+    calls = []
+    local = dlx_module.DlxService(
+        {
+            "dlx_enabled": True,
+            "dlx_url": "https://my-project.vercel.app/api/translate",
+            "dlx_url_token": "private-token",
+        },
+        directory=tmp_path,
+    )
+
+    def post(url, payload, headers, timeout):
+        calls.append((url, payload, headers, timeout))
+        return {"data": f"{payload['target_lang']} translation"}
+
+    monkeypatch.setattr(dlx_module, "_http_post_json", post)
+    translator = _bare_translator(target="it")
+    translator.local = local
+
+    assert translator.translate("hello") == "IT translation"
+    translator.set_target("de")
+    assert translator.translate("hello") == "DE translation"
+
+    assert [call[0] for call in calls] == [
+        "https://my-project.vercel.app/translate",
+        "https://my-project.vercel.app/translate",
+    ]
+    assert [call[1] for call in calls] == [
+        {"text": "hello", "source_lang": "ru", "target_lang": "IT"},
+        {"text": "hello", "source_lang": "ru", "target_lang": "DE"},
+    ]
+    assert all(call[2] == {"Authorization": "Bearer private-token"} for call in calls)
 
 
 def test_translate_returns_empty_and_uses_directional_cache_key(monkeypatch):
