@@ -107,7 +107,19 @@ jobs:
           pip install pytest pyinstaller
 
       - name: Run tests with required Qt runtime
-        run: python -m pytest source/tests -v
+        run: python -m pytest source/tests -v --junitxml=pytest-results.xml
+
+      - name: Annotate failed Windows tests
+        if: failure()
+        shell: pwsh
+        run: |
+          if (Test-Path pytest-results.xml) {
+            [xml]$results = Get-Content pytest-results.xml
+            foreach ($test in $results.SelectNodes('//testcase[failure]')) {
+              $message = $test.failure.InnerText -replace '[\r\n]+', ' '
+              Write-Output "::error title=$($test.classname)::$($test.name): $message"
+            }
+          }
 
       - name: Smoke-build Windows executable
         working-directory: source
