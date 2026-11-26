@@ -154,6 +154,11 @@ class _Card(QFrame):
         self.choice = choice
         self._on_pick = on_pick
         self.setObjectName("choiceCard")
+        self.setAccessibleName(choice.label() or choice.name)
+        description = (choice.description or "").strip()
+        self.setAccessibleDescription(
+            f"{description} /anim {choice.name}" if description else f"/anim {choice.name}"
+        )
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
@@ -193,7 +198,6 @@ class _Card(QFrame):
 
         # описание пустым не оставляем: пустая строка выглядит как ошибка
         # the description is never empty: a blank line looks like a bug
-        description = (choice.description or "").strip()
         desc = QLabel(description or i18n.t("Без описания"))
         desc.setObjectName("choiceDesc" if description else "choiceNoDesc")
         desc.setWordWrap(True)
@@ -597,7 +601,16 @@ class ChoiceWindow(QWidget):
             self.close()
             return
         if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-            self._choose(0)
+            focused = QApplication.focusWidget()
+            index = next(
+                (
+                    position
+                    for position, card in enumerate(self.buttons)
+                    if focused is card or (focused is not None and card.isAncestorOf(focused))
+                ),
+                0,
+            )
+            self._choose(index)
             return
         if Qt.Key.Key_1 <= key <= Qt.Key.Key_9:
             index = key - Qt.Key.Key_1

@@ -3,18 +3,14 @@
 [🇬🇧 Read in English](README.md)
 
 [![CI](https://github.com/Ven4esters/RP-Chat-Overlay/actions/workflows/ci.yml/badge.svg)](https://github.com/Ven4esters/RP-Chat-Overlay/actions/workflows/ci.yml)
+[![Последний релиз](https://img.shields.io/github/v/release/Ven4esters/RP-Chat-Overlay?display_name=tag)](https://github.com/Ven4esters/RP-Chat-Overlay/releases)
 [![Windows 10 / 11](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&logoColor=white)](https://github.com/Ven4esters/RP-Chat-Overlay/releases)
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-312/)
-![Языков: 13](https://img.shields.io/badge/языков-13-2e7d32)
-![Сленг: 1 805 записей в 5 языковых таблицах](https://img.shields.io/badge/сленг-1%20805%20записей%20в%205%20таблицах-8e6bd8)
-![EXE ~47.7 МиБ](https://img.shields.io/badge/exe-~47.7%20МиБ-66d18b)
-[![VirusTotal: 2/70](https://img.shields.io/badge/VirusTotal-2%2F70-394eff)](https://www.virustotal.com/gui/file/9a6c8da2e9472ee89ee3a6f6311844ed0a983d00327857a1749dc5782cc34749?nocache=1)
-![Лицензия: MIT](https://img.shields.io/badge/лицензия-MIT-green)
+[![Лицензия: MIT](https://img.shields.io/badge/лицензия-MIT-green)](LICENSE)
 
-> Оверлей чата с переводом через DeepL/Google и автоматизация применения анимаций для ролевой игры (GTA 5).
+> Переводите ролевой чат и запускайте анимации персонажа по ключевым словам в GTA 5.
 
-<a id="содержание"></a>
-<img src="source/images/forum/hdr_contents_ru.png" width="670" alt="Содержание">
+<h2 id="содержание"><img src="source/images/forum/hdr_contents_ru.png" width="670" alt="Содержание"></h2>
 
 - [О проекте](#о-проекте)
 - [Возможности](#возможности)
@@ -25,42 +21,38 @@
 - [Система модулей](#система-модулей)
 - [Режимы перевода и спецсимволы](#режимы-перевода-испецсимволы)
 - [DeepLX в России](#deeplxвроссии)
+- [Частые вопросы](#faq)
 - [Проверки разработки](#проверки-разработки)
 - [Лицензия](#лицензия)
 - [Контакты](#контакты)
 
-<a id="о-проекте"></a>
-<img src="source/images/forum/hdr_about_ru.png" width="670" alt="О проекте">
+<h2 id="о-проекте"><img src="source/images/forum/hdr_about_ru.png" width="670" alt="О проекте"></h2>
 
 Проект — оверлей для ролевого чата в GTA 5. Переводит входящие и исходящие
 сообщения через DeepL (локальный сервис) или Google Translate, а также
 автоматически применяет анимации персонажа по совпадению ключевых слов.
 Язык интерфейса можно переключать между русским и английским без перезапуска.
 
-<a id="возможности"></a>
-<img src="source/images/forum/hdr_features_ru.png" width="670" alt="Возможности">
+<h2 id="возможности"><img src="source/images/forum/hdr_features_ru.png" width="670" alt="Возможности"></h2>
 
 - Перевод сообщений чата через DeepL или Google Translate
 - Автоматический запуск анимаций по совпадению ключевых слов
-- Встроенные глоссарии и раскрытие сленга на нескольких языках
+- Перевод на 13 языков, встроенные глоссарии и раскрытие сленга там, где доступны
 - Управление локальным сервисом DLX (установка, запуск, остановка, прокси)
 - Интерфейс на русском и английском языках
 
-<a id="стек-технологий"></a>
-<img src="source/images/forum/hdr_stack_ru.png" width="670" alt="Стек технологий">
+<h2 id="стек-технологий"><img src="source/images/forum/hdr_stack_ru.png" width="670" alt="Стек технологий"></h2>
 
 Python 3.12 · PySide6 · pymorphy3
 
-<a id="требования"></a>
-<img src="source/images/forum/hdr_requirements_ru.png" width="670" alt="Требования">
+<h2 id="требования"><img src="source/images/forum/hdr_requirements_ru.png" width="670" alt="Требования"></h2>
 
 - Windows 10 / 11
 - GTA 5
 - Python ≥ 3.12 (для запуска из исходников)
 - Подключение к интернету для сервисов перевода
 
-<a id="установка"></a>
-<img src="source/images/forum/hdr_installation_ru.png" width="670" alt="Установка">
+<h2 id="установка"><img src="source/images/forum/hdr_installation_ru.png" width="670" alt="Установка"></h2>
 
 ### Скомпилированный релиз (рекомендуется)
 
@@ -82,8 +74,7 @@ cd RP-Chat-Overlay
 Запустите `source/start.bat` — он найдёт или установит Python 3.12, создаст
 виртуальное окружение, установит зависимости и запустит приложение.
 
-<a id="virustotal-2-из-70"></a>
-<img src="source/images/forum/hdr_virustotal_ru.png" width="670" alt="VirusTotal и 2 из 70 обнаружений">
+<h2 id="virustotal-2-из-70"><img src="source/images/forum/hdr_virustotal_ru.png" width="670" alt="VirusTotal и 2 из 70 обнаружений"></h2>
 
 В связанном [отчёте VirusTotal](https://www.virustotal.com/gui/file/9a6c8da2e9472ee89ee3a6f6311844ed0a983d00327857a1749dc5782cc34749?nocache=1)
 для этого хеша релиза файл отмечен **2 из 70** антивирусных движков. Само
@@ -104,8 +95,7 @@ cd RP-Chat-Overlay
 срабатывания и отправьте файл на анализ разработчику антивируса вместо
 глобального отключения защиты.
 
-<a id="система-модулей"></a>
-<img src="source/images/forum/hdr_modules_ru.png" width="670" alt="Система модулей">
+<h2 id="система-модулей"><img src="source/images/forum/hdr_modules_ru.png" width="670" alt="Система модулей"></h2>
 
 Программа собрана из независимых модулей. Любой модуль можно выключить в
 настройках — выключенный модуль не ломает остальное, программа продолжает
@@ -194,8 +184,7 @@ cd RP-Chat-Overlay
 | Остановить командой /sa | Останавливать анимацию командой `/sa` в игре | Включено |
 | Режим «В машине» | Не играть анимации и не отправлять `/sa`, пока включено | Выключено |
 
-<a id="режимы-перевода-испецсимволы"></a>
-<img src="source/images/forum/hdr_modes_ru.png" width="670" alt="Режимы перевода и спецсимволы">
+<h2 id="режимы-перевода-испецсимволы"><img src="source/images/forum/hdr_modes_ru.png" width="670" alt="Режимы перевода и спецсимволы"></h2>
 
 Программа поддерживает несколько способов перевода и особые маркеры в тексте:
 
@@ -226,8 +215,7 @@ cd RP-Chat-Overlay
 согласно словарной записи (с русской записью «как это читается») и не уходит на
 внешние сервисы перевода. Словарь имеет приоритет над сетевым переводом.
 
-<a id="deeplxвроссии"></a>
-<img src="source/images/forum/hdr_deeplx_ru.png" width="670" alt="DeepLX в России">
+<h2 id="deeplxвроссии"><img src="source/images/forum/hdr_deeplx_ru.png" width="670" alt="DeepLX в России"></h2>
 
 С июня 2025 года DeepL закрыт для российских IP-адресов. Локальный сервис DLX
 запускается, но DeepL возвращает ошибку `503` — состояние
@@ -238,15 +226,29 @@ cd RP-Chat-Overlay
 Если прокси нет — просто отключите DLX, программа вернётся к обычным
 сервисам перевода без ограничений.
 
-<a id="проверки-разработки"></a>
+<h2 id="faq">Частые вопросы и решение проблем</h2>
 
-## Проверки разработки
+### Нужен ли `deep-translator` для DeepL?
+
+Нет. DeepL подключается через отдельный локальный сервис DLX. Пакет
+`deep-translator` был только дополнительным веб-резервом Google и больше не
+является зависимостью проекта.
+
+### Почему DLX может вернуть `503`?
+
+DLX работает локально, но для перевода ему всё равно нужен доступ к DeepL.
+Сетевые ограничения или настройки прокси могут мешать; см. раздел
+[DeepLX в России](docs/DEEPLX-RUSSIA.md).
+
+<h2 id="проверки-разработки">Проверки разработки</h2>
 
 Из корня репозитория выполните те же локальные проверки, что запускает CI:
 
 ```bash
 ruff check source
 ruff format --check source
+npx --yes markdownlint-cli2@0.24.2 --config .markdownlint-cli2.jsonc README.md README.ru.md
+python source/tools/check_readme.py
 python -m pytest source/tests
 bandit -lll -r source/app
 pip-audit -r source/requirements.txt
@@ -254,10 +256,9 @@ pip-audit -r source/requirements.txt
 
 Сначала установите зависимости проекта из `source/requirements.txt` и утилиты
 проверок (`ruff`, `pytest`, `bandit`, `pip-audit`) в окружение Python 3.12.
-CI выполняет эти проверки при push и pull request.
+Для Markdown-проверок также нужны Node.js и npm. CI выполняет проверки при push и pull request.
 
-<a id="лицензия"></a>
-<img src="source/images/forum/hdr_license_ru.png" width="670" alt="Лицензия">
+<h2 id="лицензия"><img src="source/images/forum/hdr_license_ru.png" width="670" alt="Лицензия"></h2>
 
 Проект распространяется на условиях лицензии MIT. Ниже приведён её русский
 перевод для удобства чтения; юридически исходным является английский текст в
@@ -290,8 +291,7 @@ Copyright (c) 2026 Ven4esters
 ПРОГРАММНЫМ ОБЕСПЕЧЕНИЕМ ИЛИ ЕГО ИСПОЛЬЗОВАНИЕМ, ИЛИ ИНЫМИ ОПЕРАЦИЯМИ С НИМ.
 ```
 
-<a id="контакты"></a>
-<img src="source/images/forum/hdr_contacts_ru.png" width="670" alt="Контакты">
+<h2 id="контакты"><img src="source/images/forum/hdr_contacts_ru.png" width="670" alt="Контакты"></h2>
 
 - Автор: [Ven4esters](https://github.com/Ven4esters)
 - Вопросы и предложения: [GitHub Issues](https://github.com/Ven4esters/RP-Chat-Overlay/issues)

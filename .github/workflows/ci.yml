@@ -38,6 +38,12 @@ jobs:
       - name: Ruff format
         run: ruff format --check source
 
+      - name: Markdown lint
+        run: npx --yes markdownlint-cli2@0.24.2 --config .markdownlint-cli2.jsonc README.md README.ru.md
+
+      - name: README local links, anchors, alt text and badges
+        run: python source/tools/check_readme.py
+
       - name: Unit and integration tests
         run: python -m pytest source/tests -v --cov=source/app --cov-report=term
 
@@ -46,3 +52,34 @@ jobs:
 
       - name: pip-audit SCA
         run: pip-audit -r source/requirements.txt
+
+  windows-tests:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      QT_QPA_PLATFORM: offscreen
+      RPCHAT_REQUIRE_QT_TESTS: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install application and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r source/requirements.txt
+          pip install pytest pyinstaller
+
+      - name: Run tests with required Qt runtime
+        run: python -m pytest source/tests -v
+
+      - name: Smoke-build Windows executable
+        working-directory: source
+        run: python -m PyInstaller --noconfirm --clean --distpath ../dist RPChatOverlay.spec
+
+      - name: Verify packaged executable
+        run: python -c "from pathlib import Path; assert Path('dist/RPChatOverlay.exe').is_file()"

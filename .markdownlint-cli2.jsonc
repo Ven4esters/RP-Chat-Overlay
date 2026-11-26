@@ -1,0 +1,12 @@
+{
+  "config": {
+    "default": true,
+    // Section banners are semantic HTML h2 elements; Markdownlint cannot see
+    // them when checking the following Markdown h3 subsections.
+    "MD001": false,
+    "MD013": false,
+    "MD024": { "siblings_only": true },
+    "MD033": { "allowed_elements": ["h2", "img"] },
+    "MD060": false
+  }
+}

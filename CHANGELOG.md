@@ -14,11 +14,13 @@ English version below: [Changelog (English)](#-changelog-english).
 - Логи больше не сохраняют текст игровых сообщений и переводов; ошибки внешних
   сервисов записываются безопасными метками. Файлы журналов ограничены по размеру.
 - Исправлено масштабирование карточек выбора анимации: длинные подписи остаются
-  читаемыми, а список прокручивается и учитывает экран, на котором открыт курсор.
+  читаемыми, список прокручивается, карточки имеют доступные имена; Enter выбирает
+  сфокусированный вариант. CI теперь проверяет Qt на Windows и собирает EXE.
 - CI больше не скрывает ошибки тестов и блокирует сборку при найденных CVE и
   уязвимостях высокого уровня. Добавлены UI-регрессия и проверки приватности логов.
 - README дополнены актуальным стеком, проверками CI и командами для локального
-  запуска основных проверок.
+  запуска основных проверок; ссылки, якоря, alt-тексты и число бейджей проверяются
+  автоматически, Markdown проходит линтер.
 
 ## 1.18.0 — 15.11.2026
 
@@ -1152,11 +1154,13 @@ English version below: [Changelog (English)](#-changelog-english).
   the PyInstaller spec.
 - Chat and translation text are no longer written to routine logs. External service
   failures use safe summaries, and application/error logs rotate at a bounded size.
-- Fixed animation chooser sizing: long labels remain readable, the list scrolls when
-  needed, and the window opens on the screen containing the cursor.
+- Fixed animation chooser sizing: long labels remain readable, the list scrolls,
+  cards have accessible names, and Enter selects the focused option. CI now requires
+  Windows/Qt tests and a PyInstaller smoke build.
 - CI no longer swallows test failures and blocks on known dependency vulnerabilities
   and high-severity SAST findings. Added UI-layout and log-privacy regressions.
-- Updated both READMEs with the current stack, CI badge, and local verification steps.
+- Updated both READMEs with the current stack, a live release badge, FAQ and local
+  checks. CI validates local links, anchors, image alt text, badge count, and Markdown lint.
 
 ## 1.18.0 — 15 Nov 2026
 

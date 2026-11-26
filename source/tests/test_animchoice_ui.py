@@ -7,8 +7,12 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 
 try:
+    from PySide6.QtCore import QEvent, Qt
+    from PySide6.QtGui import QKeyEvent
     from PySide6.QtWidgets import QApplication, QLabel
 except (ImportError, OSError) as error:
+    if os.environ.get("RPCHAT_REQUIRE_QT_TESTS") == "1":
+        raise
     pytest.skip(f"Qt runtime is unavailable: {error}", allow_module_level=True)
 
 from app.anims import Choice
@@ -48,9 +52,22 @@ def test_choice_cards_keep_wrapped_text_inside_scroll_view(qapp):
         assert window._scroll.verticalScrollBar().maximum() > 0
         for card in window.buttons:
             assert card.height() >= card.layout().sizeHint().height()
+            assert card.accessibleName()
             for label in card.findChildren(QLabel):
                 if label.wordWrap():
                     assert label.height() >= label.heightForWidth(label.width())
+
+        selected = []
+        window.done_callback = selected.append
+        window.buttons[2].setFocus()
+        qapp.processEvents()
+        event = QKeyEvent(
+            QEvent.Type.KeyPress,
+            Qt.Key.Key_Return,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        window.keyPressEvent(event)
+        assert selected == [choices[2]]
     finally:
         window.close()
         qapp.processEvents()
