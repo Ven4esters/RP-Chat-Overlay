@@ -87,7 +87,7 @@ hide a regression.
 | `morph.py` | 80% | 80% | Normalization and morphology used in matching |
 | `usage_report.py` | 85% | 80% | Opt-in, privacy-preserving performance aggregates |
 | `modules.py` | 90% | 80% | Module registry and lifecycle decisions |
-| `translator.py` | 55% | 80% | Translation, caching, deadlines, and fallback behavior |
+| `translator.py` | 95% | 80% | Translation, caching, deadlines, and fallback behavior |
 | `anims_rules.py` | 95% | 80% | Animation rule parsing, validation, and matching |
 | `anims_runtime.py` | 30% | 80% | Animation queue and playback state machine |
 | `engine.py` | 14% | 80% | Message processing and translation orchestration |
@@ -105,7 +105,7 @@ runner and must not be counted as Linux successes.
 |---|---|
 | Message parsing and animation matching | `test_anims.py`, `test_anims_runner.py`, `test_anims_stop.py`, `test_slang.py`, `test_translit.py` |
 | Settings, language packs, and modules | `test_config.py`, `test_langs.py`, `test_modules.py` |
-| Translation fallback, timeouts, and privacy-safe errors | `test_translator.py`, `test_dlx_response.py`, `test_dlx_security.py` |
+| Translation fallback, service adapters, timeouts, caching, and privacy-safe errors | `test_translator.py`, `test_translator_adapters.py`, `test_dlx_response.py`, `test_dlx_security.py` |
 | Bounded logs and chat-text redaction | `test_logging.py`, `test_gamesend_logs.py`, `test_overlay_logs.py` |
 | Settings toggle keyboard/focus/accessibility behavior and animation chooser layout | `test_settings_ui.py`, `test_animchoice_ui.py` |
 | Morphological matching | `test_morph.py` |
