@@ -88,7 +88,7 @@ hide a regression.
 | `usage_report.py` | 85% | 80% | Opt-in, privacy-preserving performance aggregates |
 | `modules.py` | 90% | 80% | Module registry and lifecycle decisions |
 | `translator.py` | 55% | 80% | Translation, caching, deadlines, and fallback behavior |
-| `anims_rules.py` | 55% | 80% | Animation rule parsing, validation, and matching |
+| `anims_rules.py` | 95% | 80% | Animation rule parsing, validation, and matching |
 | `anims_runtime.py` | 30% | 80% | Animation queue and playback state machine |
 | `engine.py` | 14% | 80% | Message processing and translation orchestration |
 | `dlx.py` | 13% | 80% | DLX client and local-service integration |
