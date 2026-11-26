@@ -67,6 +67,8 @@ in Settings.
 
 A fresh Russian BBCode topic, its 1200×500 banner, nine 1200×62 section plates, and rebuild script are in [`docs/forum-topic/`](docs/forum-topic/). The previous forum raster artwork has been removed. Upload the new PNGs to a host serving direct file URLs and replace the placeholders before posting.
 
+Windows BAT helpers are available to push a selected folder into an existing GitHub repository and to create a GitHub Release in an existing repository: [`tools/upload_to_existing_github_repo.bat`](tools/upload_to_existing_github_repo.bat) and [`tools/create_github_release.bat`](tools/create_github_release.bat). See [`docs/GITHUB_SCRIPTS_RU.md`](docs/GITHUB_SCRIPTS_RU.md) for prerequisites and usage.
+
 ### Why VirusTotal may flag the build
 
 This is a PyInstaller one-file executable: it bundles Python and its dependencies, then unpacks them at runtime. Generic packer or machine-learning heuristics may flag that pattern. The app also registers a configurable global hotkey and uses Windows `SendInput` to type into the game; these legitimate automation features can resemble input monitoring or injection. The EXE is not Authenticode-signed, so it has no publisher reputation from a signing certificate. The optional DLX module can, after user consent, download and launch a separate translation-service binary.
