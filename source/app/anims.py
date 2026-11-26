@@ -62,6 +62,7 @@ from typing import Any, Callable, Iterable, Mapping
 
 from app import morph
 from app.config import log
+from app.usage_report import measure_call
 
 # ---------------------------------------------------------------- режимы чтения
 MODE_ALWAYS = 1  # любое сообщение / any message
@@ -1135,6 +1136,7 @@ def complete(text: str, hint: "Hint | None") -> tuple[str, int]:
 
 
 # ------------------------------------------------------------------ разбор
+@measure_call("animation.plan")
 def plan(
     rules: Iterable["Rule"], text: str, ctx: "Context | None" = None
 ) -> list[tuple[int, int, "Rule", str]]:

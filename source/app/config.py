@@ -121,6 +121,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "setup_done": False,  # первый запуск пройден / first run completed
     "cache_cleanup_interval": "off",  # off | daily | weekly | monthly
     "cache_last_cleaned": "",  # время последней очистки кэша, UTC ISO / last cache cleanup
+    "usage_report_enabled": False,  # локальный отчёт производительности / opt-in diagnostics
     "ui_scale": 1.0,  # масштаб интерфейса / interface scale
     "always_on_top": True,  # оверлей поверх игры / overlay above the game
     # --- вспомогательные модули / optional modules ---

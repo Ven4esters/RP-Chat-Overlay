@@ -12,7 +12,10 @@ RP Chat Overlay application package: a chat translator for GTA V and FiveM.
     slang.py        сленг и сокращения: замена и свои записи / slang expansion and own entries
     slang_data.py   сокращения по языкам, ~300 на язык / abbreviations per language
     translit.py     русская запись по звучанию / Russian reading of foreign words
-    i18n.py         язык интерфейса / interface language
+    i18n.py         функции языка интерфейса / interface language functions
+    i18n_en.py      английский каталог / English string catalog
+    settings_anim_props.py диалог свойств анимации / animation properties dialog
+    usage_report.py локальный отчёт производительности (opt-in) / local performance report
     autoplan.py     счётчик автоперевода / auto-translation counter
     anims.py        анимации по ключевому слову / keyword-driven animations
     morph.py        словоформы ключевых слов / keyword word forms

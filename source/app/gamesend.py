@@ -27,6 +27,7 @@ from collections import namedtuple
 from functools import wraps
 
 from app.config import log
+from app.usage_report import measure_call
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)
 kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -474,6 +475,7 @@ def send_to_open_chat(cfg, hwnd, text, clipboard_text=None):
 
 
 @_serialized_input
+@measure_call("game.send_chat")
 def send_chat(cfg, hwnd, text, chat_open=False, clipboard_text=None):
     """Отправка в игру. Возвращает (успех, сообщение).
 

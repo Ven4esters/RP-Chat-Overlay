@@ -45,7 +45,7 @@ from PySide6.QtWidgets import (
 )
 
 from app import APP_NAME, gamesend as gs, i18n, langs, modules, slang
-from app import animchoice
+from app import animchoice, usage_report
 from app import anims as anims_mod
 from app.autoplan import AutoPlan
 from app.config import log, resource_path, save_config
@@ -961,6 +961,18 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
     set_app_id()
     icon = app_icon()
     app.setWindowIcon(icon)
+    usage_report_timer = QTimer(app)
+    usage_report_timer.setInterval(120_000)
+    usage_report_timer.timeout.connect(usage_report.flush)
+
+    def configure_usage_report(enabled):
+        usage_report.set_enabled(bool(enabled))
+        if enabled:
+            usage_report_timer.start()
+        else:
+            usage_report_timer.stop()
+
+    configure_usage_report(cfg.get("usage_report_enabled", False))
     # сторож главного потока: если окно замрёт, в журнал ошибок попадёт стек всех
     # потоков, и причину будет видно / a main-thread watchdog: a frozen window
     # leaves every thread stack in the error log, so the cause is visible
@@ -1257,6 +1269,7 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
         last_cache_cleanup = cfg.get("cache_last_cleaned", "")
         cfg.clear()
         cfg.update(newcfg)
+        configure_usage_report(cfg.get("usage_report_enabled", False))
         # Runtime cleanup may happen while Settings is open; its snapshot must
         # not roll back the timestamp because that setting is not user-editable.
         if last_cache_cleanup:
@@ -1504,6 +1517,7 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
     app.aboutToQuit.connect(lambda: state["hk"] and state["hk"].stop())
     app.aboutToQuit.connect(dlx.shutdown)
     app.aboutToQuit.connect(translator.flush_cache)
+    app.aboutToQuit.connect(usage_report.stop)
     app.aboutToQuit.connect(runner.shutdown)
     app.aboutToQuit.connect(lambda: state["stop"] and state["stop"].stop())
 

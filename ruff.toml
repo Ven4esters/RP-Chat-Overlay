@@ -21,6 +21,7 @@ select = ["E", "F", "W", "B", "B905", "SIM115", "RET504"]
 # Data: long lines are content, not code.
 "source/app/glossary_data.py" = ["E501"]
 "source/app/i18n.py" = ["E501"]
+"source/app/i18n_en.py" = ["E501"]
 "source/app/langs.py" = ["E501"]
 "source/app/slang_data.py" = ["E501"]
 "source/main.py" = ["E501"]

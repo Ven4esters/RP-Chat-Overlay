@@ -42,6 +42,7 @@ from typing import Any, Callable, Final
 
 from app.config import CACHE_PATH, log, read_json, write_json
 from app.langs import code_of, get as get_lang
+from app.usage_report import measure_call
 
 # --------------------------------------------------------------- настройки сети
 UA: dict[str, str] = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
@@ -460,6 +461,7 @@ class Translator:
         """Перевод через локальный сервис / translation through the local service."""
         return self.local.translate(text, dlx_code(source), dlx_code(target))
 
+    @measure_call("translation")
     def translate(self, text: str) -> str:
         """Перевести текст, идя по цепочке сервисов до первого ответа.
 

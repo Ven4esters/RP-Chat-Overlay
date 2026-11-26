@@ -39,6 +39,7 @@ from app.config import GLOSSARY_DIR, GLOSSARY_PATH, log, read_json, write_json
 from app.langpacks import empty_pack, get_pack
 from app.langs import code_of, get as get_lang
 from app.translit import apply_case, has_reading, norm as _norm, translit_word
+from app.usage_report import measure_call
 
 
 @dataclass(frozen=True, slots=True)
@@ -824,6 +825,7 @@ class Engine:
             ru = up_first(ru)
         return ru + tail, it + tail
 
+    @measure_call("engine.process")
     def process(self, text: str, auto: bool = False, seed: float = 0.0) -> Result:
         """Обычный режим: русский текст -> русская запись и текст на языке.
 
@@ -873,6 +875,7 @@ class Engine:
 
     # ---------- обратный режим: любой язык → русский ----------
     # ---------- полный перевод / full translation ----------
+    @measure_call("engine.process_full")
     def process_full(self, text: str) -> Result:
         """Полный перевод: всё сообщение на язык перевода, без «русской записи».
 
@@ -941,6 +944,7 @@ class Engine:
             out.append(tail)
         return "".join(out)
 
+    @measure_call("engine.process_in")
     def process_in(self, text: str) -> Result:
         """Режим для иностранного игрока: любой язык → русский, перевод уходит в чат.
 
