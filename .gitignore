@@ -1,11 +1,48 @@
-# ---- служебное и пользовательские данные ----
+# Python bytecode, test/analysis caches, and virtual environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.tox/
+.nox/
+.venv/
+venv/
+.coverage*
+coverage.xml
+coverage.json
+htmlcov/
+
+# Node dependencies and generated logs/temp files
+node_modules/
+*.log
+*.tmp
+*.bak
+*~
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Application data, logs, local runtimes, and build output
 source/data/
 source/logs/
 source/build/
 source/.venv/
 source/.build-venv/
 source/runtime/
-# generated, test-only or stale illustrations not used by the app/current docs
+build/
+dist/data/
+dist/logs/
+dist/release-artifacts/
+alt
+
+# Locally built Windows binaries are distributed through Actions artifacts/Releases,
+# not committed to the source repository.
+dist/*.exe
+
+# Generated/stale illustrations not used by the app or current documentation.
 source/images/flow.png
 source/images/langs.png
 source/images/langs.svg
@@ -16,21 +53,3 @@ source/images/forum/*.png
 !source/images/forum/post_*.png
 !source/images/forum/sm_header.png
 !source/images/forum/sm_header_en.png
-source/__pycache__/
-source/**/__pycache__/
-alt
-*.pyc
-.coverage*
-coverage.xml
-coverage.json
-htmlcov/
-dist/data/
-dist/logs/
-
-# ---- собранный exe ----
-# ВАЖНО: GitHub не принимает файлы больше 25 МБ через веб-загрузку,
-# а лимит на файл в репозитории — 100 МБ. Exe весит 60-90 МБ, поэтому:
-#   * или выкладывайте его в Releases (лимит 2 ГБ) — самый простой путь;
-#   * или раскомментируйте строку ниже и коммитьте через Git LFS
-#     (см. .gitattributes) — тогда exe будет храниться прямо в dist/.
-# dist/FiveMChatOverlay.exe

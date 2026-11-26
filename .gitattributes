@@ -5,10 +5,5 @@
 *.json text eol=lf
 *.yml  text eol=lf
 
-# --- Git LFS (по желанию) ---
-# Нужен только если вы хотите хранить собранный exe через Git LFS.
-# Порядок: установить git-lfs -> `git lfs install` -> раскомментировать строку ниже
-# -> `git add .gitattributes dist/FiveMChatOverlay.exe` -> commit -> push.
-# Без установленного git-lfs активная LFS-строка ломает `git add`, поэтому
-# по умолчанию она закомментирована.
-# dist/*.exe filter=lfs diff=lfs merge=lfs -text
+# Собранные Windows EXE не хранятся в Git: их публикуют как CI artifacts/Releases.
+# Generated Windows EXEs stay out of Git and are published as CI artifacts/Releases.

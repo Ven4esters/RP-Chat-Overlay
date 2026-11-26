@@ -63,7 +63,7 @@ gh repo clone "%TARGET%" "%WORK%"
 if errorlevel 1 goto :upload_clonefail
 
 echo Copying files ...
-robocopy "%SRC%" "%WORK%" /E /XD .git .venv .build-venv __pycache__ node_modules .pytest_cache .ruff_cache /XF .env .env.*
+robocopy "%SRC%" "%WORK%" /E /XD .git .venv .build-venv __pycache__ node_modules .pytest_cache .ruff_cache /XF .env .env.* *.exe
 if errorlevel 8 goto :upload_copyfail
 
 set "GIT_NAME="
