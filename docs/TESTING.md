@@ -66,11 +66,44 @@ its **Run tests** step to see individual test names and results.
   constructed response objects; the unit suite does not contact translation
   services.
 
+## Coverage targets
+
+The long-term goal is **at least 80% line coverage per critical module**, not 80%
+for the entire application. A whole-project percentage is misleading here: Qt UI,
+Win32 integration and release-only paths need different runners and are not all
+exercised by Linux unit tests.
+
+The Linux CI job emits a coverage report and enforces the per-module floors in
+[`source/tools/coverage_targets.json`](../source/tools/coverage_targets.json)
+with [`source/tools/check_coverage.py`](../source/tools/check_coverage.py). The
+floors are an initial ratchet based on the current test baseline; modules below
+the 80% goal are reported as follow-up gaps rather than silently presented as
+meeting the goal. Raise a floor only after adding tests, and do not lower it to
+hide a regression.
+
+| Critical module | CI floor | Long-term goal | Main responsibility |
+|---|---:|---:|---|
+| `config.py` | 80% | 80% | Configuration defaults, persistence, and validation |
+| `morph.py` | 80% | 80% | Normalization and morphology used in matching |
+| `usage_report.py` | 85% | 80% | Opt-in, privacy-preserving performance aggregates |
+| `modules.py` | 90% | 80% | Module registry and lifecycle decisions |
+| `translator.py` | 55% | 80% | Translation, caching, deadlines, and fallback behavior |
+| `anims_rules.py` | 55% | 80% | Animation rule parsing, validation, and matching |
+| `anims_runtime.py` | 30% | 80% | Animation queue and playback state machine |
+| `engine.py` | 14% | 80% | Message processing and translation orchestration |
+| `dlx.py` | 13% | 80% | DLX client and local-service integration |
+
+These floors are deliberately honest starting points, not claims that every
+critical module is already adequately tested. Expand coverage by testing
+behavioral branches, boundary cases, and failures; do not write tests solely to
+execute lines. Windows-only tests continue to be validated on the Windows CI
+runner and must not be counted as Linux successes.
+
 ## Coverage map
 
 | Area | Regression tests |
 |---|---|
-| Message parsing and animation matching | `test_anims.py`, `test_slang.py`, `test_translit.py` |
+| Message parsing and animation matching | `test_anims.py`, `test_anims_runner.py`, `test_anims_stop.py`, `test_slang.py`, `test_translit.py` |
 | Settings, language packs, and modules | `test_config.py`, `test_langs.py`, `test_modules.py` |
 | Translation fallback, timeouts, and privacy-safe errors | `test_translator.py`, `test_dlx_response.py`, `test_dlx_security.py` |
 | Bounded logs and chat-text redaction | `test_logging.py`, `test_gamesend_logs.py`, `test_overlay_logs.py` |

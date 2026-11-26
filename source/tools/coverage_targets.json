@@ -1,0 +1,14 @@
+{
+  "goal_percent": 80,
+  "critical_modules": {
+    "source/app/config.py": 80,
+    "source/app/morph.py": 80,
+    "source/app/usage_report.py": 85,
+    "source/app/modules.py": 90,
+    "source/app/translator.py": 55,
+    "source/app/anims_rules.py": 55,
+    "source/app/anims_runtime.py": 30,
+    "source/app/engine.py": 14,
+    "source/app/dlx.py": 13
+  }
+}

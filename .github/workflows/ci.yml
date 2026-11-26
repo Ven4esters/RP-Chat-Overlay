@@ -82,7 +82,12 @@ jobs:
           pip install pytest pytest-cov
 
       - name: Run unit and integration tests
-        run: python -m pytest source/tests -v --cov=source/app --cov-report=term
+        run: >-
+          python -m pytest source/tests -v --cov=source/app --cov-report=term
+          --cov-report=json:coverage.json
+
+      - name: Enforce critical-module coverage floors
+        run: python source/tools/check_coverage.py coverage.json
 
   windows-tests:
     name: Windows Qt, Win32, and build tests
