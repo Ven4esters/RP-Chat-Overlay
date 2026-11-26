@@ -1,64 +1,130 @@
-# Локальный DeepL без бинарника · Local DeepL without a binary
+# Локальный сервис DeepL / Local DeepL service
 
-**RU.** Небольшой сервер на Node.js, который говорит на языке DLX: те же адреса
-(`POST /translate`, `/v1/translate`, `/v2/translate`), тот же формат ответа и
-необязательный токен. Нужен, если `dlx.exe` не скачивается или не запускается.
+**RU.** Сервер на Node.js, совместимый с DLX. Он предоставляет локальной
+сборке RP Chat Overlay интерфейс DLX, если `dlx.exe` недоступен.
 
-```bash
+**EN.** A Node.js server compatible with DLX. It provides the local RP Chat
+Overlay build with the DLX interface when `dlx.exe` is unavailable.
+
+## Содержание / Contents
+
+- [Русский](#русский)
+  - [Возможности](#возможности)
+  - [Запуск](#запуск)
+  - [Безопасность](#безопасность)
+- [English](#english)
+  - [Features](#features)
+  - [Run locally](#run-locally)
+  - [Security](#security)
+
+## Русский
+
+### Возможности
+
+- Node.js 18 или новее; используется Express и `axios`.
+- Адрес по умолчанию: `http://127.0.0.1:1188`.
+- Совместимые запросы: `POST /translate`, `POST /v1/translate` и
+  `POST /v2/translate`.
+- Проверка доступности: `GET /`.
+- Необязательная авторизация Bearer-токеном через переменную `TOKEN`.
+- Перевод выполняется через современный oneshot API DeepL; сервису нужен
+  интернет-доступ.
+
+### Запуск
+
+Из корня репозитория перейдите в папку сервиса и установите зависимости:
+
+```sh
 cd source/tools/deeplx-local
-npm install
-npm start                 # слушает 0.0.0.0:1188
+npm ci
+npm start
 ```
 
-Дальше в программе: **Настройки → DeepL → адрес своего сервиса** →
-`http://127.0.0.1:1188`. Если задать `TOKEN=...` в окружении, тот же токен
-нужно вписать в настройки программы.
+Сервер слушает порт `1188`. В RP Chat Overlay откройте **Настройки → DeepL**,
+включите использование своего DLX-сервиса и укажите
+`http://127.0.0.1:1188`.
 
-Порт меняется переменной `PORT`, адрес — `HOST`.
+Параметры окружения:
 
-Развернуть этот же код на Vercel — инструкция в `VERCEL.md` рядом: получится
-свой адрес вида `https://имя-проекта.vercel.app`, который переводит с
-зарубежного адреса, без VPN и без файла `dlx.exe`.
+| Переменная | Значение по умолчанию | Назначение |
+|---|---|---|
+| `HOST` | `127.0.0.1` | Адрес прослушивания |
+| `PORT` | `1188` | Порт сервера |
+| `TOKEN` | пусто | Bearer-токен для защиты запросов |
 
-**EN.** A small Node.js server that speaks the DLX protocol: same routes
-(`POST /translate`, `/v1/translate`, `/v2/translate`), same answer shape, optional
-token. Useful when `dlx.exe` cannot be downloaded or will not start.
+По умолчанию сервер слушает только локальный компьютер (`127.0.0.1`). Для
+доступа с других устройств задайте `HOST=0.0.0.0`, настройте Bearer-токен и
+правила брандмауэра. Если задан `TOKEN`, добавьте тот же токен в настройки
+собственного DLX-сервиса в приложении.
 
-```bash
+Для развёртывания на Vercel см. [VERCEL.md](VERCEL.md).
+
+### Безопасность
+
+По умолчанию сервер привязывается к `127.0.0.1`, поэтому принимает только
+локальные подключения. Для доступа с других устройств задайте `HOST=0.0.0.0`,
+обязательно настройте Bearer-токен и правила брандмауэра. Не публикуйте токен и
+не добавляйте его в репозиторий. Текст переводов передаётся сервису DeepL.
+
+## English
+
+### Features
+
+- Node.js 18 or later; uses Express and `axios`.
+- Default URL: `http://127.0.0.1:1188`.
+- Compatible endpoints: `POST /translate`, `POST /v1/translate`, and
+  `POST /v2/translate`.
+- Health check: `GET /`.
+- Optional Bearer-token authentication through the `TOKEN` environment variable.
+- Translation uses DeepL's modern oneshot API; the service needs internet access.
+
+### Run locally
+
+From the repository root, enter the service directory and install dependencies:
+
+```sh
 cd source/tools/deeplx-local
-npm install
-npm start                 # listens on 0.0.0.0:1188
+npm ci
+npm start
 ```
 
-Then in the program: **Settings → DeepL → your own service address** →
-`http://127.0.0.1:1188`. If you set `TOKEN=...`, put the same token into the
-program settings. `PORT` and `HOST` change the listen address.
+The server listens on port `1188`. In RP Chat Overlay, open **Settings → DeepL**,
+enable your own DLX service, and enter `http://127.0.0.1:1188`.
 
-## RU: почему это понадобилось
+Environment variables:
 
-Старые сборки DeepLX (например `bropines/Deeplx-vercel` → `LegendLeo/deeplx-serverless`,
-2024 год) ходят на `www2.deepl.com/jsonrpc` методом `LMT_handle_texts` и
-представляются клиентом DeepL для iOS версии 2.9.1. Сегодня DeepL отвечает на
-такой запрос текстом «You're using an older version of DeepL. To continue using
-the app, please update to the latest version» — вместо перевода. Здесь
-используется актуальный путь `oneshot-free.www.deepl.com/v1/translate`, а версия
-клиента берётся из открытого App Store lookup, как это делает сам DeepLX.
+| Variable | Default | Purpose |
+|---|---|---|
+| `HOST` | `127.0.0.1` | Address to listen on |
+| `PORT` | `1188` | Server port |
+| `TOKEN` | empty | Bearer token to protect requests |
 
-Ещё одна мелочь, на которой легко потерять вечер: `target_lang` у oneshot
-понимается только в нижнем регистре. `IT` молча возвращает английский, `it` —
-итальянский.
+By default, the server listens only on the local computer (`127.0.0.1`). To
+accept connections from other devices, set `HOST=0.0.0.0`, configure a Bearer
+token and firewall rules. If `TOKEN` is set, enter the same token in the app's
+custom DLX service settings.
 
-## EN: why this exists
+For deployment to Vercel, see [VERCEL.md](VERCEL.md).
 
-Older DeepLX builds (e.g. `bropines/Deeplx-vercel` → `LegendLeo/deeplx-serverless`,
-2024) call `www2.deepl.com/jsonrpc` with `LMT_handle_texts` and introduce
-themselves as DeepL for iOS 2.9.1. Today DeepL answers that with "You're using an
-older version of DeepL. To continue using the app, please update to the latest
-version" instead of a translation. This server uses the current
-`oneshot-free.www.deepl.com/v1/translate` path and resolves the client version
-from Apple's open lookup, the way DeepLX itself does.
+### Security
 
-One more trap: `target_lang` on oneshot is only understood in lowercase. `IT`
-silently returns English, `it` returns Italian.
+By default, the server binds to `127.0.0.1` and accepts local connections only.
+To allow other devices, set `HOST=0.0.0.0`, configure a Bearer token and firewall
+rules. Do not publish the token or add it to the repository. Translation text is
+sent to DeepL.
 
-MIT, как и остальные файлы проекта. / MIT, like the rest of the project.
+## Tests / Тесты
+
+Run the protocol and error-response tests with Node.js 18 or later:
+
+```sh
+npm ci
+npm test
+```
+
+Tests use a loopback ephemeral port and a stub translator; they do not contact
+DeepL or include real chat text.
+
+## License
+
+This service is distributed under the repository's [MIT License](../../../LICENSE).

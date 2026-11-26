@@ -1,296 +1,249 @@
-# 🎮 RP Chat Overlay
+<p align="center">
+  <img src="source/icon.png" alt="RP Chat Overlay application icon" width="96">
+</p>
 
-[🇷🇺 Читать на русском](README.ru.md)
+<h1 align="center">RP Chat Overlay</h1>
+
+<p align="center">Translate GTA V roleplay chat as you type, and trigger character animations from message keywords.</p>
 
 [![CI](https://github.com/Ven4esters/RP-Chat-Overlay/actions/workflows/ci.yml/badge.svg)](https://github.com/Ven4esters/RP-Chat-Overlay/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/Ven4esters/RP-Chat-Overlay?display_name=tag)](https://github.com/Ven4esters/RP-Chat-Overlay/releases)
-[![Windows 10 / 11](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&logoColor=white)](https://github.com/Ven4esters/RP-Chat-Overlay/releases)
-[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-312/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Windows 10 / 11](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&logoColor=white)](https://www.microsoft.com/windows)
 
-> Translate roleplay chat and trigger character animations from keywords in GTA 5.
+[🇷🇺 Читать на русском](README.ru.md)
 
-<h2 id="contents"><img src="source/images/forum/hdr_contents_en.png" width="1000" alt="Contents"></h2>
+## Contents
 
-- [About the project](#about-the-project)
+- [About](#about)
 - [Features](#features)
-- [Tech stack](#tech-stack)
+- [Screenshots](#screenshots)
+- [Quick start](#quick-start)
 - [Requirements](#requirements)
-- [Installation](#installation)
-- [VirusTotal report and 2/70 detections](#virustotal-report)
-- [Module system](#module-system)
-- [Translation modes and special symbols](#translation-modes-and-special-symbols)
-- [DeepLX in Russia](#deeplx-in-russia)
-- [FAQ and troubleshooting](#faq)
-- [Development checks](#development-checks)
+- [Usage](#usage)
+- [Configuration](#configuration)
+- [Architecture](#architecture)
+- [Tests and CI](#tests-and-ci)
+- [Troubleshooting](#troubleshooting)
+- [Security and privacy](#security-and-privacy)
+- [Contributing](#contributing)
 - [License](#license)
-- [Contacts](#contacts)
+- [Contact](#contact)
 
-<h2 id="about-the-project"><img src="source/images/forum/hdr_about_en.png" width="1000" alt="About the project"></h2>
+## About
 
-The project is an overlay for roleplay chat in GTA 5. It translates incoming
-and outgoing messages through DeepL (local service) or Google Translate, and
-automatically applies character animations based on keyword matching.
-The interface language can be switched between Russian and English without
-restarting.
+RP Chat Overlay is a Windows desktop overlay for GTA V and FiveM roleplay
+players. It prepares chat messages in another language and can send them to the
+game without leaving the current session. Optional keyword rules trigger
+character animations. The interface is available in Russian and English.
 
-<h2 id="features"><img src="source/images/forum/hdr_features_en.png" width="1000" alt="Features"></h2>
+## Features
 
-- Translate chat messages through DeepL or Google Translate
-- Automatic animation triggers based on keyword matching
-- Translate across 13 languages; use built-in glossaries and slang expansion where available
-- DLX local service management (install, start, stop, proxy)
-- Russian and English interface
+- Translate marked text or use the automatic message counter with Google and
+  fallback translation services.
+- Optionally try a local DLX/DeepL service before online fallback translators.
+- Apply language glossaries and expand slang and abbreviations before translation.
+- Choose whether the game receives the translated text or a Russian reading.
+- Match animation keywords and send `/anim` and `/sa` commands to the game.
+- Browse named animation variants with a scrollable, keyboard-accessible chooser.
 
-<h2 id="tech-stack"><img src="source/images/forum/hdr_stack_en.png" width="1000" alt="Tech stack"></h2>
+## Screenshots
 
-Python 3.12 · PySide6 · pymorphy3
+The settings screenshot shows the Russian interface. It is a real application
+screen, not a mock-up.
 
-<h2 id="requirements"><img src="source/images/forum/hdr_requirements_en.png" width="1000" alt="Requirements"></h2>
+<img src="source/images/settings.png" alt="Settings window with language, translation mode, slang, and hotkey options; labels are in Russian" width="800">
 
-- Windows 10 / 11
-- GTA 5
-- Python ≥ 3.12 (to run from sources)
-- Internet connection for translation services
+*Settings window, Russian interface.*
 
-<h2 id="installation"><img src="source/images/forum/hdr_installation_en.png" width="1000" alt="Installation"></h2>
+The workflow diagram also has Russian labels: press the hotkey, open the game
+chat, type in the overlay, then submit the prepared message.
 
-### Compiled release (recommended)
+<img src="source/images/flow.svg" alt="Five-step workflow from the F6 hotkey through the open game chat and overlay to the sent message; diagram labels are in Russian" width="800">
 
-Download the latest build from [GitHub Releases](https://github.com/Ven4esters/RP-Chat-Overlay/releases):
+## Quick start
 
-| File | SHA-256 | MD5 | Size |
-|---|---|---|---|
-| `RPChatOverlay.exe` | `9a6c8da2e9472ee89ee3a6f6311844ed0a983d00327857a1749dc5782cc34749` | `d854ac6a2c7d860ec59a5dd7acbc1a9e` | 47.7 MiB (49 990 457 bytes) |
+1. Download `RPChatOverlay.exe` from the official [GitHub Releases](https://github.com/Ven4esters/RP-Chat-Overlay/releases) page.
+2. Run the executable. The packaged release does not require a separate Python installation.
+3. In GTA V or FiveM, press **F6** to open the overlay and game chat. Other players can see that you are typing; press **Esc** to cancel.
+4. Type a message and press **Enter**. Set the target language and translation mode in **Settings**.
 
-Verify the checksum after downloading, then run `RPChatOverlay.exe`.
+### Run from source
 
-### From sources
+On Windows, clone the repository and run `source/start.bat`. It finds or installs
+Python 3.12, creates a virtual environment, installs application dependencies,
+and starts the app.
 
-```bash
+```powershell
 git clone https://github.com/Ven4esters/RP-Chat-Overlay.git
 cd RP-Chat-Overlay
+source\start.bat
 ```
 
-Run `source/start.bat` — it finds or installs Python 3.12, creates a virtual
-environment, installs dependencies and launches the app.
+## Requirements
 
-<h2 id="virustotal-report"><img src="source/images/forum/hdr_virustotal_en.png" width="1000" alt="VirusTotal report and 2/70 detections"></h2>
+| Component | Minimum | How to check | Needed for |
+|---|---|---|---|
+| Windows | Windows 10 or 11 | Run `winver` | Application |
+| GTA V or FiveM | Installed and running | Open the game before testing chat input | In-game chat and animations |
+| Python | 3.12 for source and development; not needed for the release EXE | `py -3.12 --version` | Source launch and tests |
+| Internet | Connection to the selected translation service | Open the service test in Settings | Online translation and DeepL |
 
-The linked [VirusTotal report](https://www.virustotal.com/gui/file/9a6c8da2e9472ee89ee3a6f6311844ed0a983d00327857a1749dc5782cc34749?nocache=1)
-for this release hash shows **2 of 70** antivirus engines flagging the executable.
-The ratio alone does not prove either that the file is malicious or that the
-detections are false positives; engines use different signatures and heuristics,
-and results can change over time.
+## Usage
 
-A plausible source of generic or heuristic detections is the way the app is
-distributed: it is a self-contained Windows executable built with PyInstaller,
-bundling the Python runtime and dependencies. Packed applications that unpack
-components when launched, and builds with little reputation, can attract
-heuristic alerts. These are possible contributing factors—not verified
-explanations for the exact two detections. Check the engine names and detection
-labels in the linked report for the current details.
+### Translate a message or a marked fragment
 
-Download the executable only from the official [GitHub Releases](https://github.com/Ven4esters/RP-Chat-Overlay/releases)
-page and verify its SHA-256 against the value above. If the checksum differs,
-do not run the file. If your antivirus blocks it, review the vendor's exact
-detection name and submit the file to that vendor for analysis rather than
-disabling protection globally.
-
-<h2 id="module-system"><img src="source/images/forum/hdr_modules_en.png" width="1000" alt="Module system"></h2>
-
-The program is built from independent modules. Any module can be disabled in
-settings — a disabled module does not break the rest, the program keeps
-working in a reduced mode. If a module that another depends on is disabled,
-the dependent is also reported as disabled.
-
-### Modules (in settings window order)
-
-| Setting | What it does | Default |
-|---|---|---|
-| **Online translation** | The chain of Google, MyMemory, Lingva and LibreTranslate translates messages through the internet. Without it only the built-in glossaries work. | On |
-| **Glossary** | Ready-made phrases with a Russian reading and meanings. Lets you see "how to read aloud" instead of raw service translation. | On |
-| **Slang and abbreviations** | Expands `brb`, `afk`, `gg` and their Russian counterparts into full phrases before translation, so machine translation doesn't mangle the shortcut. | On |
-| **Auto-translation** | Every N-th message is translated automatically without pressing a button. Requires online translation. Works only in partial translation mode. | Off |
-| **Sending into the game** | The overlay opens the game chat, pastes the translated text and presses Enter. When off, the text is only copied to the clipboard. | On |
-| **DeepL alongside (DLX)** | A local DeepL service on your computer used as the first translator. Needs consent and about 15 MB on disk. | Off |
-| **Animations** | A keyword in your message starts `/anim` in the game, and `/sa` follows after the configured delay. Requires sending into the game. | Off |
-| **Global hotkey** | Opens the overlay from inside the game with one key. Without it — double-click the tray icon. | On |
-
-### Configuration variables
-
-Settings are stored in `data/config.json` next to the executable. Do not put
-real keys into the repository — they belong in the local data folder only.
-
-#### Language and direction of translation
-
-| Setting | Description | Default value |
-|---|---|---|
-| Target language | Which language to translate messages into (Italian, Spanish, English, etc.) | Italian (`it`) |
-| Sending mode | Which text to send to chat: Russian reading ("how to read aloud") or the original foreign text | Russian reading |
-| Translation mode | What text to translate: the whole message, only part, or any language → Russian | Partial |
-
-#### Program interface
-
-| Setting | Description | Default value |
-|---|---|---|
-| Interface language | Russian or English for menus and tooltips | Russian (`ru`) |
-| Interface scale | Size of overlay elements relative to the screen | 100 % |
-| Always on top | The overlay is displayed above the game and is not hidden behind it | Enabled |
-
-#### Modules
-
-| Setting | Description | Default value |
-|---|---|---|
-| Online translation | Online translation via Google, MyMemory, Lingva, LibreTranslate | On |
-| Glossary | Built-in ready-made phrases with Russian reading | On |
-| Global hotkey | Open the overlay with one key from inside the game | On |
-| DeepL alongside (DLX) | A local DeepL service on your computer | Off |
-| Slang and abbreviations | Expand `brb`, `afk`, `спс` and others before translation | On |
-
-#### Text and special markers
-
-| Setting | Description | Default value |
-|---|---|---|
-| Forced fragment marker | Symbol to mark text that must be translated forced (`+...+`) | `+` |
-| Maximum message length | Character limit for one message to translate | 256 |
-| Pause before translation | Delay after typing before automatic translation starts | 450 ms |
-| Parasite words always | Add filler words (`Senti`, `Ma dai` etc.) to every message | Enabled |
-
-#### Auto-translation
-
-| Setting | Description | Default value |
-|---|---|---|
-| Auto-translate on | Translate every N-th message automatically | Off |
-| Every N-th message | Frequency of automatic translation (which message number) | 4th |
-| Fragment position | Which part of the message to translate: end, beginning, random | End |
-| Dictionary priority | Check built-in dictionary before online translation | Enabled |
-
-#### Sending into the game
-
-| Setting | Description | Default value |
-|---|---|---|
-| Send into the game | Pass text to the game chat window | On |
-| Press Enter | Press Enter automatically after pasting text | Off |
-| Chat key | Key to open chat in the game (e.g. `T`) | `T` |
-| Input method | How to insert text: via clipboard (Ctrl+V) or character by character | Clipboard |
-
-#### Animations
-
-| Setting | Description | Default value |
-|---|---|---|
-| Animations module | Enable animation launch by keywords | Off |
-| Animation rules | Which words trigger which animation (`/anim name`) | Empty |
-| Stop key | Key to stop animation playback | `F` |
-| Stop with `/sa` command | Stop animation with `/sa` command in game | Enabled |
-| "In a vehicle" mode | Don't play animations and don't send `/sa` while enabled | Off |
-
-<h2 id="translation-modes-and-special-symbols"><img src="source/images/forum/hdr_modes_en.png" width="1000" alt="Translation modes and special symbols"></h2>
-
-The program supports several translation methods and special markers in text:
-
-### Auto-translate
-
-Every N-th message is translated automatically. For commands `/to`, `/lto`,
-`/l`, `/wt`, `/s`, `/st` auto-translate applies the same as to regular
-messages.
-
-### Forced fragment translation `+...+`
-
-Wrap part of the text in `+` — the fragment will be translated even when
-auto-translate is disabled. Example: `+`привет, брат`+` — always goes to chat
-in the target language.
-
-### Actions `*...*`
-
-Text in asterisks is perceived as character action and translated in full.
-Service commands (`/me`, `/do`, `/to`) and nicknames are not translated.
-
-### Parasite words
-
-These are filler words inserted into **every** message regardless of the
-auto-translate counter: `Senti`, `Ma dai`, `Oye`, `那个` and others. Enabled
-with a checkbox next to the phrase in the dictionary.
-
-### Dictionary priority over translation
-
-If a phrase exists in the built-in or user dictionary, it is translated
-according to the dictionary entry (with the Russian transcription "how to
-read aloud") and does not go to external translation services. The dictionary
-takes priority over network translation.
-
-<h2 id="deeplx-in-russia"><img src="source/images/forum/hdr_deeplx_en.png" width="1000" alt="DeepLX in Russia"></h2>
-
-Since June 2025, DeepL is blocked for Russian IP addresses. The local DLX
-service starts, but DeepL returns error `503` — the status is
-**“Running, but DeepL answers 503”**.
-
-Workaround: use an **HTTP proxy** (v2rayN, Clash, SOCKS5) or deploy your own
-DLX server abroad ([detailed instructions](docs/DEEPLX-RUSSIA.md)).
-If there is no proxy, simply disable DLX — the program falls back to regular
-translation services without restrictions.
-
-<h2 id="faq">FAQ and troubleshooting</h2>
-
-### Does DeepL need `deep-translator`?
-
-No. DeepL is provided by the separate local DLX service. `deep-translator` was
-only an optional Google web fallback and is no longer a project dependency.
-
-### Why can DLX still return `503`?
-
-DLX runs locally, but it still needs to reach DeepL upstream. Network restrictions
-or proxy settings can prevent that; see [DeepLX in Russia](docs/DEEPLX-RUSSIA.md).
-
-<h2 id="development-checks">Development checks</h2>
-
-From the repository root, run the same local checks used by CI:
-
-```bash
-ruff check source
-ruff format --check source
-npx --yes markdownlint-cli2@0.24.2 --config .markdownlint-cli2.jsonc README.md README.ru.md
-python source/tools/check_readme.py
-python -m pytest source/tests
-bandit -lll -r source/app
-pip-audit -r source/requirements.txt
-```
-
-Install the project dependencies from `source/requirements.txt` and the check
-utilities (`ruff`, `pytest`, `bandit`, `pip-audit`) in your Python 3.12
-environment first. Markdown lint also requires Node.js/npm. CI runs these gates
-on pushes and pull requests.
-
-<h2 id="license"><img src="source/images/forum/hdr_license_en.png" width="1000" alt="License"></h2>
-
-This project is distributed under the MIT License. The canonical English license
-is also available in [`LICENSE`](LICENSE).
+In partial-translation mode, wrap text in plus signs to request translation
+regardless of the automatic-message counter:
 
 ```text
-MIT License
-
-Copyright (c) 2026 Ven4esters
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
++Can you help me with this?+
 ```
 
-<h2 id="contacts"><img src="source/images/forum/hdr_contacts_en.png" width="1000" alt="Contacts"></h2>
+### Send a character action
+
+Wrap an action in asterisks. Game commands and recipient names are handled
+separately from ordinary text:
+
+```text
+*waves and smiles* Ciao!
+```
+
+### Trigger an animation
+
+Enable **Animations** and **Send to game** in Settings, then add a rule with a
+keyword and an `/anim` command. Matching rules can be configured for exact
+words, stems, or lemmas. The module is off by default.
+
+## Configuration
+
+Change options in **Settings**. The application saves configuration and user data
+under `data/` beside the program when that folder is writable. Otherwise, it
+uses `%LOCALAPPDATA%\RPChatOverlay` (or `%APPDATA%\RPChatOverlay` when
+`LOCALAPPDATA` is unset). Logs are in the `logs/` subfolder of the selected data
+root.
+
+| Setting | Default | Purpose |
+|---|---|---|
+| Target language | Italian (`it`) | Destination language |
+| Translation mode | Partial | Translate marked fragments and messages selected by the counter |
+| Text sent to game | Russian reading | Choose a pronunciation-friendly reading or the original translated text |
+| Interface language | Russian | Russian or English menus |
+| Auto-translation | Off; counter defaults to every 4th message | Translate selected messages without marking them |
+| Send to game | On | Submit prepared text to the game; turn off to copy it instead |
+| Local DLX/DeepL | Off | Try the configured local or custom DLX service first |
+| Animation rules | Off | Match keywords and send animation commands |
+| Overlay hotkey | F6 | Open the overlay from the game |
+
+There are no required environment variables for the desktop app. For the local
+DLX service's `HOST`, `PORT`, and `TOKEN` options, see its
+[setup guide](source/tools/deeplx-local/README.md).
+
+## Architecture
+
+The app keeps chat processing, translation, game input, and animation matching
+in separate components. Translation services are tried in order; optional DLX
+runs before the online fallback chain. Animation rules use the original message
+and send commands through the game-input adapter.
+
+```mermaid
+flowchart LR
+    Player[Player] --> Overlay[Overlay]
+    Overlay --> Engine[Message processing]
+    Engine --> Glossary[Glossary and slang]
+    Engine --> Translator[Translation chain]
+    Translator --> DLX{DLX enabled?}
+    DLX -->|yes| DeepL[Local or custom DLX]
+    DLX -->|no or error| Online[Online fallback services]
+    DeepL --> Result[Prepared text]
+    Online --> Result
+    Result --> Game[Game chat or clipboard]
+    Engine --> Rules[Animation rules]
+    Rules --> Commands[/anim and /sa]
+    Commands --> Game
+```
+
+## Tests and CI
+
+Run the deterministic unit and integration suite from the repository root:
+
+```powershell
+python -m pip install -r source/requirements.txt
+python -m pip install pytest pytest-cov ruff bandit pip-audit
+ruff check source
+ruff format --check source
+python -m pytest source/tests -v
+bandit -lll -r source/app
+pip-audit -r source/requirements.txt
+npm ci --prefix source/tools/deeplx-local
+npm test --prefix source/tools/deeplx-local
+npm audit --prefix source/tools/deeplx-local --audit-level=high
+```
+
+CI displays separate quality, Linux, Windows, local-DLX, documentation-link, and
+secret-scan jobs. The Windows job requires the Qt runtime, runs Win32 integration
+tests, and smoke-builds the EXE. Linux skips Qt tests if the machine lacks
+`libGL.so.1`; Windows CI treats a missing Qt runtime as a failure. See the
+[test matrix](docs/TESTING.md) and [UI/UX release checklist](docs/UI_UX_REVIEW.md).
+
+Documentation checks:
+
+```powershell
+npx --yes markdownlint-cli2@0.24.2 --config .markdownlint-cli2.jsonc README.md README.ru.md CONTRIBUTING.md SECURITY.md '.github/**/*.md' 'docs/**/*.md' 'source/tools/deeplx-local/*.md'
+python source/tools/check_readme.py
+```
+
+## Troubleshooting
+
+<details>
+<summary>DLX is running but DeepL returns 503</summary>
+
+The local process is reachable, but the upstream DeepL request failed. Check the
+network and configured proxy, connect a custom DLX endpoint, or disable DLX to
+use the regular translator chain. Follow the [DLX troubleshooting guide](docs/DEEPLX-RUSSIA.md).
+
+</details>
+
+<details>
+<summary>The game was not found or the message was not sent</summary>
+
+Start GTA V or FiveM before opening the overlay. Check the game-chat key and
+**Send to game** settings. The error and resolution log explains where to find
+logs and how to diagnose a failed send: [Errors and fixes](docs/ERRORS_AND_FIXES.md).
+
+</details>
+
+<details>
+<summary>Where are logs stored?</summary>
+
+The app writes `logs/app.log` and `logs/errors.log` under the writable data root.
+If the program folder is not writable, check `%LOCALAPPDATA%\RPChatOverlay\logs`.
+Review and redact logs before sharing them.
+
+</details>
+
+## Security and privacy
+
+Messages submitted for translation are sent to the selected external service.
+DLX runs locally but forwards text to DeepL. Routine logs record message metadata,
+not chat contents; review logs before sharing. Download releases only from the
+official Releases page. Private vulnerability reporting is currently disabled
+in the repository settings. Until maintainers enable the private advisory form,
+do not post vulnerability details publicly; see [`SECURITY.md`](SECURITY.md) for
+the current reporting instructions.
+
+## Contributing
+
+Bug reports and focused pull requests are welcome. Read
+[`CONTRIBUTING.md`](CONTRIBUTING.md) and [`STYLEGUIDE.md`](STYLEGUIDE.md) first;
+include regression tests and update the relevant documentation when behavior
+changes.
+
+## License
+
+Distributed under the [MIT License](LICENSE).
+
+## Contact
 
 - Author: [Ven4esters](https://github.com/Ven4esters)
-- Issues and suggestions: [GitHub Issues](https://github.com/Ven4esters/RP-Chat-Overlay/issues)
+- Questions and bug reports: [GitHub Issues](https://github.com/Ven4esters/RP-Chat-Overlay/issues)

@@ -1,14 +1,14 @@
 # DeepLX и Россия: ограничение и обход
 
-> С июня 2025 года DeepL закрыт для российских IP-адресов. Локальный сервис
-> DLX работает, но сам DeepL не принимает запросы из России. Ниже — как это
-> обойти, чтобы перевод продолжал работать.
+> Если локальный DLX запускается, но перевод получает HTTP `503`, запрос не
+> получил успешный ответ от внешнего сервиса. Причина может быть в сети, прокси
+> или ответе upstream; код `503` сам по себе не доказывает региональную блокировку.
 
 ## Проблема
 
 При включённом DLX сервис запускается на вашем компьютере и сам пересылает
-текст на серверы DeepL. С июня 2025 года DeepL возвращает ошибку `503` для
-запросов с российских адресов. В программе это видно как состояние
+текст на серверы DeepL. При ошибке `503` локальный сервис может быть доступен,
+хотя внешний запрос не завершился успешно. В программе это видно как состояние
 **«Работает, но DeepL не отвечает (503)»**, а перевод не происходит.
 
 ## Как исправить
@@ -33,7 +33,7 @@
 
 ### Вариант 2: свой сервер за рубежом (без dlx.exe)
 
-Разверните [`source/tools/deeplx-local`](source/tools/deeplx-local) на сервере
+Разверните [`source/tools/deeplx-local`](../source/tools/deeplx-local/README.md) на сервере
 за пределами России (например, на Vercel — см. `VERCEL.md` рядом). Вы получите
 адрес вида `https://имя-проекта.vercel.app`, который переводит с зарубежного
 IP без VPN и без файла `dlx.exe`. Укажите этот адрес в настройках DLX.
@@ -52,15 +52,16 @@ IP без VPN и без файла `dlx.exe`. Укажите этот адрес
 
 ## DeepLX and Russia: restriction and workaround
 
-> Since June 2025 DeepL is blocked for Russian IP addresses. The local DLX
-> service runs, but DeepL itself rejects requests from Russia. Below is how to
-> work around it so translation keeps working.
+> If local DLX starts but translation receives HTTP `503`, the request did not
+> get a successful response from the upstream service. Network, proxy, or
+> upstream conditions may be involved; `503` alone does not establish a regional block.
 
 ## Problem
 
 With DLX enabled, the service runs locally on your computer and forwards text
-to DeepL servers. Since June 2025 DeepL replies with `503` to requests from
-Russian addresses. The program shows this as state **«Работает, но DeepL не
+to DeepL servers. An HTTP `503` means the upstream request did not complete
+successfully; it does not by itself prove a regional restriction. The program
+shows this as state **«Работает, но DeepL не
 отвечает (503)»**, and no translation occurs.
 
 ## How to fix
@@ -85,7 +86,7 @@ and error 503 disappears.
 
 ### Option 2: own server abroad (without dlx.exe)
 
-Deploy [`source/tools/deeplx-local`](source/tools/deeplx-local) on a server
+Deploy [`source/tools/deeplx-local`](../source/tools/deeplx-local/README.md) on a server
 outside Russia (e.g. on Vercel — see `VERCEL.md` next to it). You get an
 address like `https://имя-проекта.vercel.app` that translates from a non-Russian
 IP without VPN and without `dlx.exe`. Put this address in DLX settings.

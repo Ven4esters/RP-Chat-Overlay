@@ -22,6 +22,7 @@
 
 const axios = require('axios').default;
 const crypto = require('crypto');
+const { log, errorCode } = require('./logger');
 
 const FREE_ENDPOINT = 'https://oneshot-free.www.deepl.com/v1/translate';
 const PRO_ENDPOINT = 'https://oneshot-pro.www.deepl.com/v1/translate';
@@ -67,7 +68,10 @@ async function appVersion() {
     return cachedVersion;
   } catch (error) {
     const fallback = validVersion(cachedVersion) ? cachedVersion : FALLBACK_VERSION;
-    console.warn('DeepL: не удалось узнать версию в App Store, беру', fallback, '—', error.message);
+    log('warn', 'deepl.version_lookup_failed', {
+      fallback_version: fallback,
+      error_code: errorCode(error),
+    });
     return fallback;
   }
 }

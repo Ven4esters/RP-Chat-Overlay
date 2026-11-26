@@ -130,30 +130,87 @@ def free_port(low: int = PORT_RANGE[0], high: int = PORT_RANGE[1]) -> int:
     raise DlxError("нет свободного порта для локального сервиса")
 
 
+_SENSITIVE_URL_KEYS = frozenset(
+    {
+        "access_token",
+        "api_key",
+        "apikey",
+        "auth",
+        "auth_token",
+        "authorization",
+        "client_secret",
+        "credential",
+        "id_token",
+        "key",
+        "password",
+        "passwd",
+        "private_key",
+        "refresh_token",
+        "secret",
+        "secret_key",
+        "session_token",
+        "signature",
+        "sig",
+        "token",
+        "x_amz_credential",
+        "x_amz_signature",
+    }
+)
+
+
+def _is_sensitive_url_key(key: str) -> bool:
+    """Recognize common secret parameter spellings, including camel case."""
+    normalized = re.sub(r"[^a-z0-9]", "", key.casefold())
+    if normalized in _SENSITIVE_URL_KEYS:
+        return True
+    return (
+        any(
+            marker in normalized
+            for marker in (
+                "token",
+                "secret",
+                "password",
+                "passwd",
+                "credential",
+                "signature",
+                "authorization",
+                "apikey",
+            )
+        )
+        or normalized == "auth"
+    )
+
+
 def _mask_url(url: str) -> str:
-    """Адрес без логина и пароля — для журнала и интерфейса.
+    """Hide credentials and sensitive query values before a URL reaches logs or UI.
 
-    The address without its user and password, for the log and the interface.
-
-    Зачем: у прокси с авторизацией адрес выглядит как
-    `http://user:pass@host:port`, и он попадает в `app.log`, в `errors.log` и
-    в подпись состояния. Пароль от чужого прокси в журнале — это утечка.
-    Why: a proxy with authorisation looks like `http://user:pass@host:port`, and
-    that string reaches `app.log`, `errors.log` and the state line. Somebody
-    else's proxy password in a log is a leak.
+    Addresses may contain proxy user-info or API credentials in query parameters.
+    Keep non-sensitive routing details for diagnosis, redact credential values,
+    and drop fragments because they are never needed to troubleshoot a request.
     """
     text = (url or "").strip()
     if not text:
         return ""
     try:
         parts = urllib.parse.urlsplit(text if "://" in text else "http://" + text)
+        port = parts.port
     except ValueError:
         return "***"
-    if not (parts.username or parts.password):
-        return text
-    host = parts.hostname or "?"
-    netloc = f"***:***@{host}" + (f":{parts.port}" if parts.port else "")
-    return urllib.parse.urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
+
+    netloc = parts.netloc
+    if parts.username or parts.password:
+        host = parts.hostname or "?"
+        if ":" in host and not host.startswith("["):
+            host = f"[{host}]"
+        netloc = f"***:***@{host}" + (f":{port}" if port else "")
+
+    query = [
+        (key, "***" if _is_sensitive_url_key(key) else value)
+        for key, value in urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
+    ]
+    return urllib.parse.urlunsplit(
+        (parts.scheme, netloc, parts.path, urllib.parse.urlencode(query), "")
+    )
 
 
 def normalize_proxy(value: str) -> str:
@@ -955,18 +1012,18 @@ class DlxService:
         self._spawn = {"url": url}
         state = self.probe()
         if state == "ready":
-            self._note = f"свой сервис {parsed.netloc or url}"
+            self._note = f"свой сервис {_mask_url(url)}"
             self._set_state("ready", "")
             log.info("DLX: свой сервис %s отвечает", _mask_url(url))
             return True
         if state == "upstream":
-            self._note = f"свой сервис {parsed.netloc or url}"
+            self._note = f"свой сервис {_mask_url(url)}"
             self._set_state("upstream", "свой сервис работает, но DeepL отказал")
             return False
         self._set_state(
             "error",
             self._probe_error
-            or f"свой сервис {url} не отвечает — проверьте адрес и что он запущен",
+            or f"свой сервис {_mask_url(url)} не отвечает — проверьте адрес и что он запущен",
         )
         log.warning("DLX: свой сервис %s не отвечает", _mask_url(url))
         return False
@@ -993,7 +1050,12 @@ class DlxService:
             )
         except OSError as error:
             winerror = getattr(error, "winerror", None)
-            log.exception("DLX: не удалось запустить %s", cmd)
+            log.warning(
+                "DLX: не удалось запустить процесс (тип=%s, winerror=%s)",
+                type(error).__name__,
+                winerror,
+                exc_info=True,
+            )
             if winerror == 193:
                 # файл скачался битым — выбрасываем, следующий запуск скачает заново
                 # the file came out broken, so drop it and download again next time

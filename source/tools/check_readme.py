@@ -1,4 +1,4 @@
-"""Check README local links, anchors, image alt text, and badge count.
+"""Check project Markdown links, anchors, image alt text, and README badges.
 
 Usage from the repository root: ``python source/tools/check_readme.py``.
 """
@@ -11,7 +11,18 @@ import re
 from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
-READMES = (ROOT / "README.md", ROOT / "README.ru.md")
+README_FILES = (ROOT / "README.md", ROOT / "README.ru.md")
+DOCUMENTATION_FILES = tuple(
+    path
+    for group in (
+        sorted(ROOT.glob("*.md")),
+        sorted((ROOT / ".github").rglob("*.md")),
+        sorted((ROOT / "docs").rglob("*.md")),
+        sorted((ROOT / "source" / "tools" / "deeplx-local").glob("*.md")),
+    )
+    for path in group
+    if path not in README_FILES
+)
 MAX_HEADER_BADGES = 6
 
 _LINK_RE = re.compile(r"(?<!!)\[[^\]]*\]\(([^)]+)\)")
@@ -104,11 +115,11 @@ def _check_readme(readme: Path) -> list[str]:
     for raw in _LINK_RE.findall(text):
         errors.extend(_check_destination(readme, _destination(raw), full_text))
 
-    header = full_text.split("\n\n", 3)
-    badge_block = "\n".join(header[2:3]) if len(header) > 2 else ""
-    badge_count = len(_IMAGE_RE.findall(badge_block))
-    if badge_count > MAX_HEADER_BADGES:
-        errors.append(f"header has {badge_count} badges; maximum is {MAX_HEADER_BADGES}")
+    if readme in README_FILES:
+        header = re.split(r"^##\s+", full_text, maxsplit=1, flags=re.MULTILINE)[0]
+        badge_count = len(_IMAGE_RE.findall(header))
+        if badge_count > MAX_HEADER_BADGES:
+            errors.append(f"header has {badge_count} badges; maximum is {MAX_HEADER_BADGES}")
     return errors
 
 
@@ -126,7 +137,7 @@ def _check_destination(readme: Path, destination: str, source_text: str) -> list
 
     path_text = unquote(parsed.path)
     target = (readme.parent / path_text).resolve() if path_text else readme.resolve()
-    if not target.is_file():
+    if not target.exists():
         return [f"missing local target: {destination}"]
     if parsed.fragment:
         fragment = unquote(parsed.fragment)
@@ -141,14 +152,18 @@ def _check_destination(readme: Path, destination: str, source_text: str) -> list
 
 def main() -> int:
     failures = 0
-    for readme in READMES:
-        errors = _check_readme(readme)
+    for document in (*README_FILES, *DOCUMENTATION_FILES):
+        if not document.is_file():
+            failures += 1
+            print(f"missing documentation file: {document.relative_to(ROOT)}")
+            continue
+        errors = _check_readme(document)
         if errors:
             failures += len(errors)
             for error in errors:
-                print(f"{readme.relative_to(ROOT)}: {error}")
+                print(f"{document.relative_to(ROOT)}: {error}")
         else:
-            print(f"{readme.relative_to(ROOT)}: links, anchors, image alt text, and badges OK")
+            print(f"{document.relative_to(ROOT)}: local links, anchors, and images OK")
     return 1 if failures else 0
 
 

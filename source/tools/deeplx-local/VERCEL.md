@@ -22,7 +22,7 @@ translates through DeepL **from a foreign IP** — no VPN needed, and no
 Что именно заливать: **содержимое папки `source/tools/deeplx-local`**, а не весь
 проект. В ней уже лежит всё нужное:
 
-```
+```text
 api/translate.js    перевод (POST /api/translate)
 api/index.js        проверка живости (GET /api/)
 translate.js        сам перевод через DeepL
@@ -74,7 +74,7 @@ git push -u origin main
 
 Откройте в браузере:
 
-```
+```text
 https://имя-проекта.vercel.app/api/translate
 ```
 
@@ -138,7 +138,7 @@ vercel --prod                       # передеплой, чтобы токе�
 
 **Настройки → DeepL → «Свой адрес сервиса»**:
 
-```
+```text
 https://имя-проекта.vercel.app
 ```
 
@@ -174,7 +174,8 @@ https://имя-проекта.vercel.app
   разумнее европейский (`fra1`, Франкфурт) — ближе к серверам DeepL. На Hobby
   доступен один регион.
 - **Логи.** Vercel → проект → **Logs** (или `vercel logs https://имя-проекта.vercel.app`).
-  Причина отказа DeepL пишется туда строкой `DeepLX-vercel: 503 — …`.
+  Сервис пишет структурированные события и HTTP-коды, не включая текст перевода
+  или исходный ответ DeepL.
 - **Если приходит 429.** Значит, DeepL притормозил этот адрес: у Vercel адреса
   общие. Помогает подождать, сменить регион функции или указать свой токен
   DeepL Pro (в поле «Токен DeepL Pro» в программе — он уходит в запросе).
@@ -220,6 +221,6 @@ curl -X POST https://имя-проекта.vercel.app/api/translate \
 
 Hobby plan: 30 s function limit (set in `vercel.json`), 100 GB bandwidth a month,
 personal projects only. Pick the Frankfurt region for a shorter path to DeepL.
-Reasons for failures land in Vercel → Logs as `DeepLX-vercel: <code> — <reason>`.
-A `429` means DeepL slowed down that shared Vercel address: wait, change the
-region, or use your own DeepL Pro token.
+Structured failure events and HTTP codes appear in Vercel → Logs; translation
+text and raw DeepL responses are not logged. A `429` means DeepL slowed down that
+shared Vercel address: wait, change the region, or use your own DeepL Pro token.

@@ -171,7 +171,7 @@ BBCode внутри блоков готов к копированию: для к
 [left]Download the EXE only from the official release and verify its checksum.[/left]
 
 [img]https://raw.githubusercontent.com/Ven4esters/RP-Chat-Overlay/main/source/images/forum/post_section_09_en.png[/img]
-[left]Since June 2025, DeepL has been unavailable for Russian IP addresses. The local DLX service may start but receive a 503 response from DeepL. Workarounds include an HTTP proxy or your own DLX server hosted abroad.[/left]
+[left]If local DLX starts but translation receives HTTP 503, the request did not get a successful response from the upstream service. Network, proxy, or upstream conditions may be involved; 503 alone does not establish a regional block. Check the connection, configure a proxy, or use your own DLX endpoint.[/left]
 [left]Step-by-step guide: [url=https://github.com/Ven4esters/RP-Chat-Overlay/blob/main/docs/DEEPLX-RUSSIA.md]DeepLX in Russia[/url]. If you do not have a proxy, disable DLX to use the regular translation services.[/left]
 
 [img]https://raw.githubusercontent.com/Ven4esters/RP-Chat-Overlay/main/source/images/forum/post_section_10_en.png[/img]

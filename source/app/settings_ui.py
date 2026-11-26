@@ -631,7 +631,7 @@ class ToggleSwitch(QAbstractButton):
         self.setFixedSize(self.WIDTH, self.HEIGHT)
         self._pos = 0.0  # 0 — выключен, 1 — включён / 0 off, 1 on
         self._anim = QVariantAnimation(self)
-        self._anim.setDuration(140)
+        self._anim.setDuration(160)
         self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
         self._anim.valueChanged.connect(self._animate_to)
         self.toggled.connect(self._slide)

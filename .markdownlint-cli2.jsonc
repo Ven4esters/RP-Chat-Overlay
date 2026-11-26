@@ -6,7 +6,12 @@
     "MD001": false,
     "MD013": false,
     "MD024": { "siblings_only": true },
-    "MD033": { "allowed_elements": ["h2", "img"] },
+    "MD033": {
+      "allowed_elements": [
+        "a", "details", "em", "h1", "h2", "img", "p", "picture", "source", "summary", "table", "td", "tr", "br"
+      ]
+    },
+    "MD041": false,
     "MD060": false
   }
 }

@@ -1,9 +1,5 @@
 name: CI
 
-# Required quality gates: formatting, lint, tests, dependency audit and high-severity SAST.
-# mypy is intentionally omitted until the existing type debt can be fixed without
-# hiding failures behind `|| true`.
-
 on:
   workflow_dispatch:
   push:
@@ -13,25 +9,31 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   quality-gates:
+    name: Quality gates
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
 
-      - name: Install dependencies and checks
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+
+      - name: Install application and quality-check dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r source/requirements.txt
-          pip install ruff pytest pytest-cov bandit pip-audit
+          pip install ruff bandit pip-audit
 
       - name: Ruff lint
         run: ruff check source
@@ -40,13 +42,14 @@ jobs:
         run: ruff format --check source
 
       - name: Markdown lint
-        run: npx --yes markdownlint-cli2@0.24.2 --config .markdownlint-cli2.jsonc README.md README.ru.md
+        run: >-
+          npx --yes markdownlint-cli2@0.24.2
+          --config .markdownlint-cli2.jsonc
+          README.md README.ru.md CONTRIBUTING.md SECURITY.md
+          '.github/**/*.md' 'docs/**/*.md' 'source/tools/deeplx-local/*.md'
 
-      - name: README local links, anchors, alt text and badges
+      - name: README and documentation local links, anchors, image alt text, and badges
         run: python source/tools/check_readme.py
-
-      - name: Unit and integration tests
-        run: python -m pytest source/tests -v --cov=source/app --cov-report=term
 
       - name: Bandit SAST (high severity)
         run: bandit -lll -r source/app
@@ -54,7 +57,35 @@ jobs:
       - name: pip-audit SCA
         run: pip-audit -r source/requirements.txt
 
+      - name: npm audit SCA
+        run: npm audit --prefix source/tools/deeplx-local --audit-level=high
+
+  linux-tests:
+    name: Linux unit and integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      QT_QPA_PLATFORM: offscreen
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Install application and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r source/requirements.txt
+          pip install pytest pytest-cov
+
+      - name: Run unit and integration tests
+        run: python -m pytest source/tests -v --cov=source/app --cov-report=term
+
   windows-tests:
+    name: Windows Qt, Win32, and build tests
     runs-on: windows-latest
     timeout-minutes: 30
     env:
@@ -62,10 +93,10 @@ jobs:
       RPCHAT_REQUIRE_QT_TESTS: "1"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
 
@@ -84,3 +115,54 @@ jobs:
 
       - name: Verify packaged executable
         run: python -c "from pathlib import Path; assert Path('dist/RPChatOverlay.exe').is_file()"
+
+  local-dlx-tests:
+    name: Local DLX protocol tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "18"
+
+      - name: Install locked Node.js dependencies
+        run: npm ci --prefix source/tools/deeplx-local
+
+      - name: Run local DLX protocol and error-privacy tests
+        run: npm test --prefix source/tools/deeplx-local
+
+  documentation-links:
+    name: External documentation links
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check Markdown links
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          args: >-
+            --verbose --no-progress
+            README.md README.ru.md CONTRIBUTING.md SECURITY.md
+            .github docs source/tools/deeplx-local
+          fail: true
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Scan current files and Git history
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
