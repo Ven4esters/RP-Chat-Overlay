@@ -21,7 +21,8 @@ RP Chat Overlay application package: a chat translator for GTA V and FiveM.
     settings_widgets.py общие Qt-виджеты настроек / reusable settings widgets
     usage_report.py локальный отчёт производительности (opt-in) / local performance report
     autoplan.py     счётчик автоперевода / auto-translation counter
-    anims.py        анимации по ключевому слову / keyword-driven animations
+    anims.py        воспроизведение анимаций / animation playback
+    anims_rules.py  правила и сопоставление текста / rules and text matching
     morph.py        словоформы ключевых слов / keyword word forms
     gamesend.py     ввод в окно игры (Windows API) / game window input
     hotkey.py       глобальная горячая клавиша / global hotkey
