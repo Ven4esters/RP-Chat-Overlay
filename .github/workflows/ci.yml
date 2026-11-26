@@ -5,6 +5,7 @@ name: CI
 # hiding failures behind `|| true`.
 
 on:
+  workflow_dispatch:
   push:
     branches: ["arena/**", "feature/**", "main"]
   pull_request:

@@ -9,6 +9,9 @@ source/__pycache__/
 source/**/__pycache__/
 alt
 *.pyc
+.coverage*
+coverage.xml
+htmlcov/
 dist/data/
 dist/logs/
 

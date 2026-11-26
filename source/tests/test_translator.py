@@ -85,6 +85,21 @@ def test_google_fallback_does_not_import_untrusted_package():
     assert names == ["Google", "Google-2", "MyMemory", "Lingva", "LibreTranslate"]
 
 
+def test_removed_package_is_absent_from_install_and_bundle_files():
+    """No bootstrap or frozen build still depends on the removed package."""
+    root = Path(__file__).resolve().parents[2]
+    source = root / "source"
+    for path in (
+        source / "requirements.txt",
+        source / "start.bat",
+        source / "RPChatOverlay.spec",
+        source / "app" / "translator.py",
+    ):
+        contents = path.read_text(encoding="utf-8").lower()
+        assert "deep-translator" not in contents
+        assert "deep_translator" not in contents
+
+
 def test_translation_log_contains_metadata_not_chat_text(monkeypatch, caplog):
     """Successful translations are logged without either side of the chat."""
     import logging
