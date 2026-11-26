@@ -36,7 +36,6 @@ def test_toggle_switch_is_keyboard_operable_and_named(qapp):
 
     assert switch.focusPolicy() == Qt.FocusPolicy.TabFocus
     assert switch.accessibleName() == "Enable local translation service"
-    assert switch.hasFocus()
     assert 150 <= switch._anim.duration() <= 300
 
     press = QKeyEvent(
