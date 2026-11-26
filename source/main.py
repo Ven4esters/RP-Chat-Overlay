@@ -172,7 +172,7 @@ def selftest_anims(cfg: dict) -> None:
     """
     import time
 
-    from app import anims, morph
+    from app import animations as anims, morph
 
     def rule(**kwargs):
         base = dict(keywords="привет", name="wave", mode=anims.MODE_ALWAYS, duration_ms=1000)

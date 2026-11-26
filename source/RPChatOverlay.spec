@@ -37,7 +37,11 @@ def _data(package):
         return []
 
 
-# динамические импорты (importlib) PyInstaller сам не видит — перечисляем явно
+# Динамические импорты PyInstaller сам не видит — перечисляем явно.
+# collect_submodules рекурсивно обходит новые доменные подпакеты (включая
+# app.animations.settings) и сохраняет совместимость старых фасадов.
+# PyInstaller cannot see dynamic imports; collect_submodules recursively walks
+# domain subpackages (including app.animations.settings) and legacy facades.
 hidden = []
 hidden += collect_submodules("app")
 hidden += collect_submodules("app.langpacks")

@@ -3,10 +3,10 @@
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from app import morph  # noqa: E402
-from app.anims_rules import (  # noqa: E402
+from app.animations.rules import (  # noqa: E402
     MAX_CHOICES,
     MODE_ACTIONS,
     MODE_ALWAYS,

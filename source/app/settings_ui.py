@@ -59,7 +59,8 @@ from PySide6.QtWidgets import (
 )
 
 from app import dlx as dlx_mod
-from app import anims, history, i18n, langs, modules, slang
+from app import history, i18n, langs, modules, slang
+from app import animations as anims
 from app.config import (
     CONFIG_PATH,
     DATA,
@@ -93,7 +94,7 @@ from app.settings_widgets import (
 # Backwards-compatible export used by the existing settings UI test and callers.
 from app.settings_widgets import ToggleSwitch as ToggleSwitch  # noqa: F401
 from app.settings_style import style_sheet
-from app.settings_anims_ui import AnimationsSettingsMixin
+from app.animations.settings.page import AnimationsSettingsMixin
 from app.settings_dlx_ui import DlxSettingsMixin
 
 

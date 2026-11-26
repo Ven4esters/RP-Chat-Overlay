@@ -144,7 +144,10 @@ DLX service's `HOST`, `PORT`, and `TOKEN` options, see its
 The app keeps chat processing, translation, game input, and animation matching
 in separate components. Translation services are tried in order; optional DLX
 runs before the online fallback chain. Animation rules use the original message
-and send commands through the game-input adapter.
+and send commands through the game-input adapter. Animation rules, playback,
+chooser, and settings editors are grouped in `source/app/animations/`; their
+regression tests live in `source/tests/animations/`. Small top-level compatibility
+modules preserve established imports while application code uses the package.
 
 ```mermaid
 flowchart LR

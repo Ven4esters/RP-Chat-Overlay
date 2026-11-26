@@ -6,11 +6,11 @@ from types import ModuleType
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from app import anims  # noqa: E402
 from app import anims_stop  # noqa: E402
-from app.anims_stop import (  # noqa: E402
+from app.animations.stop import (  # noqa: E402
     STOP_KEY_MODS,
     VAL_BAD_STOP_KEY,
     VAL_EMPTY_STOP_KEY,

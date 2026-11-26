@@ -11,7 +11,7 @@ substitute for a visual review.
 | Handbook criterion | Implementation / regression evidence | Release verification |
 |---|---|---|
 | Main task and secondary actions are visually distinct | Settings has a primary Save action and separate Cancel/Reset actions; the footer remains available while pages scroll (`source/app/settings_ui.py`). | Confirm the hierarchy is clear at 100% and 150% display scaling. |
-| Long content remains usable | Settings pages scroll and the window is sized against the available screen; animation choices wrap text and use a scroll area (`source/app/settings_ui.py`, `source/app/animchoice.py`). | Resize the window and check long Russian and English labels. |
+| Long content remains usable | Settings pages scroll and the window is sized against the available screen; animation choices wrap text and use a scroll area (`source/app/settings_ui.py`, `source/app/animations/chooser.py`). | Resize the window and check long Russian and English labels. |
 | Keyboard access and visible focus | Settings styles focus states; `ToggleSwitch` is Tab-focusable and supports standard button keyboard interaction. Animation chooser cards expose accessible names and keyboard selection. | Complete the keyboard-only check below on Windows. |
 | Accessible names | The DLX switch and animation chooser cards set accessible names; icon-only and custom controls should be checked when changed. | Spot-check names with the platform accessibility inspector or a screen reader. |
 | Animation timing | The settings toggle uses a 160 ms transition, within the handbook's 150–300 ms interaction range. | Check the transition feels responsive and does not delay the action. |
@@ -24,7 +24,7 @@ substitute for a visual review.
 On a machine with the Qt runtime, run:
 
 ```sh
-QT_QPA_PLATFORM=offscreen python -m pytest source/tests/test_settings_ui.py source/tests/test_animchoice_ui.py -v
+QT_QPA_PLATFORM=offscreen python -m pytest source/tests/test_settings_ui.py source/tests/animations/test_chooser_ui.py -v
 ```
 
 The tests verify keyboard toggling, the switch's accessible name and focus

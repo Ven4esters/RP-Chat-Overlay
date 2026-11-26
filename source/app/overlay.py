@@ -45,8 +45,9 @@ from PySide6.QtWidgets import (
 )
 
 from app import APP_NAME, gamesend as gs, i18n, langs, modules, slang
-from app import animchoice, usage_report
-from app import anims as anims_mod
+from app import usage_report
+from app.animations import chooser as animchoice
+from app import animations as anims_mod
 from app.autoplan import AutoPlan
 from app.config import log, resource_path, save_config
 from app.engine import (

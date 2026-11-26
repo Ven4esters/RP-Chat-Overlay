@@ -56,7 +56,7 @@ its **Run tests** step to see individual test names and results.
 
 ## Platform notes
 
-- `test_animchoice_ui.py` requires Qt's offscreen runtime. On Linux systems
+- `animations/test_chooser_ui.py` requires Qt's offscreen runtime. On Linux systems
   missing `libGL.so.1`, the module is skipped locally. The Windows CI job sets
   `RPCHAT_REQUIRE_QT_TESTS=1`, so an unavailable Qt runtime fails that job rather
   than silently skipping the UI regression.
@@ -88,8 +88,8 @@ hide a regression.
 | `usage_report.py` | 85% | 80% | Opt-in, privacy-preserving performance aggregates |
 | `modules.py` | 90% | 80% | Module registry and lifecycle decisions |
 | `translator.py` | 95% | 80% | Translation, caching, deadlines, and fallback behavior |
-| `anims_rules.py` | 95% | 80% | Animation rule parsing, validation, and matching |
-| `anims_runtime.py` | 30% | 80% | Animation queue and playback state machine |
+| `animations/rules.py` | 95% | 80% | Animation rule parsing, validation, and matching |
+| `animations/runtime.py` | 85% | 80% | Animation queue and playback state machine |
 | `engine.py` | 14% | 80% | Message processing and translation orchestration |
 | `dlx.py` | 13% | 80% | DLX client and local-service integration |
 
@@ -103,11 +103,11 @@ runner and must not be counted as Linux successes.
 
 | Area | Regression tests |
 |---|---|
-| Message parsing and animation matching | `test_anims.py`, `test_anims_runner.py`, `test_anims_stop.py`, `test_slang.py`, `test_translit.py` |
+| Message parsing and animation matching | `animations/test_hints.py`, `animations/test_rules.py`, `animations/test_runtime.py`, `animations/test_stop.py`, `test_slang.py`, `test_translit.py` |
 | Settings, language packs, and modules | `test_config.py`, `test_langs.py`, `test_modules.py` |
 | Translation fallback, service adapters, timeouts, caching, and privacy-safe errors | `test_translator.py`, `test_translator_adapters.py`, `test_dlx_response.py`, `test_dlx_security.py` |
 | Bounded logs and chat-text redaction | `test_logging.py`, `test_gamesend_logs.py`, `test_overlay_logs.py` |
-| Settings toggle keyboard/focus/accessibility behavior and animation chooser layout | `test_settings_ui.py`, `test_animchoice_ui.py` |
+| Settings toggle keyboard/focus/accessibility behavior and animation chooser layout | `test_settings_ui.py`, `animations/test_chooser_ui.py` |
 | Morphological matching | `test_morph.py` |
 | DLX Node.js protocol and HTTP error handling | `source/tools/deeplx-local/test/server.test.js` |
 

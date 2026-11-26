@@ -6,8 +6,8 @@
     "source/app/usage_report.py": 85,
     "source/app/modules.py": 90,
     "source/app/translator.py": 95,
-    "source/app/anims_rules.py": 95,
-    "source/app/anims_runtime.py": 30,
+    "source/app/animations/rules.py": 95,
+    "source/app/animations/runtime.py": 85,
     "source/app/engine.py": 14,
     "source/app/dlx.py": 13
   }

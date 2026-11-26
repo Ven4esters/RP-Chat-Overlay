@@ -14,18 +14,14 @@ RP Chat Overlay application package: a chat translator for GTA V and FiveM.
     translit.py     русская запись по звучанию / Russian reading of foreign words
     i18n.py         функции языка интерфейса / interface language functions
     i18n_en.py      английский каталог / English string catalog
-    settings_anim_props.py диалог свойств анимации / animation properties dialog
-    settings_anims_ui.py страница анимаций / animation settings page
+    animations/     правила, выполнение, подсказки, выбор и интерфейс
+                    animation rules, runtime, hints, chooser and settings UI
+    animations/settings/ редактор правил / animation settings editors
     settings_dlx_ui.py  страница и задачи DLX / DLX settings and jobs
     settings_style.py   общие стили настроек / shared settings styles
     settings_widgets.py общие Qt-виджеты настроек / reusable settings widgets
     usage_report.py локальный отчёт производительности (opt-in) / local performance report
     autoplan.py     счётчик автоперевода / auto-translation counter
-    anims.py        воспроизведение анимаций / animation playback
-    anims_rules.py  правила и сопоставление текста / rules and text matching
-    anims_hints.py  подсказки ключевых слов / keyword suggestions
-    anims_stop.py   клавиша остановки анимации / animation stop key
-    anims_runtime.py  планирование и очередь анимаций / animation runtime
     morph.py        словоформы ключевых слов / keyword word forms
     gamesend.py     ввод в окно игры (Windows API) / game window input
     hotkey.py       глобальная горячая клавиша / global hotkey
@@ -35,7 +31,7 @@ RP Chat Overlay application package: a chat translator for GTA V and FiveM.
 
 Правило импорта / import rule: модули пакета импортируются только абсолютно
 (`from app.config import log`), чтобы PyInstaller находил их при сборке exe.
-Package modules use absolute imports only, so PyInstaller bundles them reliably.
+Package modules use absolute imports so PyInstaller bundles them reliably.
 """
 
 from __future__ import annotations

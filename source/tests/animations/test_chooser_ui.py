@@ -1,7 +1,10 @@
 """Qt regression tests for the in-game animation chooser layout."""
 
 import os
+import sys
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
@@ -15,8 +18,8 @@ except (ImportError, OSError) as error:
         raise
     pytest.skip(f"Qt runtime is unavailable: {error}", allow_module_level=True)
 
-from app.anims import Choice
-from app.animchoice import ChoiceWindow
+from app.animations import Choice
+from app.animations.chooser import ChoiceWindow
 
 
 @pytest.fixture(scope="module")
