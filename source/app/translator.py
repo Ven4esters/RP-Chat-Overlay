@@ -406,13 +406,20 @@ class Translator:
         Switch the direction: "out" (Russian into the target language) or
         "in" (anything into Russian).
         """
-        self.direction = "in" if self.is_reverse(direction) else "out"
-        if self.direction == "in":
-            self.target, self.source = RU, "auto"
-        else:
-            self.target = get_lang(code_of(self.out_target))["tr"]
-            self.source = "ru"
-        log.info("Направление перевода: %s -> %s", self.source, self.target)
+        new_direction = "in" if self.is_reverse(direction) else "out"
+        new_target, new_source = (
+            (RU, "auto")
+            if new_direction == "in"
+            else (get_lang(code_of(self.out_target))["tr"], "ru")
+        )
+        changed = (self.direction, self.target, self.source) != (
+            new_direction,
+            new_target,
+            new_source,
+        )
+        self.direction, self.target, self.source = new_direction, new_target, new_source
+        if changed:
+            log.info("Направление перевода: %s -> %s", self.source, self.target)
         return self.direction
 
     def set_target(self, target: str) -> str:

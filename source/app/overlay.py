@@ -110,22 +110,37 @@ class Worker(threading.Thread):
     def __init__(self, fn, on_done):
         super().__init__(daemon=True, name="translate")
         self.fn, self.on_done, self.job, self.cv = fn, on_done, None, threading.Condition()
+        self._stopping = False
 
     def submit(self, job):
         with self.cv:
+            if self._stopping:
+                return
             self.job = job
             self.cv.notify()
+
+    def stop(self):
+        """Discard pending work and let the translation thread exit."""
+        with self.cv:
+            self._stopping = True
+            self.job = None
+            self.cv.notify_all()
 
     def run(self):
         while True:
             with self.cv:
-                while self.job is None:
+                while self.job is None and not self._stopping:
                     self.cv.wait()
+                if self._stopping:
+                    return
                 job, self.job = self.job, None
             try:
                 res, err = self.fn(job), None
             except Exception as e:
                 res, err = None, e
+            with self.cv:
+                if self._stopping:
+                    return
             self.on_done(job, res, err)
 
 
@@ -1529,12 +1544,28 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
     bridge.hotkey.connect(win.open_overlay_from_hotkey, Qt.ConnectionType.QueuedConnection)
     bridge.fail.connect(lambda m: win.notify(m, True), Qt.ConnectionType.QueuedConnection)
     start_hotkey()
-    app.aboutToQuit.connect(lambda: state["hk"] and state["hk"].stop())
+    def stop_background_threads():
+        """Stop UI-owned workers before Qt tears down its thread-local state."""
+        win.timer.stop()
+        win.worker.stop()
+        threads = [win.worker]
+        for key in ("hk", "stop"):
+            thread = state[key]
+            if thread is not None:
+                thread.stop()
+                threads.append(thread)
+        deadline = time.monotonic() + 3.0
+        for thread in threads:
+            if thread.is_alive():
+                thread.join(timeout=max(0.0, deadline - time.monotonic()))
+            if thread.is_alive():
+                log.warning("Поток %s не завершился штатно перед выходом", thread.name)
+
+    app.aboutToQuit.connect(stop_background_threads)
     app.aboutToQuit.connect(dlx.shutdown)
     app.aboutToQuit.connect(translator.flush_cache)
     app.aboutToQuit.connect(usage_report.stop)
     app.aboutToQuit.connect(runner.shutdown)
-    app.aboutToQuit.connect(lambda: state["stop"] and state["stop"].stop())
 
     game = i18n.t("найдена") if tracker.get(True) else i18n.t("не найдена")
     key = cfg["hotkey"] if modules.is_enabled(cfg, "hotkey") else i18n.t("не назначена")

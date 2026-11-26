@@ -2,6 +2,7 @@
 
 import logging
 import sys
+from threading import Event
 from types import SimpleNamespace
 
 import pytest
@@ -38,3 +39,30 @@ def test_finish_logs_only_output_length(monkeypatch, caplog):
         assert "символов=" in caplog.text
     finally:
         overlay.close()
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="the overlay imports Win32 game integration")
+def test_translation_worker_stops_without_emitting_after_shutdown():
+    """Shutdown discards an in-flight translation instead of signaling dead Qt objects."""
+    from app.overlay import Worker
+
+    started, release = Event(), Event()
+    delivered = []
+
+    def translate(job):
+        started.set()
+        assert release.wait(2.0)
+        return job
+
+    worker = Worker(translate, lambda *result: delivered.append(result))
+    worker.start()
+    worker.submit((1, "typing"))
+    try:
+        assert started.wait(1.0)
+        worker.stop()
+    finally:
+        release.set()
+        worker.join(timeout=2.0)
+
+    assert not worker.is_alive()
+    assert delivered == []

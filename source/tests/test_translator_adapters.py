@@ -246,6 +246,21 @@ def test_translator_initializes_bad_cache_and_sets_directions(monkeypatch):
     assert Translator.is_reverse("es") is False
 
 
+def test_setting_same_translation_direction_does_not_spam_logs(caplog):
+    """Repeated processing keeps the direction but writes no duplicate INFO lines."""
+    translator = Translator("es")
+    with caplog.at_level("INFO", logger="app"):
+        translator.set_direction("in")
+        translator.set_direction("reverse")
+        translator.set_direction("out")
+        translator.set_direction("out")
+
+    direction_lines = [
+        record for record in caplog.records if "Направление перевода:" in record.message
+    ]
+    assert len(direction_lines) == 2
+
+
 def test_local_deepl_service_is_first_and_maps_language_codes():
     seen = []
 

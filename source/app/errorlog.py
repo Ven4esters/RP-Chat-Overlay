@@ -187,10 +187,11 @@ def watch_main_thread(timeout: float = 20.0, parent=None):
     timer.timeout.connect(_beat_tick)
     timer.start()
 
+    stop = threading.Event()
+
     def watch() -> None:
         reported = 0.0
-        while True:
-            _time.sleep(1.0)
+        while not stop.wait(1.0):
             stall = _time.monotonic() - _beat["time"]
             if stall > timeout and stall - reported > timeout:
                 reported = stall
@@ -204,7 +205,17 @@ def watch_main_thread(timeout: float = 20.0, parent=None):
                     pass
                 log.error("Главный поток не отвечает %.0f с — стеки записаны в журнал", stall)
 
-    threading.Thread(target=watch, name="hang-watch", daemon=True).start()
+    watcher = threading.Thread(target=watch, name="hang-watch", daemon=True)
+    watcher.start()
+
+    def stop_watch() -> None:
+        timer.stop()
+        stop.set()
+        if watcher.is_alive() and watcher is not threading.current_thread():
+            watcher.join(timeout=1.0)
+
+    if parent is not None and hasattr(parent, "aboutToQuit"):
+        parent.aboutToQuit.connect(stop_watch)
     return timer
 
 
