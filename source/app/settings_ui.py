@@ -247,10 +247,6 @@ def check_hotkey(spec):
     )
     if not ok_key:
         return False, f"Клавиша «{k}» не поддерживается."
-    if not mods and not (k.startswith("f") or k in ALLOWED_PLAIN):
-        return False, (
-            "Одиночная буква/цифра будет мешать печати — добавьте Ctrl/Alt или выберите F-клавишу."
-        )
     return True, ""
 
 
