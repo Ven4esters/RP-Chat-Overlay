@@ -16,6 +16,7 @@ where git >nul 2>nul || goto :nogit
 gh auth status >nul 2>nul || goto :noauth
 
 set "SRC=%~dp0..\dist"
+if not exist "%SRC%\." set "SRC=%~dp0..\..\dist"
 for %%I in ("%SRC%") do set "SRC=%%~fI"
 echo Folder to upload (Enter for the release files in dist):
 echo   Default: "%SRC%"
@@ -23,7 +24,7 @@ set /p "INPUT_SRC=Folder: "
 if defined INPUT_SRC set "SRC=%INPUT_SRC%"
 set "SRC=%SRC:"=%"
 for %%I in ("%SRC%") do set "SRC=%%~fI"
-if not exist "%SRC%\NUL" goto :badsource
+if not exist "%SRC%\." goto :badsource
 
 echo.
 echo Existing GitHub repository, in OWNER/REPOSITORY format.

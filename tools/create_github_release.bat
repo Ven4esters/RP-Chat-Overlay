@@ -30,6 +30,7 @@ if defined INPUT_TITLE set "TITLE=%INPUT_TITLE%"
 
 echo.
 set "ASSET_DIR=%~dp0..\dist"
+if not exist "%ASSET_DIR%\." set "ASSET_DIR=%~dp0..\..\dist"
 for %%I in ("%ASSET_DIR%") do set "ASSET_DIR=%%~fI"
 echo Asset folder (Enter for the release files in dist):
 echo   Default: "%ASSET_DIR%"
@@ -37,7 +38,7 @@ set /p "INPUT_DIR=Folder: "
 if defined INPUT_DIR set "ASSET_DIR=%INPUT_DIR%"
 set "ASSET_DIR=%ASSET_DIR:"=%"
 for %%I in ("%ASSET_DIR%") do set "ASSET_DIR=%%~fI"
-if not exist "%ASSET_DIR%\NUL" goto :baddir
+if not exist "%ASSET_DIR%\." goto :baddir
 dir /b /a-d "%ASSET_DIR%\*" >nul 2>nul
 if errorlevel 1 goto :noassets
 
