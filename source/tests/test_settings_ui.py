@@ -15,7 +15,8 @@ except (ImportError, OSError) as error:
         raise
     pytest.skip(f"Qt runtime is unavailable: {error}", allow_module_level=True)
 
-from app.settings_ui import ToggleSwitch
+from app.config import DEFAULT_CONFIG
+from app.settings_ui import SettingsWindow, ToggleSwitch
 
 
 @pytest.fixture(scope="module")
@@ -70,3 +71,27 @@ def test_external_switch_state_updates_do_not_emit_user_action(qapp):
     switch.set_on(False)
     assert not switch.isChecked()
     assert changed == []
+
+
+def test_animation_page_reactivates_immediately_when_module_is_enabled(qapp):
+    """Enabling Animations restores existing controls without needing a table edit."""
+    cfg = dict(DEFAULT_CONFIG)
+    cfg["anims_enabled"] = False
+    cfg["game_send"] = True
+    window = SettingsWindow(cfg)
+    try:
+        window.nav.setCurrentRow(window._anims_row)
+        qapp.processEvents()
+
+        assert window.page_anims.property("moduleOff") is True
+        assert not window.bt_anim_add.isEnabled()
+
+        window.chk_modules["anims_enabled"].setChecked(True)
+        qapp.processEvents()
+
+        assert window.page_anims.property("moduleOff") is False
+        assert window.bt_anim_add.isEnabled()
+        assert window.tbl_anims.isEnabled()
+    finally:
+        window.close()
+        qapp.processEvents()

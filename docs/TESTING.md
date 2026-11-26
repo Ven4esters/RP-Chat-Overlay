@@ -20,7 +20,7 @@ bandit -lll -r source/app
 pip-audit -r source/requirements.txt
 ```
 
-The local DLX adapter has an isolated Node.js 18 test suite. It binds only to a
+The local DLX adapter has an isolated Node.js 22 test suite. It binds only to a
 loopback ephemeral port and stubs the translation provider, so it does not call
 DeepL or expose a public listener:
 
@@ -46,7 +46,7 @@ failure occurred:
 | `quality-gates` | Ubuntu | Ruff, Markdown and local documentation links, Bandit, pip-audit, and npm audit |
 | `linux-tests` | Ubuntu | Unit and integration tests with coverage output |
 | `windows-tests` | Windows | Full pytest suite with required Qt runtime, Win32 adapters, and an EXE smoke build |
-| `local-dlx-tests` | Ubuntu / Node.js 18 | DLX HTTP routes, Bearer authentication, request validation, and safe error responses |
+| `local-dlx-tests` | Ubuntu / Node.js 22 | DLX HTTP routes, Bearer authentication, request validation, and safe error responses |
 | `documentation-links` | Ubuntu | External Markdown link check |
 | `secret-scan` | Ubuntu | Gitleaks scan of checked-out files and Git history |
 
@@ -90,8 +90,8 @@ hide a regression.
 | `translator.py` | 95% | 80% | Translation, caching, deadlines, and fallback behavior |
 | `animations/rules.py` | 95% | 80% | Animation rule parsing, validation, and matching |
 | `animations/runtime.py` | 85% | 80% | Animation queue and playback state machine |
-| `engine.py` | 14% | 80% | Message processing and translation orchestration |
-| `dlx.py` | 13% | 80% | DLX client and local-service integration |
+| `engine.py` | 90% | 80% | Message processing and translation orchestration |
+| `dlx.py` | 80% | 80% | DLX client and local-service integration |
 
 These floors are deliberately honest starting points, not claims that every
 critical module is already adequately tested. Expand coverage by testing
@@ -104,8 +104,9 @@ runner and must not be counted as Linux successes.
 | Area | Regression tests |
 |---|---|
 | Message parsing and animation matching | `animations/test_hints.py`, `animations/test_rules.py`, `animations/test_runtime.py`, `animations/test_stop.py`, `test_slang.py`, `test_translit.py` |
+| Message pipeline, glossary migration, and translation modes | `engine/test_engine.py` |
 | Settings, language packs, and modules | `test_config.py`, `test_langs.py`, `test_modules.py` |
-| Translation fallback, service adapters, timeouts, caching, and privacy-safe errors | `test_translator.py`, `test_translator_adapters.py`, `test_dlx_response.py`, `test_dlx_security.py` |
+| Translation fallback, service adapters, timeouts, caching, and privacy-safe errors | `test_translator.py`, `test_translator_adapters.py`, `dlx/test_*.py`, `test_dlx_response.py`, `test_dlx_security.py` |
 | Bounded logs and chat-text redaction | `test_logging.py`, `test_gamesend_logs.py`, `test_overlay_logs.py` |
 | Settings toggle keyboard/focus/accessibility behavior and animation chooser layout | `test_settings_ui.py`, `animations/test_chooser_ui.py` |
 | Morphological matching | `test_morph.py` |

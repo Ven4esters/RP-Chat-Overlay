@@ -8,7 +8,7 @@
     "source/app/translator.py": 95,
     "source/app/animations/rules.py": 95,
     "source/app/animations/runtime.py": 85,
-    "source/app/engine.py": 14,
-    "source/app/dlx.py": 13
+    "source/app/engine.py": 90,
+    "source/app/dlx.py": 80
   }
 }

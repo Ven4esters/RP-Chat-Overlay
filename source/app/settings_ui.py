@@ -712,6 +712,7 @@ class SettingsWindow(DlxSettingsMixin, AnimationsSettingsMixin, QDialog):
             )
         )
         self.chk_slang = QCheckBox("Разворачивать сленг и сокращения")
+        self.chk_slang.setObjectName("moduleToggle")
         self.chk_slang.toggled.connect(lambda on: self._mirror_own_flag("slang", on))
         self.chk_slang.setToolTip(
             "lol, brb, afk, idk, idc, omw, gtg, gg, wp, ez, ty, thx, np, pls, sry,\n"
@@ -1114,6 +1115,7 @@ class SettingsWindow(DlxSettingsMixin, AnimationsSettingsMixin, QDialog):
             )
         )
         self.chk_auto = QCheckBox("Включить автоперевод")
+        self.chk_auto.setObjectName("moduleToggle")
         self.chk_auto.toggled.connect(lambda on: self._mirror_own_flag("autotranslate", on))
         cl.addWidget(self.chk_auto)
         form = QFormLayout()
@@ -1174,6 +1176,7 @@ class SettingsWindow(DlxSettingsMixin, AnimationsSettingsMixin, QDialog):
         card, cl = _card()
         cl.addWidget(_title("Отправка в игру", "sec"))
         self.chk_send = QCheckBox("Вставлять текст в чат игры")
+        self.chk_send.setObjectName("moduleToggle")
         self.chk_send.toggled.connect(lambda on: self._mirror_own_flag("game_send", on))
         cl.addWidget(self.chk_send)
         self.chk_chat_first = QCheckBox("Сначала открывать чат игры (клавиша T), потом оверлей")
@@ -2628,14 +2631,11 @@ class SettingsWindow(DlxSettingsMixin, AnimationsSettingsMixin, QDialog):
         box = self.chk_modules.get(modules.get(key).config_key) if modules.get(key) else None
         if box is None:
             return
-        self._module_switching = True
-        try:
-            box.blockSignals(True)
-            box.setChecked(bool(checked))
-            box.blockSignals(False)
-        finally:
-            self._module_switching = False
-        self._sync_module_pages()
+        # Используем тот же путь, что и на странице «Модули»: он предлагает
+        # включить родительский модуль, если без него текущий модуль не работает.
+        # Use the same path as the Modules page so enabling a child can offer to
+        # turn on its required parent instead of silently leaving it dimmed.
+        self._module_toggled(key, bool(checked))
 
     def _mode_flag_tip(self, key):
         """Подсказка для флажка, который в этом режиме не нужен.
@@ -2692,10 +2692,16 @@ class SettingsWindow(DlxSettingsMixin, AnimationsSettingsMixin, QDialog):
             # the third state: the module is fine but this mode does not use it,
             # which is how auto-translation dims in full and reverse mode
             other_mode = modules.needed_in_other_mode(cfg, module.key)
+            own_switch = self._own_module_box(module.key)
             for child in page.findChildren(QWidget):
-                # подсказку о выключенном модуле не гасим — её и надо прочитать
-                # the disabled-module hint stays readable: it is what to read
+                # Подсказку и переключатель самого модуля не блокируем: иначе
+                # выключенный модуль нельзя было бы включить со своей страницы.
+                # Keep the hint and the module's own switch interactive, or the
+                # module could not be enabled from its own settings page.
                 if child.objectName() == "moduleOff":
+                    continue
+                if child is own_switch:
+                    child.setEnabled(True)
                     continue
                 child.setEnabled(active and not other_mode)
             page.setProperty("moduleOff", not active or other_mode)
@@ -2781,7 +2787,18 @@ class SettingsWindow(DlxSettingsMixin, AnimationsSettingsMixin, QDialog):
                     child.setStyleSheet(str(saved))
                     child.setProperty("_dim_css", None)
                 _dim_restore_state(child)
-        for widget in (page, view, getattr(view, "viewport", lambda: None)()):
+        # Динамический селектор задан на родительской странице, но Qt не всегда
+        # пересчитывает его для уже созданных потомков после смены свойства.
+        # Переполируем всю страницу сейчас, а не ждём следующей перестройки
+        # таблицы (например, добавления правила анимации).
+        # The dynamic selector belongs to the page, but Qt does not always
+        # recalculate it for existing descendants when the property changes.
+        # Repolish the whole page now instead of waiting for a later table rebuild
+        # (such as adding an animation rule).
+        widgets = [page, *page.findChildren(QWidget)] if page is not None else []
+        if view is not None:
+            widgets.extend((view, view.viewport()))
+        for widget in widgets:
             if widget is None:
                 continue
             widget.style().unpolish(widget)

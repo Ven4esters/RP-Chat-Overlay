@@ -21,7 +21,7 @@ Overlay build with the DLX interface when `dlx.exe` is unavailable.
 
 ### Возможности
 
-- Node.js 18 или новее; используется Express и `axios`.
+- Node.js 22.x; используется Express и `axios`.
 - Адрес по умолчанию: `http://127.0.0.1:1188`.
 - Совместимые запросы: `POST /translate`, `POST /v1/translate` и
   `POST /v2/translate`.
@@ -70,7 +70,7 @@ npm start
 
 ### Features
 
-- Node.js 18 or later; uses Express and `axios`.
+- Node.js 22.x; uses Express and `axios`.
 - Default URL: `http://127.0.0.1:1188`.
 - Compatible endpoints: `POST /translate`, `POST /v1/translate`, and
   `POST /v2/translate`.
@@ -115,7 +115,7 @@ sent to DeepL.
 
 ## Tests / Тесты
 
-Run the protocol and error-response tests with Node.js 18 or later:
+Run the protocol and error-response tests with Node.js 22.x:
 
 ```sh
 npm ci

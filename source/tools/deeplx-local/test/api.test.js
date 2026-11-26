@@ -3,6 +3,8 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { createHandler } = require('../api/translate');
+const healthHandler = require('../api');
+const vercelConfig = require('../vercel.json');
 const { TranslationError } = require('../translate');
 
 function responseRecorder() {
@@ -23,6 +25,21 @@ function responseRecorder() {
     },
   };
 }
+
+test('Vercel health function and rewrite aliases are configured', () => {
+  const res = responseRecorder();
+  healthHandler({ method: 'GET' }, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.payload.code, 200);
+  assert.equal(res.payload.runtime, process.version);
+  assert.deepEqual(vercelConfig.rewrites, [
+    { source: '/', destination: '/api' },
+    { source: '/translate', destination: '/api/translate' },
+    { source: '/v1/translate', destination: '/api/translate' },
+    { source: '/v2/translate', destination: '/api/translate' },
+  ]);
+  assert.equal(vercelConfig.functions['api/translate.js'].maxDuration, 30);
+});
 
 test('serverless adapter returns the same safe translation error contract', async () => {
   const privateText = 'private_serverless_chat_phrase';

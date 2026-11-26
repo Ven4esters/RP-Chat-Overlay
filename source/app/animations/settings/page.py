@@ -62,6 +62,7 @@ class AnimationsSettingsMixin:
 
         card, cl = _card()
         self.chk_anims = QCheckBox("Включить модуль «Анимации»")
+        self.chk_anims.setObjectName("moduleToggle")
         self.chk_anims.setChecked(bool(self.cfg.get("anims_enabled", False)))
         self.chk_anims.toggled.connect(self._anims_toggled)
         self.chk_anims.toggled.connect(lambda on: self._mirror_own_flag("anims", on))

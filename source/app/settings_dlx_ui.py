@@ -96,6 +96,7 @@ class DlxSettingsMixin:
             )
         )
         self.chk_dlx = QCheckBox("Переводить через DeepL в первую очередь")
+        self.chk_dlx.setObjectName("moduleToggle")
         self.chk_dlx.toggled.connect(lambda on: self._mirror_own_flag("dlx", on))
         self.chk_dlx.setToolTip("Без этого флажка работает обычная цепочка сервисов")
         cl.addWidget(self.chk_dlx)

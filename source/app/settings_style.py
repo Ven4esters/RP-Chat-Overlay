@@ -124,6 +124,7 @@ QToolTip { background: #23232e; color: #f2f2f2; border: 1px solid #3a3a48; paddi
    because that is the line to read. */
 QWidget#page[moduleOff="true"] QLabel,
 QWidget#page[moduleOff="true"] QCheckBox { color: #6b6b79; }
+QWidget#page[moduleOff="true"] QCheckBox#moduleToggle { color: #e9e9f2; }
 QWidget#page[moduleOff="true"] QFrame#card { background: #17171d; border: 1px solid #24242d; }
 QWidget#page[moduleOff="true"] QLineEdit,
 QWidget#page[moduleOff="true"] QSpinBox,

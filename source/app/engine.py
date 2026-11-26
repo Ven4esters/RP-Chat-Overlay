@@ -151,7 +151,7 @@ def keep_edges(orig: str, translated: str) -> str:
 
     Без этого «*машет рукой* ciao» склеивалось в «*машет рукой*привет».
     """
-    if not translated:
+    if not translated or not translated.strip():
         return orig
     lead = orig[: len(orig) - len(orig.lstrip())]
     tail = orig[len(orig.rstrip()) :]
@@ -213,6 +213,7 @@ def wrap_fillers(body: str, cfg: Mapping[str, Any], glossary: "Glossary") -> str
     inside *actions*, which are already handled separately.
     """
     o, c = cfg["marker_open"], cfg["marker_close"]
+    body, actions = hide_actions(body)
     rx = _marker_rx(cfg)
     marked = [(m.start(), m.end()) for m in rx.finditer(body)]
     if marked:
@@ -224,8 +225,10 @@ def wrap_fillers(body: str, cfg: Mapping[str, Any], glossary: "Glossary") -> str
             out.append(body[start:end])
             pos = end
         out.append(_wrap_fillers_plain(body[pos:], o, c, glossary))
-        return "".join(out)
-    return _wrap_fillers_plain(body, o, c, glossary)
+        wrapped = "".join(out)
+    else:
+        wrapped = _wrap_fillers_plain(body, o, c, glossary)
+    return restore_actions(wrapped, actions) if actions else wrapped
 
 
 def _wrap_fillers_plain(body, o, c, g):
@@ -242,7 +245,6 @@ def has_fillers(text: str, cfg: Mapping[str, Any], glossary: "Glossary") -> bool
     _prefix, body, is_cmd, is_counted = split_prefix(text)
     if is_cmd and not is_counted:
         return False
-    body, _acts = hide_actions(body)
     return wrap_fillers(body, cfg, glossary) != body
 
 

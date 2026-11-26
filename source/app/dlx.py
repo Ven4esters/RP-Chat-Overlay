@@ -60,6 +60,9 @@ DLX_DIR = DATA / "dlx"
 BINARY_NAME = "dlx.exe" if sys.platform == "win32" else "dlx"
 LICENSE_URL = "https://raw.githubusercontent.com/OwO-Network/DLX/main/LICENSE"
 RELEASE_API = "https://api.github.com/repos/OwO-Network/DLX/releases/latest"
+LATEST_WINDOWS_BINARY_URL = (
+    "https://github.com/OwO-Network/DLX/releases/latest/download/deeplx_windows_amd64.exe"
+)
 PORT_RANGE = (1188, 1210)
 HEALTH_PHRASE = "ciao come stai"
 HEALTH_TIMEOUT = 1.5
@@ -98,8 +101,11 @@ def _http_post_json(
     request.add_header("Content-Type", "application/json")
     for key, value in (headers or {}).items():
         request.add_header(key, value)
-    opener = _LOCAL_OPENER if local else urllib.request.urlopen
-    with opener.open(request, timeout=timeout) as answer:
+    if local:
+        answer = _LOCAL_OPENER.open(request, timeout=timeout)
+    else:
+        answer = urllib.request.urlopen(request, timeout=timeout)
+    with answer:
         return json.loads(answer.read().decode("utf-8", "replace"))
 
 
@@ -110,6 +116,36 @@ def _http_get_json(url: str, timeout: float = 6.0) -> Any:
     request.add_header("User-Agent", "RP-Chat-Overlay")
     with urllib.request.urlopen(request, timeout=timeout) as answer:
         return json.loads(answer.read().decode("utf-8", "replace"))
+
+
+def _is_github_rate_limited(error: urllib.error.HTTPError) -> bool:
+    """Recognize GitHub REST API rate-limit responses, not other 403s."""
+    if error.code != 403:
+        return False
+    headers = error.headers or {}
+    if str(headers.get("X-RateLimit-Remaining", "")) == "0":
+        return True
+    try:
+        body = error.read().decode("utf-8", "replace")
+    except (OSError, AttributeError):
+        body = ""
+    reason = str(error.reason or "")
+    return "rate limit" in f"{reason} {body}".casefold()
+
+
+def _latest_release_tag() -> str:
+    """Get the latest tag from GitHub web redirects, without the REST API."""
+    request = urllib.request.Request(
+        "https://github.com/OwO-Network/DLX/releases/latest",
+        headers={"User-Agent": "RP-Chat-Overlay"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=8) as answer:
+            path = urllib.parse.urlsplit(answer.geturl()).path
+    except (OSError, urllib.error.URLError, ValueError):
+        return ""
+    match = re.search(r"/releases/tag/([^/]+)$", path)
+    return urllib.parse.unquote(match.group(1)) if match else ""
 
 
 def free_port(low: int = PORT_RANGE[0], high: int = PORT_RANGE[1]) -> int:
@@ -1353,20 +1389,33 @@ class DlxService:
     def _install_locked(self, progress: Callable[[str], None] | None) -> bool:
         """Установка под блокировкой / the install itself, behind the lock."""
         self.dir.mkdir(parents=True, exist_ok=True)
+        fallback_latest = False
         try:
             release = _http_get_json(RELEASE_API)
+        except urllib.error.HTTPError as error:
+            if not _is_github_rate_limited(error):
+                self._set_state("error", f"нет доступа к GitHub: {str(error)[:60]}")
+                log.warning("DLX: не удалось получить список релизов: %s", error)
+                return False
+            fallback_latest = True
+            version = _latest_release_tag()
+            url = LATEST_WINDOWS_BINARY_URL
+            log.warning("DLX: лимит GitHub API исчерпан — скачиваю последний релиз напрямую")
         except Exception as error:
             self._set_state("error", f"нет доступа к GitHub: {str(error)[:60]}")
             log.warning("DLX: не удалось получить список релизов: %s", error)
             return False
-        version = str((release or {}).get("tag_name") or "").strip()
-        url = _pick_asset((release or {}).get("assets") or [])
-        if not url:
-            self._set_state("error", "в релизе нет файла для Windows")
-            log.warning("DLX: в релизе %s нет подходящего файла", version)
-            return False
+        else:
+            version = str((release or {}).get("tag_name") or "").strip()
+            url = _pick_asset((release or {}).get("assets") or [])
+            if not url:
+                self._set_state("error", "в релизе нет файла для Windows")
+                log.warning("DLX: в релизе %s нет подходящего файла", version)
+                return False
         if progress:
-            progress(f"скачиваю {version or 'сервис'}…")
+            progress(
+                f"скачиваю {version or ('последний релиз DLX' if fallback_latest else 'сервис')}…"
+            )
         # у каждого потока свой временный файл / every thread gets its own temp file
         temp = self.binary.with_name(
             f"{self.binary.name}.{os.getpid()}.{threading.get_ident()}.tmp"

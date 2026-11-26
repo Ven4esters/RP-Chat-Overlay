@@ -15,8 +15,8 @@ translates through DeepL **from a foreign IP** — no VPN needed, and no
 ## RU: что понадобится
 
 - аккаунт GitHub (бесплатный) и аккаунт Vercel (бесплатный, входит через GitHub);
-- Node.js 18+ на компьютере — только чтобы сделать первый коммит, если
-  пойдёте через GitHub. Для способа с Vercel CLI он тоже нужен;
+- Node.js 22.x на компьютере — чтобы запускать тесты и, при желании, пользоваться
+  Vercel CLI; версия Node для production-деплоя зафиксирована в `package.json`;
 - ничего платить не надо: тариф Hobby бесплатный и подходит для личных проектов.
 
 Что именно заливать: **содержимое папки `source/tools/deeplx-local`**, а не весь
@@ -61,10 +61,14 @@ git push -u origin main
    - **Root Directory** — оставить `./` (если репозиторий — это сама папка);
    - **Build Command** — оставить пустым (переключатель **Override** включать не надо);
    - **Output Directory** — пусто;
-   - **Environment Variables** — пока ничего, токен добавим на шаге 4.
+   - **Environment Variables** — добавьте `TOKEN` для Production до первого деплоя.
+     Сгенерировать случайный токен можно командой Node.js:
+     `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
+     Сохраните значение в менеджере паролей: повторно увидеть его в Vercel нельзя.
 4. **Deploy**. Сборка занимает меньше минуты.
 
-Готово: Vercel покажет адрес `https://имя-проекта.vercel.app`.
+Готово: Vercel покажет адрес `https://имя-проекта.vercel.app`. Не публикуйте
+адрес и токен вместе; сам токен используйте только в поле авторизации.
 
 > Если вы залили в репозиторий **весь проект** (а не только папку), то в
 > **Settings → General → Root Directory** укажите
@@ -72,45 +76,75 @@ git push -u origin main
 
 ### 3. Проверить, что работает
 
-Откройте в браузере:
+Проверьте health-ответ в браузере:
 
 ```text
-https://имя-проекта.vercel.app/api/translate
+https://имя-проекта.vercel.app/api/
 ```
 
-Должен прийти ответ:
+Должен вернуться JSON со `code: 200` и сообщением `DeepLX on Vercel is running`.
+Это проверяет доступность функции, но не сам DeepL-перевод.
 
-```json
-{"code":200,"message":"DeepLX on Vercel is running. POST text + target_lang here.","method":"Free"}
+Проверка перевода в PowerShell. Замените адрес на **полный URL своего проекта**
+(из Vercel, начиная с `https://`) и введите точное значение `TOKEN`, сохранённое
+в Vercel. Выполните блок целиком — если пропустить `$base`, PowerShell не сможет
+разобрать адрес; пустой токен не пройдёт авторизацию:
+
+```powershell
+$base = 'https://your-project.vercel.app' # замените на домен из Vercel
+$token = 'paste-the-TOKEN-you-saved-in-Vercel-here'
+
+if ($base -notmatch '^https://[^/]+$' -or $base -eq 'https://your-project.vercel.app') {
+  throw 'Замените пример на базовый HTTPS-адрес проекта из Vercel.'
+}
+if ([string]::IsNullOrWhiteSpace($token) -or $token -eq 'paste-the-TOKEN-you-saved-in-Vercel-here') {
+  throw 'Вставьте точное значение TOKEN из Vercel.'
+}
+
+$uri = "$($base.TrimEnd('/'))/api/translate"
+$headers = @{ Authorization = "Bearer $token" }
+$json = @{
+  text = 'Привет, как дела?'
+  source_lang = 'RU'
+  target_lang = 'IT'
+} | ConvertTo-Json -Compress
+# Явно кодируем JSON в UTF-8: это важно для Windows PowerShell 5.1 и кириллицы.
+$body = [System.Text.Encoding]::UTF8.GetBytes($json)
+
+# Убедитесь, что в JSON до отправки указаны RU и IT.
+$json
+$request = @{
+  Method = 'Post'
+  Uri = $uri
+  Headers = $headers
+  ContentType = 'application/json; charset=utf-8'
+  Body = $body
+}
+$response = Invoke-RestMethod @request
+$response | Format-List code, source_lang, target_lang, data, message
 ```
 
-Это значит, что функция жива. Теперь проверим сам перевод (PowerShell или
-терминал):
+В ответе ожидается `code: 200` и непустое поле `data`. Для macOS/Linux:
 
 ```bash
-curl -X POST "https://имя-проекта.vercel.app/api/translate" ^
-  -H "Content-Type: application/json" ^
-  -d "{\"text\":\"Привет, как дела?\",\"source_lang\":\"RU\",\"target_lang\":\"IT\"}"
+curl -sS "$BASE/api/translate" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data '{"text":"Привет, как дела?","source_lang":"RU","target_lang":"IT"}'
 ```
 
-Ждём `"data":"Ciao, come va?"`. Если пришло `"data":"You're using an older
-version of DeepL…"` — вы развернули не эту папку, а старый репозиторий
-`bropines/Deeplx-vercel`: в нём мёртвый протокол, он так и отвечает.
+Если запрос без токена получает `401`, защита включена. `GET` health-маршруты
+публичны и не проверяют авторизацию; именно POST-тест подтверждает защиту и
+работу перевода.
 
-### 4. Поставить токен (обязательно)
+### Если сервис уже развернули без токена
 
-Без токена ваш адрес — открытая дверь: любой, кто его узнает, будет переводить
-через ваш лимит.
-
-1. Придумайте длинную случайную строку, например
-   `openssl rand -hex 24` или просто 40 случайных символов.
-2. Vercel → ваш проект → **Settings → Environment Variables** → **Add New**:
-   - **Key**: `TOKEN`
-   - **Value**: ваша строка
-   - **Environments**: `Production` (можно и `Preview`)
-3. **Save**, затем **Deployments → ⋯ у последнего деплоя → Redeploy**.
-   Переменные окружения применяются только к новому деплою — без перезапуска
-   токен не заработает.
+Считайте адрес открытым до передеплоя. В Vercel откройте **Settings → Environment
+Variables**, добавьте `TOKEN` для Production, сохраните, затем выполните
+**Deployments → ⋯ у последнего production-деплоя → Redeploy**. После этого
+повторите POST-проверку выше с токеном и убедитесь, что POST без него возвращает
+`401`. Если старый токен мог попасть в историю/логи, замените его новым и снова
+передеплойте.
 
 ---
 
@@ -208,13 +242,18 @@ curl -X POST https://имя-проекта.vercel.app/api/translate \
 ## EN: the same thing in brief
 
 1. Push the **contents of `source/tools/deeplx-local`** to a GitHub repository.
-2. vercel.com → **Add New → Project** → import the repo → **Framework Preset:
-   Other**, build command empty, root directory `./` (or
-   `source/tools/deeplx-local` if you pushed the whole project) → **Deploy**.
-3. Open `https://your-project.vercel.app/api/translate` in a browser: you should
-   see `{"code":200,...}`. Then POST a test text.
-4. Add an environment variable `TOKEN` (Settings → Environment Variables) and
-   **Redeploy** — without a token your endpoint is open to anyone.
+2. Vercel → **Add New → Project** → import the repo → **Framework Preset: Other**,
+   build command empty, root directory `./` (or `source/tools/deeplx-local` if
+   you pushed the whole project). Set a random `TOKEN` in the import form before
+   the first Production deployment, then deploy. Pin Node to `22.x` (already
+   declared in `package.json`).
+3. Open `https://your-project.vercel.app/api/` in a browser: expect HTTP 200 and
+   a JSON health message. Test POST `/api/translate` with `Authorization:
+   Bearer <TOKEN>`; POST without the token must return 401. See the PowerShell and
+   curl examples above.
+4. If the project is already deployed without `TOKEN`, add it in **Settings →
+   Environment Variables** and immediately **Redeploy**. Until that finishes,
+   translation requests are public.
 5. In the program: **Settings → DeepL → "Your own service address"** =
    `https://your-project.vercel.app`, **"Your own service token"** = the same
    `TOKEN`. Save. No `dlx.exe` needed any more.
