@@ -8,7 +8,7 @@
 - `FiveMChatOverlay.exe.md5`;
 - `FiveMChatOverlay.exe.sha256`.
 
-Готовый Windows-артефакт можно также собрать через GitHub Actions: **Build Windows exe → Run workflow**. Задание публикует EXE и три файла описания/контрольных сумм как единый downloadable artifact. При сборке по тегу файлы прикладываются к GitHub Release.
+Готовый Windows-артефакт можно также собрать через GitHub Actions: **Build Windows exe → Run workflow**. При ручном запуске задание добавляет EXE и три файла описания/контрольных сумм в `dist/` выбранной ветки и публикует их как downloadable artifact. При сборке по тегу файлы прикладываются к GitHub Release.
 
 ## VirusTotal
 

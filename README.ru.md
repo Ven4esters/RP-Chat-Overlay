@@ -62,7 +62,7 @@ Windows. Он подготавливает сообщения на другом 
 
 ## Windows-сборка и материалы темы
 
-`source/build_exe.bat` создаёт `dist/FiveMChatOverlay.exe` и рядом с ним `FiveMChatOverlay-README.txt`, `FiveMChatOverlay.exe.md5` и `FiveMChatOverlay.exe.sha256`. Эти же файлы формирует задание GitHub Actions **Build Windows exe**. В TXT статус VirusTotal отмечен как непроверенный; загрузите итоговый EXE и сверяйте отчёт по его SHA-256, прежде чем заявлять о проверке. Подробности: [`docs/RELEASE_PACKAGE_RU.md`](docs/RELEASE_PACKAGE_RU.md).
+`source/build_exe.bat` создаёт `dist/FiveMChatOverlay.exe` и рядом с ним `FiveMChatOverlay-README.txt`, `FiveMChatOverlay.exe.md5` и `FiveMChatOverlay.exe.sha256`. Эти же файлы формирует задание GitHub Actions **Build Windows exe**: при ручном запуске оно добавляет четыре файла в `dist/` выбранной ветки и прикладывает их как artifact. В TXT статус VirusTotal отмечен как непроверенный; загрузите итоговый EXE и сверяйте отчёт по его SHA-256, прежде чем заявлять о проверке. Подробности: [`docs/RELEASE_PACKAGE_RU.md`](docs/RELEASE_PACKAGE_RU.md).
 
 Новая тема и оригинальные материалы — в [`docs/forum-topic/`](docs/forum-topic/): BBCode, баннер 1200×500, девять плашек 1200×62 и скрипт их пересборки. Прежняя форумная графика удалена. Загрузите PNG на хостинг с прямыми ссылками и замените шаблоны перед публикацией.
 
