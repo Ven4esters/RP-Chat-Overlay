@@ -830,6 +830,14 @@ class Overlay(QWidget):
         self.worker.submit((self.rid, text, self._auto_now(text), self.plan.seed, self._rev()))
 
     def on_done(self, rid, res, err):
+        """Apply a translation result without letting slot errors abort Qt."""
+        try:
+            self._apply_result(rid, res, err)
+        except Exception:
+            self.want_send = False
+            log.exception("Оверлей: сбой обработки результата перевода")
+
+    def _apply_result(self, rid, res, err):
         if rid != self.rid:  # устаревший ответ
             return
         mx = int(self.cfg.get("max_chars", 256))

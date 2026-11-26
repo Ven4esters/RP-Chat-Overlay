@@ -66,3 +66,24 @@ def test_translation_worker_stops_without_emitting_after_shutdown():
 
     assert not worker.is_alive()
     assert delivered == []
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="the overlay imports Win32 game integration")
+def test_translation_result_slot_logs_python_errors_instead_of_propagating(caplog):
+    """A malformed result is recorded and cannot escape the Qt slot."""
+    import logging
+
+    from app.overlay import Overlay
+
+    overlay = Overlay.__new__(Overlay)
+    overlay.want_send = True
+
+    def fail_result(*_args):
+        raise RuntimeError("bad result")
+
+    overlay._apply_result = fail_result
+    with caplog.at_level(logging.ERROR, logger="app"):
+        overlay.on_done(1, None, None)
+
+    assert not overlay.want_send
+    assert "сбой обработки результата перевода" in caplog.text
