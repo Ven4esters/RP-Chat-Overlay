@@ -1352,7 +1352,7 @@ class AnimationsSettingsMixin:
         buttons.accepted.connect(dialog.accept)
         buttons.rejected.connect(dialog.reject)
         layout.addWidget(buttons)
-        _fit_dialog(dialog)
+        dialog.resize(572, 342)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             item.setText(editor.toPlainText().strip())
             item.setToolTip(self._anim_keywords_tooltip(item.text()))

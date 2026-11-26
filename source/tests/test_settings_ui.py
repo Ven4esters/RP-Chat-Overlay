@@ -9,7 +9,7 @@ import pytest
 try:
     from PySide6.QtCore import QEvent, Qt
     from PySide6.QtGui import QKeyEvent
-    from PySide6.QtWidgets import QApplication
+    from PySide6.QtWidgets import QApplication, QDialog
 except (ImportError, OSError) as error:
     if os.environ.get("RPCHAT_REQUIRE_QT_TESTS") == "1":
         raise
@@ -87,6 +87,32 @@ def test_keyword_cell_opens_multiline_editor_and_is_not_inline_editable(qapp, mo
         window.tbl_anims.cellClicked.emit(row, 1)
 
         assert opened == [item]
+    finally:
+        window.close()
+        qapp.processEvents()
+
+
+def test_keyword_editor_uses_reference_start_size_and_remains_resizable(qapp, monkeypatch):
+    """The keyword editor opens at the target size without locking its geometry."""
+    window = SettingsWindow(dict(DEFAULT_CONFIG))
+    try:
+        row = window._add_anim_row(anims.Rule(keywords="wave, привет", name="wave"))
+        item = window.tbl_anims.item(row, 1)
+        observed = {}
+
+        def inspect_dialog(dialog):
+            observed["size"] = (dialog.width(), dialog.height())
+            observed["minimum"] = (dialog.minimumWidth(), dialog.minimumHeight())
+            observed["maximum"] = (dialog.maximumWidth(), dialog.maximumHeight())
+            return QDialog.DialogCode.Rejected
+
+        monkeypatch.setattr(QDialog, "exec", inspect_dialog)
+        window._edit_anim_keywords(item)
+
+        assert observed["size"] == (572, 342)
+        assert observed["minimum"] == (480, 320)
+        assert observed["maximum"][0] > 572
+        assert observed["maximum"][1] > 342
     finally:
         window.close()
         qapp.processEvents()
