@@ -21,8 +21,10 @@ and submits it. Windows only, it talks to the Win32 API.
 import ctypes
 import ctypes.wintypes as wt
 import os
+import threading
 import time
 from collections import namedtuple
+from functools import wraps
 
 from app.config import log
 
@@ -93,6 +95,23 @@ kernel32.GetCurrentThreadId.restype = wt.DWORD
 VK_RETURN, VK_CONTROL, VK_MENU, VK_V, VK_ESCAPE = 0x0D, 0x11, 0x12, 0x56, 0x1B
 VK_A, VK_BACK = 0x41, 0x08
 Win = namedtuple("Win", "hwnd title cls exe w h")
+
+# All focus, keyboard and clipboard operations share one lock. Each high-level
+# chat transaction holds it from focusing the game through Enter, preventing an
+# animation or overlay send from interleaving keystrokes or replacing clipboard
+# text halfway through another send.
+INPUT_LOCK = threading.RLock()
+
+
+def _serialized_input(fn):
+    """Run one input operation exclusively with all other game input."""
+
+    @wraps(fn)
+    def wrapped(*args, **kwargs):
+        with INPUT_LOCK:
+            return fn(*args, **kwargs)
+
+    return wrapped
 
 
 # ---------- поиск окна ----------
@@ -224,6 +243,7 @@ def _vk_event(vk, up=False):
     return _kb(0, user32.MapVirtualKeyW(vk, 0), 0x8 | (0x2 if up else 0))  # SCANCODE
 
 
+@_serialized_input
 def tap(vk: int, hold: float = 0.05) -> None:
     """Нажать и отпустить клавишу с короткой паузой / press and release a key."""
 
@@ -232,6 +252,7 @@ def tap(vk: int, hold: float = 0.05) -> None:
     _send(_vk_event(vk, True))
 
 
+@_serialized_input
 def set_clipboard(text: str, tries: int = 5) -> bool:
     """Положить текст в буфер обмена Windows; работает из любого потока.
 
@@ -253,6 +274,8 @@ def set_clipboard(text: str, tries: int = 5) -> bool:
     kernel32.GlobalLock.restype = ctypes.c_void_p
     kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
     kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+    kernel32.GlobalFree.restype = ctypes.c_void_p
+    kernel32.GlobalFree.argtypes = [ctypes.c_void_p]
     user32.SetClipboardData.restype = ctypes.c_void_p
     user32.SetClipboardData.argtypes = [wt.UINT, HANDLE]
     data = ctypes.create_unicode_buffer(text)
@@ -262,18 +285,26 @@ def set_clipboard(text: str, tries: int = 5) -> bool:
             time.sleep(0.03)
             continue
         try:
-            user32.EmptyClipboard()
             handle = kernel32.GlobalAlloc(GMEM_MOVEABLE, size)
             if not handle:
                 return False
-            pointer = kernel32.GlobalLock(handle)
-            if not pointer:
-                return False
-            ctypes.memmove(pointer, data, size)
-            kernel32.GlobalUnlock(handle)
-            if not user32.SetClipboardData(CF_UNICODETEXT, handle):
-                return False
-            return True
+            try:
+                pointer = kernel32.GlobalLock(handle)
+                if not pointer:
+                    return False
+                try:
+                    ctypes.memmove(pointer, data, size)
+                finally:
+                    kernel32.GlobalUnlock(handle)
+                user32.EmptyClipboard()
+                if not user32.SetClipboardData(CF_UNICODETEXT, handle):
+                    return False
+                # Windows owns the allocation after a successful SetClipboardData.
+                handle = None
+                return True
+            finally:
+                if handle:
+                    kernel32.GlobalFree(handle)
         finally:
             user32.CloseClipboard()
     log.warning("Не удалось открыть буфер обмена Windows")
@@ -323,6 +354,7 @@ def type_text(text: str) -> None:
         time.sleep(0.008)
 
 
+@_serialized_input
 def focus(hwnd, tries: int = 3) -> bool:
     """Вывести окно игры на передний план / bring the game window to the front.
 
@@ -369,6 +401,7 @@ def chat_key_vk(cfg):
     return ord(key)
 
 
+@_serialized_input
 def open_chat(cfg, hwnd) -> bool:
     """Открыть чат игры клавишей T / open the in-game chat with the chat key.
 
@@ -392,6 +425,7 @@ def open_chat(cfg, hwnd) -> bool:
     return is_fg(hwnd)
 
 
+@_serialized_input
 def close_chat(cfg, hwnd):
     """Закрыть уже открытый чат игры (Esc) — отмена без отправки."""
     if not hwnd or not user32.IsWindow(hwnd):
@@ -404,7 +438,8 @@ def close_chat(cfg, hwnd):
     return True
 
 
-def send_to_open_chat(cfg, hwnd, text):
+@_serialized_input
+def send_to_open_chat(cfg, hwnd, text, clipboard_text=None):
     """Вставить текст в УЖЕ открытый чат игры и отправить (Enter).
 
     Клавиша чата (T) НЕ нажимается — чат был открыт заранее при открытии
@@ -419,6 +454,10 @@ def send_to_open_chat(cfg, hwnd, text):
     log.info(
         "Вставка в открытый чат игры, режим %s, символов=%d", cfg.get("game_input_mode"), len(text)
     )
+    # Keep clipboard replacement inside the serialized focus/type transaction.
+    if cfg.get("game_input_mode", "paste") != "type" and clipboard_text is not None:
+        if not set_clipboard(clipboard_text):
+            return False, "Не удалось положить текст в буфер обмена."
     # сначала чистим поле ввода: остаток прошлой строки не должен приклеиться
     # first clear the input: a leftover from the previous line must not stick
     clear_chat_input()
@@ -434,7 +473,8 @@ def send_to_open_chat(cfg, hwnd, text):
     return True, ""
 
 
-def send_chat(cfg, hwnd, text, chat_open=False):
+@_serialized_input
+def send_chat(cfg, hwnd, text, chat_open=False, clipboard_text=None):
     """Отправка в игру. Возвращает (успех, сообщение).
 
     chat_open=True  — чат уже открыт (оверлей открыл его заранее):
@@ -442,7 +482,7 @@ def send_chat(cfg, hwnd, text, chat_open=False):
     chat_open=False — старый путь: фокус → T → вставка → Enter (запасной).
     """
     if chat_open:
-        return send_to_open_chat(cfg, hwnd, text)
+        return send_to_open_chat(cfg, hwnd, text, clipboard_text=clipboard_text)
     lost = (False, "Игра потеряла фокус во время ввода.")
     if not hwnd or not user32.IsWindow(hwnd):
         return False, "Окно игры не найдено."
@@ -460,6 +500,9 @@ def send_chat(cfg, hwnd, text, chat_open=False):
     _ms(cfg, "game_open_delay_ms", 300)
     if not is_fg(hwnd):
         return lost
+    if cfg.get("game_input_mode", "paste") != "type" and clipboard_text is not None:
+        if not set_clipboard(clipboard_text):
+            return False, "Не удалось положить текст в буфер обмена."
     # чат открылся: сначала полностью очищаем поле ввода, потом вставляем —
     # иначе остаток от прошлой команды склеится с нашей и сломает её
     # the chat is open: clear the input first, then paste — otherwise the

@@ -905,7 +905,7 @@ class Overlay(QWidget):
 
     def _send_job(self, hwnd, out, chat_open=False):
         try:
-            ok, msg = gs.send_chat(self.cfg, hwnd, out, chat_open=chat_open)
+            ok, msg = gs.send_chat(self.cfg, hwnd, out, chat_open=chat_open, clipboard_text=out)
         except Exception as e:
             log.exception("Ошибка отправки в игру")
             ok, msg = False, str(e)
@@ -1073,11 +1073,8 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
         # в чат уйдёт прошлое сообщение игрока (и оно продублируется)
         # the game pastes from the clipboard: without putting the command there
         # the chat receives the player's previous message and repeats it
-        if str(cfg.get("game_input_mode", "paste")) != "type":
-            if not gs.set_clipboard(command):
-                return False, i18n.t("не удалось положить команду в буфер обмена")
         try:
-            ok, message = gs.send_chat(cfg, hwnd, command, chat_open=False)
+            ok, message = gs.send_chat(cfg, hwnd, command, chat_open=False, clipboard_text=command)
         except Exception as error:
             log.exception("Анимации: сбой отправки %s", command)
             return False, str(error)[:120]
@@ -1092,7 +1089,7 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
         log.warning("Анимации: %s не ушло (%s) — повторяю", command, message)
         time.sleep(0.4)
         try:
-            ok, message = gs.send_chat(cfg, hwnd, command, chat_open=False)
+            ok, message = gs.send_chat(cfg, hwnd, command, chat_open=False, clipboard_text=command)
         except Exception as error:
             log.exception("Анимации: повтор не удался %s", command)
             return False, str(error)[:120]
@@ -1118,9 +1115,10 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
             vk = 0
         if not vk:
             return False, i18n.t("клавиша остановки не разобрана")
-        if not gs.focus(hwnd):
-            return False, i18n.t("не удалось переключиться в игру")
-        gs.tap(vk)
+        with gs.INPUT_LOCK:
+            if not gs.focus(hwnd):
+                return False, i18n.t("не удалось переключиться в игру")
+            gs.tap(vk)
         return True, ""
 
     def anim_equivalent(phrase):

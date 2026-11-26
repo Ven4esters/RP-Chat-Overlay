@@ -22,13 +22,25 @@ def test_game_send_logs_only_message_length(monkeypatch, caplog):
     monkeypatch.setattr(gamesend, "type_text", lambda _text: None)
     monkeypatch.setattr(gamesend, "tap", lambda _key: None)
     monkeypatch.setattr(gamesend, "is_fg", lambda _hwnd: True)
+    clipboard_calls = []
+
+    def set_clipboard(text):
+        assert gamesend.INPUT_LOCK._is_owned()
+        clipboard_calls.append(text)
+        return True
+
+    monkeypatch.setattr(gamesend, "set_clipboard", set_clipboard)
 
     private_message = "private_player_message_42"
     config = {"game_input_mode": "paste", "game_submit": False}
 
     with caplog.at_level(logging.INFO, logger="app"):
         assert gamesend.send_to_open_chat(config, 1, private_message) == (True, "")
-        assert gamesend.send_chat(config, 1, private_message) == (True, "")
+        assert gamesend.send_chat(config, 1, private_message, clipboard_text=private_message) == (
+            True,
+            "",
+        )
 
+    assert clipboard_calls == [private_message]
     assert private_message not in caplog.text
     assert caplog.text.count("символов=") == 2

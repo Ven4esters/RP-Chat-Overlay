@@ -117,12 +117,13 @@ def test_translation_log_contains_metadata_not_chat_text(monkeypatch, caplog):
     translator.cache = {}
     translator.local = None
     translator.net_lock = threading.Lock()
+    translator._cache_lock = threading.RLock()
     translator.last = 0.0
     translator.out_target = "it"
     translator.direction = "out"
     translator.target = "it"
     translator.source = "ru"
-    translator._saved_at = time.time()
+    translator._saved_at = time.monotonic()
     translator._dirty = False
     private_text = "private original phrase"
 
@@ -132,3 +133,57 @@ def test_translation_log_contains_metadata_not_chat_text(monkeypatch, caplog):
     assert private_text not in caplog.text
     assert "private translated phrase" not in caplog.text
     assert "chars=23" in caplog.text
+
+
+def test_http_request_timeout_uses_remaining_chain_deadline(monkeypatch):
+    """Each mirrored HTTP request is capped by the shared chain deadline."""
+    import time
+
+    import app.translator as translator_module
+
+    seen = []
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return b"{}"
+
+    def fake_urlopen(_request, timeout):
+        seen.append(timeout)
+        return Response()
+
+    monkeypatch.setattr(translator_module.urllib.request, "urlopen", fake_urlopen)
+    with translator_module._request_deadline_scope(time.monotonic() + 0.5):
+        assert translator_module._http_json("https://example.invalid") == {}
+
+    assert 0 < seen[0] <= 0.5
+
+
+def test_expired_chain_deadline_skips_http_request(monkeypatch):
+    """No new request starts after the shared deadline has expired."""
+    import time
+
+    import app.translator as translator_module
+
+    called = False
+
+    def fake_urlopen(*_args, **_kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("request should not start")
+
+    monkeypatch.setattr(translator_module.urllib.request, "urlopen", fake_urlopen)
+    with translator_module._request_deadline_scope(time.monotonic() - 1):
+        try:
+            translator_module._http_json("https://example.invalid")
+        except TimeoutError:
+            pass
+        else:
+            raise AssertionError("expired deadline should raise TimeoutError")
+
+    assert not called

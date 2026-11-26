@@ -27,6 +27,7 @@ the "in" direction, where the two Google endpoints and Lingva do the work.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 import html
 import json
 import socket
@@ -78,17 +79,44 @@ class TranslateError(Exception):
 
 
 # ------------------------------------------------------------------- HTTP
+_request_context = threading.local()
+
+
+@contextmanager
+def _request_deadline_scope(deadline: float):
+    """Bound each HTTP request by the remaining time in the whole chain."""
+    previous = getattr(_request_context, "deadline", None)
+    _request_context.deadline = deadline
+    try:
+        yield
+    finally:
+        if previous is None:
+            del _request_context.deadline
+        else:
+            _request_context.deadline = previous
+
+
+def _request_timeout() -> float:
+    deadline = getattr(_request_context, "deadline", None)
+    if deadline is None:
+        return TIMEOUT
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise TimeoutError("translation deadline exceeded")
+    return min(TIMEOUT, remaining)
+
+
 def _http_json(url: str, data: bytes | None = None) -> Any:
     """GET/POST с разбором JSON / request that returns parsed JSON."""
     request = urllib.request.Request(url, headers=UA, data=data)
-    with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+    with urllib.request.urlopen(request, timeout=_request_timeout()) as response:
         return json.loads(response.read().decode("utf-8"))
 
 
 def _http_text(url: str, data: bytes | None = None) -> str:
     """GET/POST, ответ как текст / request that returns raw text."""
     request = urllib.request.Request(url, headers=UA, data=data)
-    with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+    with urllib.request.urlopen(request, timeout=_request_timeout()) as response:
         return response.read().decode("utf-8", "replace")
 
 
@@ -306,6 +334,7 @@ class Translator:
         cache = read_json(CACHE_PATH, {})
         self.cache: dict[str, str] = cache if isinstance(cache, dict) else {}
         self.net_lock = threading.Lock()
+        self._cache_lock = threading.RLock()
         self.last = 0.0
         self.out_target = "it"  # выбранный язык перевода / chosen language
         self.direction = "out"  # "out" | "in"
@@ -405,13 +434,15 @@ class Translator:
 
         errors: list[str] = []
         target, source = self.target, self.source
-        started = time.time()
-        with self.net_lock:  # запросы строго по одному / one at a time
+        started = time.monotonic()
+        deadline = started + DEADLINE
+        with self.net_lock, _request_deadline_scope(deadline):
+            # запросы строго по одному / one at a time
             if cache_key in self.cache:
                 return self.cache[cache_key]
             for name, func in self._chain():
-                now = time.time()
-                if now - started > DEADLINE:
+                now = time.monotonic()
+                if now >= deadline:
                     errors.append("время ожидания истекло")
                     break
                 if not self._available(name, now):
@@ -419,10 +450,13 @@ class Translator:
                     continue
                 wait = MIN_GAP - (now - self.last)
                 if wait > 0:
-                    time.sleep(wait)
+                    time.sleep(min(wait, max(0.0, deadline - time.monotonic())))
+                if time.monotonic() >= deadline:
+                    errors.append("время ожидания истекло")
+                    break
                 try:
                     result = (func(key, target, source) or "").strip()
-                    self.last = time.time()
+                    self.last = time.monotonic()
                     if result:
                         self._store(cache_key, result)
                         log.info(
@@ -435,7 +469,7 @@ class Translator:
                         return result
                     errors.append(f"{name}: пустой ответ")
                 except Exception as error:
-                    now = time.time()
+                    now = time.monotonic()
                     self.last = now
                     errors.append(f"{name}: {_error_kind(error)}")
                     if _is_busy(error):
@@ -455,20 +489,25 @@ class Translator:
         every save rewrites the whole file with two thousand entries. Twice a
         second is enough, and the cache is flushed on exit as well.
         """
-        self.cache[key] = value
-        while len(self.cache) > CACHE_MAX:
-            self.cache.pop(next(iter(self.cache)))
-        self._dirty = True
-        if time.time() - self._saved_at >= CACHE_SAVE_EVERY:
+        with self._cache_lock:
+            self.cache[key] = value
+            while len(self.cache) > CACHE_MAX:
+                self.cache.pop(next(iter(self.cache)))
+            self._dirty = True
+            should_save = time.monotonic() - self._saved_at >= CACHE_SAVE_EVERY
+        if should_save:
             self.flush_cache()
 
     def flush_cache(self) -> None:
         """Дописать кэш на диск, если есть что / persist the cache when needed."""
-        if not self._dirty:
-            return
-        try:
-            write_json(CACHE_PATH, self.cache, compact=True)
-            self._saved_at = time.time()
-            self._dirty = False
-        except OSError:
-            log.exception("Не удалось сохранить кэш")
+        # Keep mutation and serialization under one lock: shutdown may flush while
+        # the translation worker is inserting a just-completed result.
+        with self._cache_lock:
+            if not self._dirty:
+                return
+            try:
+                write_json(CACHE_PATH, self.cache, compact=True)
+                self._saved_at = time.monotonic()
+                self._dirty = False
+            except OSError:
+                log.exception("Не удалось сохранить кэш")
