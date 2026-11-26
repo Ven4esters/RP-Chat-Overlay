@@ -257,7 +257,7 @@ Bug reports and focused pull requests are welcome. Read
 include regression tests and update the relevant documentation when behavior
 changes.
 
-For uploading files to an existing GitHub repository and creating a GitHub Release, see [`tools/upload_to_existing_github_repo.bat`](tools/upload_to_existing_github_repo.bat), [`tools/create_github_release.bat`](tools/create_github_release.bat), and the usage notes in [`docs/GITHUB_SCRIPTS_RU.md`](docs/GITHUB_SCRIPTS_RU.md).
+For uploading files to an existing GitHub repository or creating a GitHub Release, use the single menu-driven [`tools/github_publish.bat`](tools/github_publish.bat). See [`docs/GITHUB_SCRIPTS_RU.md`](docs/GITHUB_SCRIPTS_RU.md) for setup and usage.
 
 ## License
 
