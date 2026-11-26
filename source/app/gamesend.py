@@ -416,7 +416,9 @@ def send_to_open_chat(cfg, hwnd, text):
     if not focus(hwnd):
         return False, "Не удалось переключиться в игру (она запущена от администратора?)."
     _ms(cfg, "game_focus_delay_ms", 150)
-    log.info("Вставка в открытый чат игры, режим %s, %r", cfg.get("game_input_mode"), text)
+    log.info(
+        "Вставка в открытый чат игры, режим %s, символов=%d", cfg.get("game_input_mode"), len(text)
+    )
     # сначала чистим поле ввода: остаток прошлой строки не должен приклеиться
     # first clear the input: a leftover from the previous line must not stick
     clear_chat_input()
@@ -448,7 +450,12 @@ def send_chat(cfg, hwnd, text, chat_open=False):
         return False, "Не удалось переключиться в игру (она запущена от администратора?)."
     _ms(cfg, "game_focus_delay_ms", 150)
     vk = chat_key_vk(cfg)
-    log.info("Отправка в игру: клавиша %s, режим %s, %r", chr(vk), cfg.get("game_input_mode"), text)
+    log.info(
+        "Отправка в игру: клавиша %s, режим %s, символов=%d",
+        chr(vk),
+        cfg.get("game_input_mode"),
+        len(text),
+    )
     tap(vk)
     _ms(cfg, "game_open_delay_ms", 300)
     if not is_fg(hwnd):

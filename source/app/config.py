@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+from logging.handlers import RotatingFileHandler
 import os
 import sys
 from pathlib import Path
@@ -213,10 +214,16 @@ def setup_logging() -> None:
     LOGS.mkdir(exist_ok=True)
     GLOSSARY_DIR.mkdir(exist_ok=True)
     logging.basicConfig(
-        filename=str(LOG_PATH),
+        handlers=[
+            RotatingFileHandler(
+                LOG_PATH,
+                maxBytes=2 * 1024 * 1024,
+                backupCount=3,
+                encoding="utf-8",
+            )
+        ],
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
-        encoding="utf-8",
     )
     sys.excepthook = lambda exc_type, exc, tb: log.critical(
         "Необработанная ошибка", exc_info=(exc_type, exc, tb)
@@ -227,7 +234,7 @@ def setup_logging() -> None:
         from app import errorlog
 
         errorlog.install()
-        log.info("Журналы: %s и %s", LOG_PATH, errorlog.ERROR_PATH)
+        log.info("Журналы приложения и ошибок включены")
     except Exception:
         log.exception("Не удалось включить журнал ошибок")
     log.info("=== Запуск %s, Python %s ===", APP_NAME, sys.version.split()[0])

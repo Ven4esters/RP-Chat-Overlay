@@ -39,6 +39,7 @@ import atexit
 import ctypes
 import json
 import os
+import re
 import secrets
 import socket
 import ssl
@@ -1397,13 +1398,18 @@ def _answer_text(answer: Any) -> str:
 
 
 def _answer_error(answer: Any) -> str:
-    """Код и текст ошибки из ответа / the error code and message."""
-    if isinstance(answer, dict):
-        code = answer.get("code")
-        message = answer.get("message") or answer.get("error") or ""
-        if message:
-            return f"{message} (код {code})" if code else str(message)
-    return ""
+    """Safe error summary from a service response, excluding arbitrary body text.
+
+    Безопасная сводка ответа сервиса без произвольного текста из тела ответа.
+    """
+    if not isinstance(answer, dict) or not (answer.get("message") or answer.get("error")):
+        return ""
+    code = answer.get("code")
+    if isinstance(code, (int, str)) and not isinstance(code, bool):
+        safe_code = str(code)
+        if safe_code and len(safe_code) <= 32 and re.fullmatch(r"[A-Za-z0-9_.-]+", safe_code):
+            return f"сервис вернул ошибку (код {safe_code})"
+    return "сервис вернул ошибку"
 
 
 def _pick_asset(assets: list) -> str:

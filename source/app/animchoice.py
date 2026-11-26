@@ -50,7 +50,7 @@ import threading
 import time
 
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QCursor, QGuiApplication
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -299,7 +299,8 @@ class ChoiceWindow(QWidget):
         # the list scrolls: there may be many variants, and the window must not
         # grow taller than the screen
         scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
+        self._scroll = scroll
+        scroll.setWidgetResizable(False)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         holder = QWidget()
@@ -336,7 +337,7 @@ class ChoiceWindow(QWidget):
         # остальное докручивается
         # a couple of variants must be visible even on a tight screen; the rest
         # scrolls
-        scroll.setMinimumHeight(150)
+        scroll.setMinimumHeight(0)
         lay.addWidget(scroll, 1)
         self._holder = holder
 
@@ -458,7 +459,7 @@ class ChoiceWindow(QWidget):
         everything but the list, plus the list's real height, and that is what
         gets clamped to the screen.
         """
-        screen = QGuiApplication.primaryScreen()
+        screen = QGuiApplication.screenAt(QCursor.pos()) or QGuiApplication.primaryScreen()
         area = screen.availableGeometry() if screen else None
         # Ширину берём по содержимому: на 420 описания уже переносятся, на 620
         # строки становятся слишком длинными.
@@ -469,14 +470,15 @@ class ChoiceWindow(QWidget):
             width = min(width, max(int(area.width() * 0.9), 320))
         self.setFixedWidth(width)
 
-        needed = self._content_height(width)
+        needed = max(self._content_height(width), self.minimumSizeHint().height())
         if area:
-            # Экран может быть тесным, но нижнюю строку с «Закрыть» не режем:
-            # лучше пусть список прокручивается, чем кнопка уедет за край.
-            # The screen may be tight, but the bottom row with "Закрыть" is never
-            # cut: better for the list to scroll than for the button to be lost.
-            needed = min(needed, int(area.height() * 0.85))
-        self.resize(width, max(needed, 200))
+            # Keep the chooser inside the working area. The list is the flexible
+            # region, so it scrolls before the title or close action is clipped.
+            max_height = max(1, area.height() - 24)
+            needed = min(max(needed, min(200, max_height)), max_height)
+        else:
+            needed = max(needed, 200)
+        self.resize(width, needed)
         if area:
             # справа по центру: игра слева, окно не закрывает то, что играет
             # on the right, centred: the game is on the left, and the window does
@@ -527,9 +529,13 @@ class ChoiceWindow(QWidget):
 
         holder = getattr(self, "_holder", None)
         if holder is not None:
-            holder.setFixedWidth(max(inner - 24, 200))
+            holder.setFixedWidth(inner)
+            holder_lay = holder.layout()
+            if holder_lay is not None:
+                holder_lay.invalidate()
+                holder_lay.activate()
             holder.adjustSize()
-            list_h = holder.sizeHint().height()
+            list_h = max(holder.sizeHint().height(), holder.minimumSizeHint().height())
         else:
             list_h = 150
         # список не меньше двух карточек и не больше половины экрана

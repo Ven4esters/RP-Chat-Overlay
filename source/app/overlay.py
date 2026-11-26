@@ -879,7 +879,7 @@ class Overlay(QWidget):
         if not out.startswith("/") or is_counted_command(out):
             self.plan.advance()  # счётчик серии автоперевода
         QApplication.clipboard().setText(out)
-        log.info("Готово к отправке: %r", out)
+        log.info("Готово к отправке: символов=%d", len(out))
         hwnd = self.game_hwnd or self.tracker.get(True)
         chat_open = self.game_chat_open  # чат уже открыт при открытии оверлея
         self.game_chat_open = False
@@ -1165,7 +1165,7 @@ def run_gui(cfg: dict, open_settings_on_start: bool = False) -> int:
         elif kind == "stopped":
             bridge.anims_text.emit(i18n.t("Зацикленная анимация остановлена."), False)
         else:
-            log.info("Анимации: %s — %s", kind, text)
+            log.info("Анимации: событие %s", kind)
 
     bridge.anims_text.connect(
         lambda text, error: win.notify(text, error), Qt.ConnectionType.QueuedConnection

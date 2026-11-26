@@ -1,12 +1,13 @@
-# 🎮 Chat&AutoAnimations RP Overlay
+# 🎮 RP Chat Overlay
 
 [🇷🇺 Читать на русском](README.ru.md)
 
+[![CI](https://github.com/Ven4esters/RP-Chat-Overlay/actions/workflows/ci.yml/badge.svg)](https://github.com/Ven4esters/RP-Chat-Overlay/actions/workflows/ci.yml)
 [![Windows 10 / 11](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&logoColor=white)](https://github.com/Ven4esters/RP-Chat-Overlay/releases)
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-312/)
-![Языков: 13](https://img.shields.io/badge/languages-13-2e7d32)
-![Сокращений: 300×6](https://img.shields.io/badge/abbreviations-300×6-8e6bd8)
-![EXE ~47.7 MiB](https://img.shields.io/badge/exe-~47.7%20MiB-66d18b)
+![Languages: 13](https://img.shields.io/badge/languages-13-2e7d32)
+![Slang: 1,805 entries in 5 language tables](https://img.shields.io/badge/slang-1%2C805%20entries%20in%205%20tables-8e6bd8)
+![Executable: ~47.7 MiB](https://img.shields.io/badge/exe-~47.7%20MiB-66d18b)
 [![VirusTotal: 2/70](https://img.shields.io/badge/VirusTotal-2%2F70-394eff)](https://www.virustotal.com/gui/file/9a6c8da2e9472ee89ee3a6f6311844ed0a983d00327857a1749dc5782cc34749?nocache=1)
 ![Лицензия: MIT](https://img.shields.io/badge/license-MIT-green)
 
@@ -24,6 +25,7 @@
 - [Module system](#module-system)
 - [Translation modes and special symbols](#translation-modes-and-special-symbols)
 - [DeepLX in Russia](#deeplx-in-russia)
+- [Development checks](#development-checks)
 - [License](#license)
 - [Contacts](#contacts)
 
@@ -48,7 +50,7 @@ restarting.
 <a id="tech-stack"></a>
 <img src="source/images/forum/hdr_stack_en.png" width="1000" alt="Tech stack">
 
-Python 3.12 · PySide6 · deep-translator
+Python 3.12 · PySide6 · pymorphy3
 
 <a id="requirements"></a>
 <img src="source/images/forum/hdr_requirements_en.png" width="1000" alt="Requirements">
@@ -239,6 +241,24 @@ Workaround: use an **HTTP proxy** (v2rayN, Clash, SOCKS5) or deploy your own
 DLX server abroad ([detailed instructions](docs/DEEPLX-RUSSIA.md)).
 If there is no proxy, simply disable DLX — the program falls back to regular
 translation services without restrictions.
+
+<a id="development-checks"></a>
+
+## Development checks
+
+From the repository root, run the same local checks used by CI:
+
+```bash
+ruff check source
+ruff format --check source
+python -m pytest source/tests
+bandit -lll -r source/app
+pip-audit -r source/requirements.txt
+```
+
+Install the project dependencies from `source/requirements.txt` and the check
+utilities (`ruff`, `pytest`, `bandit`, `pip-audit`) in your Python 3.12
+environment first. CI runs these gates on pushes and pull requests.
 
 <a id="license"></a>
 <img src="source/images/forum/hdr_license_en.png" width="1000" alt="License">

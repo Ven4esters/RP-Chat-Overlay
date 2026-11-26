@@ -42,6 +42,14 @@ def _open() -> None:
     if _handle is not None:
         return
     LOGS.mkdir(parents=True, exist_ok=True)
+    try:
+        if ERROR_PATH.stat().st_size > 2 * 1024 * 1024:
+            backup = ERROR_PATH.with_name("errors.log.1")
+            backup.unlink(missing_ok=True)
+            ERROR_PATH.replace(backup)
+    except OSError:
+        # Logging must remain available even when an old log cannot be rotated.
+        pass
     # Дескриптор нужен faulthandler до самого выхода из программы — noqa ниже.
     # The descriptor is needed by faulthandler until the process exits.
     _handle = open(ERROR_PATH, "a", encoding="utf-8", buffering=1)  # noqa: SIM115
@@ -96,7 +104,7 @@ def _qt_handler(mode, context, message) -> None:
     """
     text = f"{message}"
     if context and getattr(context, "file", None):
-        text += f"  ({context.file}:{context.line})"
+        text += f"  ({Path(context.file).name}:{context.line})"
     # имена режимов приходят с префиксом: QtWarningMsg, QtFatalMsg и так далее
     # mode names arrive with a prefix: QtWarningMsg, QtFatalMsg and so on
     name = getattr(mode, "name", str(mode)).replace("Qt", "")
@@ -147,7 +155,7 @@ def install() -> None:
     except Exception:  # нет PySide6 или консольная сборка
         pass
 
-    _writer("INFO", f"перехватчики включены, файл {ERROR_PATH}")
+    _writer("INFO", "перехватчики ошибок включены")
 
 
 _beat = {"time": 0.0}  # последний отклик главного потока / last heartbeat
@@ -194,7 +202,7 @@ def watch_main_thread(timeout: float = 20.0, parent=None):
                     faulthandler.dump_traceback(file=_handle, all_threads=True)
                 except (OSError, ValueError):
                     pass
-                log.error("Главный поток не отвечает %.0f с — стеки в %s", stall, ERROR_PATH)
+                log.error("Главный поток не отвечает %.0f с — стеки записаны в журнал", stall)
 
     threading.Thread(target=watch, name="hang-watch", daemon=True).start()
     return timer

@@ -5,6 +5,21 @@ English version below: [Changelog (English)](#-changelog-english).
 
 ---
 
+## Unreleased — 15.11.2026
+
+**Безопасность, сохранность журналов и читаемость выбора анимаций.**
+
+- Удалён уязвимый `deep-translator`: резервный перевод уже выполняют прямые
+  HTTP-клиенты приложения. Обновлены зависимости, установщик и PyInstaller spec.
+- Логи больше не сохраняют текст игровых сообщений и переводов; ошибки внешних
+  сервисов записываются безопасными метками. Файлы журналов ограничены по размеру.
+- Исправлено масштабирование карточек выбора анимации: длинные подписи остаются
+  читаемыми, а список прокручивается и учитывает экран, на котором открыт курсор.
+- CI больше не скрывает ошибки тестов и блокирует сборку при найденных CVE и
+  уязвимостях высокого уровня. Добавлены UI-регрессия и проверки приватности логов.
+- README дополнены актуальным стеком, проверками CI и командами для локального
+  запуска основных проверок.
+
 ## 1.18.0 — 15.11.2026
 
 **Таблицу правил стало удобно читать, а ключевые слова — не набирать целиком.**
@@ -1127,6 +1142,21 @@ English version below: [Changelog (English)](#-changelog-english).
 ---
 
 # 📌 Changelog (English)
+
+## Unreleased — 15 Nov 2026
+
+**Safer dependencies, bounded logs, and a readable animation chooser.**
+
+- Removed the vulnerable `deep-translator` package; the existing direct HTTP clients
+  already provide fallback translation. Updated requirements, the installer, and
+  the PyInstaller spec.
+- Chat and translation text are no longer written to routine logs. External service
+  failures use safe summaries, and application/error logs rotate at a bounded size.
+- Fixed animation chooser sizing: long labels remain readable, the list scrolls when
+  needed, and the window opens on the screen containing the cursor.
+- CI no longer swallows test failures and blocks on known dependency vulnerabilities
+  and high-severity SAST findings. Added UI-layout and log-privacy regressions.
+- Updated both READMEs with the current stack, CI badge, and local verification steps.
 
 ## 1.18.0 — 15 Nov 2026
 

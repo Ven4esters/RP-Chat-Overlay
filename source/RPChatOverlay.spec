@@ -41,7 +41,6 @@ def _data(package):
 hidden = []
 hidden += collect_submodules("app")
 hidden += collect_submodules("app.langpacks")
-hidden += collect_submodules("deep_translator")
 # Словарь словоформ для уровня «Леммы». Если пакет не установлен, exe соберётся
 # без словаря: уровень «Леммы» откатится к основам, программа работает.
 # The word-form dictionary for the "Lemmas" level. Without the package the exe

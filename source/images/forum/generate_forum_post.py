@@ -155,6 +155,7 @@ def whats_new_header(name: str, locale: str) -> None:
     draw.line((line_start, title_y, 690 * SCALE, title_y), fill=BORDER, width=1 * SCALE)
     save(image, name)
 
+
 def section(name: str, label: str, number: int) -> None:
     height = 62
     image = Image.new("RGB", (WIDTH * SCALE, height * SCALE), BG)

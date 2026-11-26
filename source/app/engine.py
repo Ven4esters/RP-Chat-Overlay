@@ -775,7 +775,7 @@ class Engine:
         back and the reason goes to the log.
         """
         if not modules.is_enabled(self.cfg, "translator"):
-            log.info("Модуль перевода выключен, оставляю текст как есть: %r", text)
+            log.info("Модуль перевода выключен; исходный текст сохранён (символов=%d)", len(text))
             return text
         return self.tr.translate(text)
 

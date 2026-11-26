@@ -395,8 +395,8 @@ def _phrase_hits(
             continue
         if check and _negated(chunk, words, matched):
             log.info(
-                "Анимации: «%s» найдено, но отрицание — пропуск",
-                chunk[words[index][0] : words[previous][1]],
+                "Анимации: совпадение с отрицанием пропущено (длина=%d)",
+                words[previous][1] - words[index][0],
             )
             continue
         found.append((words[index][0], words[previous][1]))
@@ -1163,18 +1163,14 @@ def plan(
     chosen = {(begin, end) for begin, end, _ in picked}
     # что не сыграло и почему — видно в журнале
     # what did not play, and why, is visible in the log
-    for begin, end, index, _order, form in candidates:
+    for begin, end, index, _order, _form in candidates:
         if (begin, end) in chosen:
             continue
         if any(
             other_begin <= begin and end <= other_end and (other_end - other_begin) > (end - begin)
             for other_begin, other_end, _label in picked
         ):
-            log.info(
-                "Анимации: «%s» входит в более длинное совпадение — правило «%s» пропущено",
-                form,
-                table[index].keywords[:40],
-            )
+            log.info("Анимации: короткое вложенное совпадение пропущено (правило=%d)", index + 1)
     # одно правило в одном месте срабатывает один раз, а разные правила на одном
     # и том же слове — оба, как было и раньше
     # a rule fires once at one place; different rules on the same word both fire,
@@ -1186,7 +1182,7 @@ def plan(
         (begin, index, table[index], text[begin:end])
         for begin, end, index in sorted(per_rule_span, key=lambda item: item[:2])
     ]
-    for index, rule in enumerate(table):
+    for index, _rule in enumerate(table):
         forms: list[str] = []
         played = 0
         for begin, end, hit_index, _order, form in candidates:
@@ -1203,11 +1199,9 @@ def plan(
         # one hit per keyword of the rule: different keywords play in turn, a
         # repeated word plays once
         log.info(
-            "Анимации: «%s» по правилу «%s» (%s) -> /anim %s, срабатываний: %d",
-            text[:60],
-            rule.keywords[:40],
-            ", ".join(forms),
-            rule.name,
+            "Анимации: проверка правила %d — кандидатов: %d, выбрано: %d",
+            index + 1,
+            len(forms),
             played,
         )
     return result
@@ -1449,9 +1443,7 @@ class Runner:
             if callable(focus) and rule.needs_choice():
                 try:
                     if focus(rule):
-                        log.info(
-                            "Анимации: меню «%s» поднято из очереди выбора", rule.keywords[:40]
-                        )
+                        log.info("Анимации: меню выбора повторно открыто из очереди")
                         continue
                 except Exception:
                     log.exception("Анимации: не удалось вернуть меню выбора")
@@ -1887,16 +1879,9 @@ class Runner:
             log.exception("Анимации: выбор варианта не удался")
             return variants[0]
         if picked is None:
-            log.info(
-                "Анимации: выбор варианта для «%s» отменён — правило пропущено", rule.keywords[:40]
-            )
+            log.info("Анимации: выбор варианта отменён — правило пропущено")
             return None
-        log.info(
-            "Анимации: выбран вариант «%s» (%s) по правилу «%s»",
-            picked.label(),
-            picked.name,
-            rule.keywords[:40],
-        )
+        log.info("Анимации: выбран вариант /anim %s", picked.name)
         return picked
 
     def _notify_rule_done(self, rule: "Rule | None" = None) -> None:
@@ -1949,7 +1934,7 @@ class Runner:
             self._queue.appendleft(copy)
             self._ensure_thread()
             self._cv.notify_all()
-        log.info("Анимации: выбор по «%s» играет заново (%s)", rule.keywords[:40], choice.name)
+        log.info("Анимации: выбор /anim %s играет заново", choice.name)
         return True
 
     def _take_swap(self, token: int) -> "Choice | None":

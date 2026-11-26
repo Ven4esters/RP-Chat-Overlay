@@ -18,7 +18,8 @@ if not exist "%ROOT%data" mkdir "%ROOT%data"
 if not exist "%ROOT%logs" mkdir "%ROOT%logs"
 
 if exist "%ROOT%requirements.txt" goto :req_ok
-> "%ROOT%requirements.txt" echo deep-translator==1.11.4
+> "%ROOT%requirements.txt" echo pymorphy3==2.0.6
+>> "%ROOT%requirements.txt" echo pymorphy3-dicts-ru^>=2.4,^<3
 >> "%ROOT%requirements.txt" echo PySide6-Essentials^>=6.7,^<7
 :req_ok
 
@@ -52,7 +53,7 @@ if errorlevel 1 goto :pipfail
 copy /y "%ROOT%requirements.txt" "%VENV%\requirements.installed" >nul
 :deps_ok
 
-"%VENV%\Scripts\python.exe" -c "import PySide6.QtWidgets, deep_translator" 2> "%ROOT%logs\import_check.txt"
+"%VENV%\Scripts\python.exe" -c "import PySide6.QtWidgets" 2> "%ROOT%logs\import_check.txt"
 if errorlevel 1 goto :importfail
 
 REM --- run without console window (errors are written to logs\app.log) ---
@@ -83,7 +84,7 @@ exit /b 1
 
 :importfail
 echo.
-echo PySide6 / deep_translator failed to import. Details: logs\import_check.txt
+echo PySide6 failed to import. Details: logs\import_check.txt
 echo If you see "DLL load failed", install the Visual C++ Redistributable:
 echo https://aka.ms/vs/17/release/vc_redist.x64.exe
 pause

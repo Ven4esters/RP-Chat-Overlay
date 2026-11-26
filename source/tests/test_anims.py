@@ -7,6 +7,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.anims import (  # noqa: E402
     MODE_ALWAYS,
+    Rule,
+    plan,
     MODE_ACTIONS,
     MODE_MESSAGES,
     message_family,
@@ -61,3 +63,18 @@ def test_suggestions_returns_list():
     """suggestions возвращает список."""
     result = suggestions([], "привет")
     assert isinstance(result, list)
+
+
+def test_animation_logs_do_not_include_chat_text(caplog):
+    """Animation diagnostics must not persist player message contents."""
+    import logging
+
+    message = "private_chat_phrase waves goodbye"
+    rule = Rule(keywords="private_chat_phrase", name="anim_wave")
+
+    with caplog.at_level(logging.INFO, logger="app"):
+        assert len(plan([rule], message)) == 1
+
+    assert message not in caplog.text
+    assert "private_chat_phrase" not in caplog.text
+    assert "waves goodbye" not in caplog.text

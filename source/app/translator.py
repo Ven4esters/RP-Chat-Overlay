@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import html
 import json
+import socket
 import threading
 import time
 import urllib.error
@@ -133,13 +134,6 @@ def _google_clients5(text: str, target: str, source: str = RU) -> str:
     return ""
 
 
-def _google_web(text: str, target: str, source: str = RU) -> str:
-    """Google через deep-translator — последний адрес Google / deep-translator."""
-    from deep_translator import GoogleTranslator
-
-    return GoogleTranslator(source=source, target=target).translate(text)
-
-
 # ------------------------------------------------------------------- Lingva
 def _lingva(text: str, target: str, source: str = RU) -> str:
     """Lingva (открытая альтернатива Google): умеет автоопределение языка.
@@ -209,7 +203,6 @@ def _mymemory(text: str, target: str, source: str = RU) -> str:
 SERVICES: tuple[tuple[str, ServiceFunc], ...] = (
     ("Google", _google_gtx),
     ("Google-2", _google_clients5),
-    ("Google-web", _google_web),
     ("MyMemory", _mymemory),
     ("Lingva", _lingva),
     ("LibreTranslate", _free_libre),
@@ -260,6 +253,27 @@ def dlx_code(code: str) -> str:
     return DLX_CODES.get(key, key.upper())
 
 
+def _error_kind(error: Exception) -> str:
+    """Return a safe, stable error label without remote text or request data.
+
+    Возвращает безопасную метку ошибки, не сохраняя текст ответа сервера.
+    """
+    if isinstance(error, urllib.error.HTTPError):
+        if error.code == 429:
+            return "http 429"
+        return f"http {error.code}"
+    if isinstance(error, (TimeoutError, socket.timeout)):
+        return "timeout"
+    if isinstance(error, urllib.error.URLError):
+        reason = error.reason
+        if isinstance(reason, (TimeoutError, socket.timeout)):
+            return "timeout"
+        return "network error"
+    if isinstance(error, (ConnectionError, OSError)):
+        return "network error"
+    return type(error).__name__ or "service error"
+
+
 def _short(errors: list[str]) -> str:
     """Короткое объяснение для окна: что именно случилось со всеми сервисами.
 
@@ -269,7 +283,9 @@ def _short(errors: list[str]) -> str:
     if "429" in text or "too many" in text or "quota" in text:
         return "сервисы заняты, Google ограничил запросы (429)"
     if (
-        "urlopen error" in text
+        "timeout" in text
+        or "network error" in text
+        or "urlopen error" in text
         or "timed out" in text
         or "getaddrinfo" in text
         or "connection" in text
@@ -410,14 +426,18 @@ class Translator:
                     if result:
                         self._store(cache_key, result)
                         log.info(
-                            "Перевод через %s (%s->%s): %r -> %r", name, source, target, key, result
+                            "Translation succeeded via %s (%s->%s, chars=%d)",
+                            name,
+                            source,
+                            target,
+                            len(key),
                         )
                         return result
                     errors.append(f"{name}: пустой ответ")
                 except Exception as error:
                     now = time.time()
                     self.last = now
-                    errors.append(f"{name}: {str(error)[:70]}")
+                    errors.append(f"{name}: {_error_kind(error)}")
                     if _is_busy(error):
                         self._cool_down(name, now)
         log.warning("Перевод не удался: %s", "; ".join(errors))

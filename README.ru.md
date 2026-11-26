@@ -1,11 +1,12 @@
-# 🎮 Chat&AutoAnimations RP Overlay
+# 🎮 RP Chat Overlay
 
 [🇬🇧 Read in English](README.md)
 
+[![CI](https://github.com/Ven4esters/RP-Chat-Overlay/actions/workflows/ci.yml/badge.svg)](https://github.com/Ven4esters/RP-Chat-Overlay/actions/workflows/ci.yml)
 [![Windows 10 / 11](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&logoColor=white)](https://github.com/Ven4esters/RP-Chat-Overlay/releases)
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-312/)
 ![Языков: 13](https://img.shields.io/badge/языков-13-2e7d32)
-![Сокращений: 300×6](https://img.shields.io/badge/сокращений-300×6-8e6bd8)
+![Сленг: 1 805 записей в 5 языковых таблицах](https://img.shields.io/badge/сленг-1%20805%20записей%20в%205%20таблицах-8e6bd8)
 ![EXE ~47.7 МиБ](https://img.shields.io/badge/exe-~47.7%20МиБ-66d18b)
 [![VirusTotal: 2/70](https://img.shields.io/badge/VirusTotal-2%2F70-394eff)](https://www.virustotal.com/gui/file/9a6c8da2e9472ee89ee3a6f6311844ed0a983d00327857a1749dc5782cc34749?nocache=1)
 ![Лицензия: MIT](https://img.shields.io/badge/лицензия-MIT-green)
@@ -24,6 +25,7 @@
 - [Система модулей](#система-модулей)
 - [Режимы перевода и спецсимволы](#режимы-перевода-испецсимволы)
 - [DeepLX в России](#deeplxвроссии)
+- [Проверки разработки](#проверки-разработки)
 - [Лицензия](#лицензия)
 - [Контакты](#контакты)
 
@@ -47,7 +49,7 @@
 <a id="стек-технологий"></a>
 <img src="source/images/forum/hdr_stack_ru.png" width="670" alt="Стек технологий">
 
-Python 3.12 · PySide6 · deep-translator
+Python 3.12 · PySide6 · pymorphy3
 
 <a id="требования"></a>
 <img src="source/images/forum/hdr_requirements_ru.png" width="670" alt="Требования">
@@ -235,6 +237,24 @@ cd RP-Chat-Overlay
 свой сервер DLX за рубежом ([подробная инструкция](docs/DEEPLX-RUSSIA.md)).
 Если прокси нет — просто отключите DLX, программа вернётся к обычным
 сервисам перевода без ограничений.
+
+<a id="проверки-разработки"></a>
+
+## Проверки разработки
+
+Из корня репозитория выполните те же локальные проверки, что запускает CI:
+
+```bash
+ruff check source
+ruff format --check source
+python -m pytest source/tests
+bandit -lll -r source/app
+pip-audit -r source/requirements.txt
+```
+
+Сначала установите зависимости проекта из `source/requirements.txt` и утилиты
+проверок (`ruff`, `pytest`, `bandit`, `pip-audit`) в окружение Python 3.12.
+CI выполняет эти проверки при push и pull request.
 
 <a id="лицензия"></a>
 <img src="source/images/forum/hdr_license_ru.png" width="670" alt="Лицензия">
